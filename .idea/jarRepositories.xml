@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="RemoteRepositoriesConfiguration">
+    <remote-repository>
+      <option name="id" value="971b9bb9-6dfb-48d4-b0b1-f3004bf84b1f" />
+      <option name="name" value="971b9bb9-6dfb-48d4-b0b1-f3004bf84b1f" />
+      <option name="url" value="https://maven-central.storage.googleapis.com" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="be2b9b7a-6dce-42a8-aab4-affa2bce9acb" />
+      <option name="name" value="be2b9b7a-6dce-42a8-aab4-affa2bce9acb" />
+      <option name="url" value="https://repo1.maven.org/maven2" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="06971075-4552-4767-a4bc-ca0b490b457c" />
+      <option name="name" value="06971075-4552-4767-a4bc-ca0b490b457c" />
+      <option name="url" value="https://repository.jboss.org/nexus/content/repositories/public/" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="28bca511-305c-417e-81b0-d5e7f2558392" />
+      <option name="name" value="28bca511-305c-417e-81b0-d5e7f2558392" />
+      <option name="url" value="https://nexus-repo.idus.com/repository/maven-public/" />
+    </remote-repository>
+  </component>
+</project>

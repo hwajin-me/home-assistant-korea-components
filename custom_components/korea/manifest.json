@@ -1,0 +1,17 @@
+{
+  "domain": "korea",
+  "name": "Korea Components",
+  "config_flow": true,
+  "documentation": "https://github.com/hwajin-me/home-assistant-korea-components/blob/main/README.md",
+  "issue_tracker": "https://github.com/hwajin-me/home-assistant-korea-components/issues",
+  "codeowners": [
+    "@hwajin-me"
+  ],
+  "requirements": [
+    "aiohttp",
+    "pycryptodome",
+    "beautifulsoup4"
+  ],
+  "version": "0.1.0",
+  "iot_class": "cloud_polling"
+}

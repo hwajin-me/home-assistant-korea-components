@@ -1,0 +1,19 @@
+services:
+  homeassistant-korea:
+    container_name: homeassistant-korea
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    volumes:
+      - ./configuration.yaml:/config/configuration.yaml
+      - ../custom_components/korea:/config/custom_components/korea
+    restart: unless-stopped
+    privileged: true
+    environment:
+      - TZ=Asia/Seoul
+    ports:
+      - "8123:8123"
+    networks:
+      - podman-default
+
+networks:
+  podman-default:
+    external: true

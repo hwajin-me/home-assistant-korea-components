@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PhpCodeSniffer">
+    <phpcs_settings>
+      <phpcs_by_interpreter asDefaultInterpreter="true" interpreter_id="1d9151f7-b787-4ee2-a3e5-01a8336b617a" timeout="30000" />
+    </phpcs_settings>
+  </component>
+  <component name="PhpExternalFormatter">
+    <option name="externalFormatter" value="PHP_CS_FIXER" />
+  </component>
+  <component name="PhpIncludePathManager">
+    <include_path>
+      <path value="/opt/homebrew/Cellar/php@8.1/8.1.17/share/php@8.1/pear" />
+      <path value="$USER_HOME$/Library/Mobile Documents/com~apple~CloudDocs/Workspaces/_backpackr/helpers/ci-ide-helper" />
+    </include_path>
+  </component>
+  <component name="PhpProjectSharedConfiguration" php_language_level="8.1" />
+  <component name="PhpStan">
+    <PhpStan_settings>
+      <phpstan_by_interpreter asDefaultInterpreter="true" interpreter_id="1d9151f7-b787-4ee2-a3e5-01a8336b617a" timeout="60000" />
+    </PhpStan_settings>
+  </component>
+  <component name="Psalm">
+    <Psalm_settings>
+      <psalm_fixer_by_interpreter asDefaultInterpreter="true" interpreter_id="1d9151f7-b787-4ee2-a3e5-01a8336b617a" timeout="60000" />
+    </Psalm_settings>
+  </component>
+</project>
