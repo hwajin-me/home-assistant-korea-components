@@ -4,11 +4,11 @@
       "user": {
         "title": "서비스 선택",
         "menu_options": {
-          "kepco": "한국전력 (KEPCO)"
+          "kepco": "한전 (KEPCO)"
         }
       },
       "kepco": {
-        "title": "한국전력 로그인",
+        "title": "한전 로그인",
         "data": {
           "username": "사용자명",
           "password": "비밀번호"
@@ -27,12 +27,12 @@
   "options": {
     "step": {
       "init": {
-        "title": "한국전력 옵션",
+        "title": "한전 옵션",
         "description": "한국전력에 대한 구성 옵션이 없습니다."
       }
     },
     "abort": {
-      "no_options_kepco": "한국전력에 대한 구성 옵션이 없습니다."
+      "no_options_kepco": "한전에 대한 구성 옵션이 없습니다."
     }
   }
 }

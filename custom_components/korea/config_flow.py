@@ -35,7 +35,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         self._abort_if_unique_id_configured()
 
                         user_input["service"] = "kepco"
-                        return self.async_create_entry(title=f"한국전력 ({user_input[CONF_USERNAME]})", data=user_input)
+                        return self.async_create_entry(title=f"한전 ({user_input[CONF_USERNAME]})", data=user_input)
                     else:
                         errors["base"] = "auth"
                 except KepcoAuthError as e:

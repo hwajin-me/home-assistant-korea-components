@@ -81,10 +81,10 @@ class KepcoSensor(CoordinatorEntity, SensorEntity):
         self._device = device
         self._data_key = data_key
         self._value_key = value_key
-        self._attr_name = f"한전 {name}"
+        self._attr_name = name
         self._attr_unique_id = f"{device.unique_id}_{value_key}"
         self._attr_device_class = device_class
-        self._attr_unit_of_measurement = unit
+        self._attr_native_unit_of_measurement = unit
         self._attr_state_class = state_class
         self._update_state()
 
