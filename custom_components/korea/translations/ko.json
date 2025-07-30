@@ -1,39 +1,39 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "title": "서비스 선택",
-                "menu_options": {
-                    "kepco": "한국전력 (KEPCO)"
-                }
-            },
-            "kepco": {
-                "title": "한국전력 로그인",
-                "data": {
-                    "username": "사용자명",
-                    "password": "비밀번호"
-                }
-            }
-        },
-        "error": {
-            "invalid_auth": "사용자명 또는 비밀번호가 잘못되었습니다.",
-            "cannot_connect": "한전 서버에 연결할 수 없습니다.",
-            "unknown": "알 수 없는 오류가 발생했습니다."
-        },
-        "abort": {
-            "already_configured": "이 한국전력 계정은 이미 설정되어 있습니다."
+  "config": {
+    "step": {
+      "user": {
+        "title": "서비스 선택",
+        "menu_options": {
+          "kepco": "한국전력 (KEPCO)"
         }
+      },
+      "kepco": {
+        "title": "한국전력 로그인",
+        "data": {
+          "username": "사용자명",
+          "password": "비밀번호"
+        }
+      }
     },
-    "options": {
-        "step": {
-            "init": {
-                "title": "한국전력 옵션",
-                "description": "한국전력에 대한 구성 옵션이 없습니다."
-            }
-        },
-        "abort": {
-            "no_options_kepco": "한국전력에 대한 구성 옵션이 없습니다."
-        }
+    "error": {
+      "invalid_auth": "사용자명 또는 비밀번호가 잘못되었습니다.",
+      "cannot_connect": "한전 서버에 연결할 수 없습니다.",
+      "unknown": "알 수 없는 오류가 발생했습니다."
+    },
+    "abort": {
+      "already_configured": "이 한국전력 계정은 이미 설정되어 있습니다."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "한국전력 옵션",
+        "description": "한국전력에 대한 구성 옵션이 없습니다."
+      }
+    },
+    "abort": {
+      "no_options_kepco": "한국전력에 대한 구성 옵션이 없습니다."
+    }
+  }
 }
 

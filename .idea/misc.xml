@@ -70,9 +70,6 @@
   <component name="FindBugs-IDEA-Workspace">
     <analyzeAfterCompile>true</analyzeAfterCompile>
   </component>
-  <component name="GithubDefaultAccount">
-    <option name="defaultAccountId" value="81709ceb-c2d8-449f-b2c9-4cb1c1a04038" />
-  </component>
   <component name="MarkdownSettings">
     <enabledExtensions>
       <entry key="MermaidLanguageExtension" value="false" />

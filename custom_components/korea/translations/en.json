@@ -1,39 +1,39 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "title": "Select Service",
-                "menu_options": {
-                    "kepco": "KEPCO (Korea Electric Power Corporation)"
-                }
-            },
-            "kepco": {
-                "title": "KEPCO Login",
-                "data": {
-                    "username": "Username",
-                    "password": "Password"
-                }
-            }
-        },
-        "error": {
-            "invalid_auth": "Invalid username or password.",
-            "cannot_connect": "Failed to connect to the KEPCO server.",
-            "unknown": "An unknown error occurred."
-        },
-        "abort": {
-            "already_configured": "This KEPCO account is already configured."
+  "config": {
+    "step": {
+      "user": {
+        "title": "Select Service",
+        "menu_options": {
+          "kepco": "KEPCO (Korea Electric Power Corporation)"
         }
+      },
+      "kepco": {
+        "title": "KEPCO Login",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      }
     },
-    "options": {
-        "step": {
-            "init": {
-                "title": "KEPCO Options",
-                "description": "There are no options to configure for KEPCO."
-            }
-        },
-        "abort": {
-            "no_options_kepco": "There are no options to configure for KEPCO."
-        }
+    "error": {
+      "invalid_auth": "Invalid username or password.",
+      "cannot_connect": "Failed to connect to the KEPCO server.",
+      "unknown": "An unknown error occurred."
+    },
+    "abort": {
+      "already_configured": "This KEPCO account is already configured."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "KEPCO Options",
+        "description": "There are no options to configure for KEPCO."
+      }
+    },
+    "abort": {
+      "no_options_kepco": "There are no options to configure for KEPCO."
+    }
+  }
 }
 

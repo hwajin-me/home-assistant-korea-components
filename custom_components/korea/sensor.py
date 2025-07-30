@@ -3,12 +3,11 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import CURRENCY_KRW, ENERGY_KILO_WATT_HOUR
 from homeassistant.core import callback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, CURRENCY_KRW, ENERGY_KILO_WATT_HOUR
 from .kepco.device import KepcoDevice
 
 
@@ -68,15 +67,15 @@ class KepcoSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
 
     def __init__(
-        self,
-        coordinator,
-        device: KepcoDevice,
-        data_key,
-        value_key,
-        name,
-        device_class,
-        unit,
-        state_class,
+            self,
+            coordinator,
+            device: KepcoDevice,
+            data_key,
+            value_key,
+            name,
+            device_class,
+            unit,
+            state_class,
     ):
         super().__init__(coordinator)
         self._device = device
@@ -96,10 +95,10 @@ class KepcoSensor(CoordinatorEntity, SensorEntity):
     @property
     def available(self) -> bool:
         return (
-            super().available
-            and self.coordinator.data is not None
-            and self._data_key in self.coordinator.data
-            and self.coordinator.data[self._data_key] is not None
+                super().available
+                and self.coordinator.data is not None
+                and self._data_key in self.coordinator.data
+                and self.coordinator.data[self._data_key] is not None
         )
 
     def _update_state(self):
