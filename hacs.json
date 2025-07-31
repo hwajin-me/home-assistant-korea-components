@@ -1,5 +1,5 @@
 {
-    "name": "Korea Component",
+    "name": "Korea Incubator Component",
     "hide_default_branch": true,
     "homeassistant": "2024.12.0",
     "render_readme": true

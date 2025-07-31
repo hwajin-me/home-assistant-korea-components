@@ -1,5 +1,5 @@
 [tool.pytest.ini_options]
-pythonpath = "custom_components/korea"
+pythonpath = "custom_components/korea_incubator"
 addopts = [
     "--import-mode=importlib",
 ]

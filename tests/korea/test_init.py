@@ -2,7 +2,7 @@ import pytest
 from homeassistant.setup import async_setup_component
 from homeassistant.const import Platform
 
-from custom_components.korea.const import DOMAIN
+from custom_components.korea_incubator.const import DOMAIN
 
 
 @pytest.fixture(autouse=True)

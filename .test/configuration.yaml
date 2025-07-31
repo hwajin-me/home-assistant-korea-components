@@ -13,4 +13,4 @@ homeassistant:
 logger:
   default: info
   logs:
-    custom_components.korea: debug
+    custom_components.korea_incubator: debug

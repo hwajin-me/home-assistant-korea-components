@@ -1,7 +1,7 @@
 import pytest
 import aiohttp
 from aiohttp_mock import AioHTTPMock
-from custom_components.korea.kepco.api import KepcoApiClient
+from custom_components.korea_incubator.kepco.api import KepcoApiClient
 
 @pytest.fixture
 async def api_client():

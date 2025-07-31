@@ -1,5 +1,5 @@
 {
-  "domain": "korea",
+  "domain": "korea_incubator",
   "name": "Korea Components",
   "config_flow": true,
   "documentation": "https://github.com/hwajin-me/home-assistant-korea-components/blob/main/README.md",

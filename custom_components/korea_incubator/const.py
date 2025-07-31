@@ -1,6 +1,6 @@
 from logging import getLogger
 
-DOMAIN = "korea"
+DOMAIN = "korea_incubator"
 LOGGER = getLogger(__package__)
 
 CURRENCY_KRW = "KRW"
