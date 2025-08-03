@@ -1,12 +1,9 @@
 """GasApp device for Home Assistant integration."""
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Dict, Any, Optional
 import aiohttp
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import UpdateFailed
-from homeassistant.core import HomeAssistant
 
 from .api import GasAppApiClient
 from .exceptions import GasAppAuthError, GasAppConnectionError, GasAppDataError
@@ -14,41 +11,30 @@ from ..const import DOMAIN, LOGGER
 
 
 class GasAppDevice:
-    """GasApp device representation with type safety."""
+    """GasApp device representation."""
 
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        entry_id: str,
-        token: str,
-        member_id: str,
-        use_contract_num: str,
-        session: aiohttp.ClientSession
-    ) -> None:
-        """Initialize GasApp device."""
-        self.hass: HomeAssistant = hass
-        self.entry_id: str = entry_id
-        self.token: str = token
-        self.member_id: str = member_id
-        self.use_contract_num: str = use_contract_num
-        self.session: aiohttp.ClientSession = session
-        self.api_client: GasAppApiClient = GasAppApiClient(self.session)
+    def __init__(self, hass, entry_id: str, token: str, member_id: str, use_contract_num: str, session: aiohttp.ClientSession):
+        self.hass = hass
+        self.entry_id = entry_id
+        self.token = token
+        self.member_id = member_id
+        self.use_contract_num = use_contract_num
+        self.session = session
+        self.api_client = GasAppApiClient(self.session)
         self.api_client.set_credentials(token, member_id, use_contract_num)
 
-        self._name: str = f"가스앱 ({use_contract_num})"
-        self._unique_id: str = f"gasapp_{use_contract_num}"
-        self._available: bool = True
-        self.data: Dict[str, Any] = {}
-        self._last_update_success: Optional[datetime] = None
+        self._name = f"가스앱 ({use_contract_num})"
+        self._unique_id = f"gasapp_{use_contract_num}"
+        self._available = True
+        self.data = {}
+        self._last_update_success = None
 
     @property
     def unique_id(self) -> str:
-        """Return unique ID."""
         return self._unique_id
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return device information."""
         return DeviceInfo(
             identifiers={(DOMAIN, self._unique_id)},
             name=self._name,
@@ -59,20 +45,19 @@ class GasAppDevice:
 
     @property
     def available(self) -> bool:
-        """Return if device is available."""
         return self._available
 
-    async def async_update(self) -> None:
+    async def async_update(self):
         """Fetch data from GasApp API."""
         try:
             # Get home data including bill information
-            home_data: Dict[str, Any] = await self.api_client.async_get_home_data()
+            home_data = await self.api_client.async_get_home_data()
 
             # Get bill history
-            bill_history: Dict[str, Any] = await self.api_client.async_get_bill_history()
+            bill_history = await self.api_client.async_get_bill_history()
 
             # Get current bill
-            current_bill: Dict[str, Any] = await self.api_client.async_get_current_bill()
+            current_bill = await self.api_client.async_get_current_bill()
 
             self.data = {
                 "home_data": home_data,
@@ -135,8 +120,9 @@ class GasAppDevice:
             return None
         return self.data["current_bill"].get("title2")
 
-    async def async_close_session(self) -> None:
+    async def async_close_session(self):
         """Close the aiohttp session."""
         if self.session:
             await self.session.close()
             self.session = None
+

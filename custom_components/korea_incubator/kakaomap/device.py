@@ -1,53 +1,38 @@
 """KakaoMap device for Home Assistant integration."""
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Dict, Any, Optional
 import aiohttp
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import UpdateFailed
-from homeassistant.core import HomeAssistant
-
 from .api import KakaoMapApiClient
 from .exceptions import KakaoMapConnectionError, KakaoMapDataError
 from ..const import DOMAIN, LOGGER
 
 
 class KakaoMapDevice:
-    """KakaoMap device representation with type safety."""
+    """KakaoMap device representation."""
 
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        entry_id: str,
-        name: str,
-        start_coords: Dict[str, float],
-        end_coords: Dict[str, float],
-        session: aiohttp.ClientSession
-    ) -> None:
-        """Initialize KakaoMap device."""
-        self.hass: HomeAssistant = hass
-        self.entry_id: str = entry_id
-        self.name: str = name
-        self.start_coords: Dict[str, float] = start_coords  # {"x": float, "y": float}
-        self.end_coords: Dict[str, float] = end_coords  # {"x": float, "y": float}
-        self.session: aiohttp.ClientSession = session
-        self.api_client: KakaoMapApiClient = KakaoMapApiClient(self.session)
+    def __init__(self, hass, entry_id: str, name: str, start_coords: Dict[str, float], end_coords: Dict[str, float], session: aiohttp.ClientSession):
+        self.hass = hass
+        self.entry_id = entry_id
+        self.name = name
+        self.start_coords = start_coords  # {"x": float, "y": float}
+        self.end_coords = end_coords  # {"x": float, "y": float}
+        self.session = session
+        self.api_client = KakaoMapApiClient(self.session)
 
-        self._name: str = f"카카오맵 ({name})"
-        self._unique_id: str = f"kakaomap_{entry_id}"
-        self._available: bool = True
-        self.data: Dict[str, Any] = {}
-        self._last_update_success: Optional[datetime] = None
+        self._name = f"카카오맵 ({name})"
+        self._unique_id = f"kakaomap_{entry_id}"
+        self._available = True
+        self.data = {}
+        self._last_update_success = None
 
     @property
     def unique_id(self) -> str:
-        """Return unique ID."""
         return self._unique_id
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return device information."""
         return DeviceInfo(
             identifiers={(DOMAIN, self._unique_id)},
             name=self._name,
@@ -58,25 +43,24 @@ class KakaoMapDevice:
 
     @property
     def available(self) -> bool:
-        """Return if device is available."""
         return self._available
 
-    async def async_update(self) -> None:
+    async def async_update(self):
         """Fetch data from KakaoMap API."""
         try:
             # Get address information for start and end coordinates
-            start_address: Dict[str, Any] = await self.api_client.async_coordinate_to_address(
+            start_address = await self.api_client.async_coordinate_to_address(
                 self.start_coords["x"],
                 self.start_coords["y"]
             )
 
-            end_address: Dict[str, Any] = await self.api_client.async_coordinate_to_address(
+            end_address = await self.api_client.async_coordinate_to_address(
                 self.end_coords["x"],
                 self.end_coords["y"]
             )
 
             # Get public transport route
-            transport_route: Dict[str, Any] = await self.api_client.async_get_public_transport_route(
+            transport_route = await self.api_client.async_get_public_transport_route(
                 self.start_coords["x"],
                 self.start_coords["y"],
                 self.end_coords["x"],
@@ -164,7 +148,7 @@ class KakaoMapDevice:
     async def async_get_address_from_coordinates(self, x: float, y: float) -> Optional[str]:
         """Get address from coordinates (can be called externally)."""
         try:
-            address_data: Dict[str, Any] = await self.api_client.async_coordinate_to_address(x, y)
+            address_data = await self.api_client.async_coordinate_to_address(x, y)
             return address_data.get("address")
         except Exception as e:
             LOGGER.error(f"Error getting address from coordinates: {e}")
@@ -179,7 +163,7 @@ class KakaoMapDevice:
     ) -> Optional[Dict[str, Any]]:
         """Get route between coordinates (can be called externally)."""
         try:
-            route_data: Dict[str, Any] = await self.api_client.async_get_public_transport_route(
+            route_data = await self.api_client.async_get_public_transport_route(
                 start_x, start_y, end_x, end_y
             )
             return route_data
@@ -187,8 +171,9 @@ class KakaoMapDevice:
             LOGGER.error(f"Error getting route between coordinates: {e}")
             return None
 
-    async def async_close_session(self) -> None:
+    async def async_close_session(self):
         """Close the aiohttp session."""
         if self.session:
             await self.session.close()
             self.session = None
+

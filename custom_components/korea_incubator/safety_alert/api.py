@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import aiohttp
-from datetime import datetime, timedelta
+import ssl
 from typing import Dict, Any, List, Optional
+from datetime import datetime, timedelta
 
 from .exceptions import SafetyAlertConnectionError, SafetyAlertDataError
 from ..const import LOGGER
@@ -16,6 +17,13 @@ class SafetyAlertApiClient:
         """Initialize the Safety Alert API client."""
         self._session: aiohttp.ClientSession = session
         self._base_url: str = "https://www.safekorea.go.kr/idsiSFK/sfk/cs/sua/web/DisasterSmsList.do"
+
+        # SSL 컨텍스트 설정 - DH_KEY_TOO_SMALL 에러 해결
+        self._ssl_context = ssl.create_default_context()
+        self._ssl_context.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20:!aNULL:!MD5:!DSS')
+
+        # TLS 1.2 이상만 사용하도록 설정
+        self._ssl_context.options |= ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 | ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
 
     async def async_get_safety_alerts(
         self,
@@ -60,7 +68,8 @@ class SafetyAlertApiClient:
             async with self._session.post(
                 self._base_url,
                 json=payload,
-                headers=headers
+                headers=headers,
+                ssl=self._ssl_context  # SSL 컨텍스트 적용
             ) as response:
                 LOGGER.debug(f"Safety Alert API response status: {response.status}")
 
@@ -70,12 +79,10 @@ class SafetyAlertApiClient:
 
                 data = await response.json()
                 LOGGER.debug(f"Safety Alert API response: {data}")
-
                 alerts = data.get("disasterSmsList", [])
 
                 # 생성일시 기준으로 정렬 (최신순)
                 alerts.sort(key=lambda x: x.get("CREAT_DT", ""), reverse=True)
-
                 return alerts
 
         except aiohttp.ClientError as e:
@@ -96,8 +103,8 @@ class SafetyAlertApiClient:
             }
 
         # Count alerts by type
-        alert_types: Dict[str, int] = {}
-        alerts_by_type: Dict[str, List[Dict[str, Any]]] = {}
+        alert_types = {}
+        alerts_by_type = {}
 
         for alert in alerts:
             alert_type = alert.get("DSSTR_SE_NM", "기타")
@@ -114,7 +121,7 @@ class SafetyAlertApiClient:
             })
 
         # Get latest alert
-        latest_alert: Optional[Dict[str, Any]] = None
+        latest_alert = None
         if alerts:
             latest_alert = {
                 "type": alerts[0].get("DSSTR_SE_NM", ""),

@@ -53,7 +53,7 @@
       },
       "kakaomap": {
         "title": "KakaoMap Configuration",
-        "description": "Set start and end locations to get traffic information.\n{coord_system_help}",
+        "description": "Set start and end locations to get traffic information.",
         "data": {
           "name": "Route Name",
           "coord_system": "Coordinate System",

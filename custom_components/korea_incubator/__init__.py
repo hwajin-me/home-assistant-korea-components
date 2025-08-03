@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import ssl
 from datetime import timedelta
 from typing import Dict, Any, Union
 
 import aiohttp
+import certifi
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
@@ -107,7 +109,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 raise UpdateFailed(f"Authentication failed for GasApp: {err}") from err
             except Exception as err:
                 raise UpdateFailed(f"Error communicating with GasApp API: {err}") from err
-
     elif service == "safety_alert":
         device = SafetyAlertDevice(
             hass,

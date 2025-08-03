@@ -1,12 +1,9 @@
 """GoodsFlow device for Home Assistant integration."""
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Dict, Any, Optional
 import aiohttp
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import UpdateFailed
-from homeassistant.core import HomeAssistant
 
 from .api import GoodsFlowApiClient
 from .exceptions import GoodsFlowAuthError, GoodsFlowConnectionError, GoodsFlowDataError
@@ -14,37 +11,28 @@ from ..const import DOMAIN, LOGGER
 
 
 class GoodsFlowDevice:
-    """GoodsFlow device representation with type safety."""
+    """GoodsFlow device representation."""
 
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        entry_id: str,
-        token: str,
-        session: aiohttp.ClientSession
-    ) -> None:
-        """Initialize GoodsFlow device."""
-        self.hass: HomeAssistant = hass
-        self.entry_id: str = entry_id
-        self.token: str = token
-        self.session: aiohttp.ClientSession = session
-        self.api_client: GoodsFlowApiClient = GoodsFlowApiClient(self.session)
+    def __init__(self, hass, entry_id: str, token: str, session: aiohttp.ClientSession):
+        self.hass = hass
+        self.entry_id = entry_id
+        self.token = token
+        self.session = session
+        self.api_client = GoodsFlowApiClient(self.session)
         self.api_client.set_token(token)
 
-        self._name: str = "굿스플로우 택배조회"
-        self._unique_id: str = f"goodsflow_{token[:8]}"
-        self._available: bool = True
-        self.data: Dict[str, Any] = {}
-        self._last_update_success: Optional[datetime] = None
+        self._name = "굿스플로우 택배조회"
+        self._unique_id = f"goodsflow_{token[:8]}"
+        self._available = True
+        self.data = {}
+        self._last_update_success = None
 
     @property
     def unique_id(self) -> str:
-        """Return unique ID."""
         return self._unique_id
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return device information."""
         return DeviceInfo(
             identifiers={(DOMAIN, self._unique_id)},
             name=self._name,
@@ -55,17 +43,16 @@ class GoodsFlowDevice:
 
     @property
     def available(self) -> bool:
-        """Return if device is available."""
         return self._available
 
-    async def async_update(self) -> None:
+    async def async_update(self):
         """Fetch data from GoodsFlow API."""
         try:
             # Get tracking data
-            tracking_data: Dict[str, Any] = await self.api_client.async_get_tracking_list()
+            tracking_data = await self.api_client.async_get_tracking_list()
 
             # Parse tracking data
-            parsed_data: Dict[str, Any] = self.api_client.parse_tracking_data(tracking_data)
+            parsed_data = self.api_client.parse_tracking_data(tracking_data)
 
             self.data = {
                 "raw_data": tracking_data,
@@ -110,8 +97,9 @@ class GoodsFlowDevice:
             return 0
         return self.data["parsed_data"].get("delivered_packages", 0)
 
-    async def async_close_session(self) -> None:
+    async def async_close_session(self):
         """Close the aiohttp session."""
         if self.session:
             await self.session.close()
             self.session = None
+

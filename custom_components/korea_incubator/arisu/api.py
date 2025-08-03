@@ -61,12 +61,8 @@ class ArisuApiClient:
             # Step 1: 초기 페이지 접속으로 세션 설정
             await self._init_session()
 
-            # Step 2: 실제 검색 요청 (HAR 파일 기반으로 정확한 데이터 구조 사용)
-            # HAR 파일에서 확인한 대로 고객번호를 9자리로 패딩하여 전송
-            padded_customer_number = customer_number.zfill(9)
-
             form_data = {
-                "searchMkey": padded_customer_number,  # 고객번호 필수로 전송
+                "searchMkey": customer_number,  # 고객번호 필수로 전송
                 "searchNapgi": billing_month,
                 "searchCsNm": customer_name,
                 "_m": "m1_1",
@@ -99,13 +95,13 @@ class ArisuApiClient:
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
             }
 
-            LOGGER.debug(f"Sending Arisu request with customer_number: {padded_customer_number}, customer_name: {customer_name}, billing_month: {billing_month}")
+            LOGGER.debug(f"Sending Arisu request with customer_number: {customer_number}, customer_name: {customer_name}, billing_month: {billing_month}")
 
             async with self._session.post(
                 self._base_url,
                 data=form_data,
                 headers=headers,
-                allow_redirects=True
+                allow_redirects=True,
             ) as response:
                 LOGGER.debug(f"Arisu API response status: {response.status}")
 
@@ -115,21 +111,6 @@ class ArisuApiClient:
                 html_content = await response.text()
                 LOGGER.debug(f"Response content length: {len(html_content)}")
 
-                # HAR 파일 분석 결과, 성공적인 응답에는 청구서 데이터가 포함됨
-                # 특정 키워드로 성공/실패 판단
-                if "사용자명 또는 비밀번호가 잘못되었습니다" in html_content:
-                    LOGGER.warning(f"Authentication failed for customer: {customer_name} (#{customer_number})")
-                    return {"success": False, "error": "Invalid customer name or customer number"}
-
-                if "입력하신 고객번호의 사용자명이 상이합니다" in html_content:
-                    LOGGER.warning(f"Customer name mismatch for customer number: {customer_number}")
-                    return {"success": False, "error": "Customer name does not match the customer number"}
-
-                if "검색결과가 없습니다" in html_content or "조회된 내역이 없습니다" in html_content:
-                    LOGGER.warning(f"No data found for customer: {customer_name} (#{customer_number}), month: {billing_month}")
-                    return {"success": False, "error": "No bill data found for this month"}
-
-                # HAR 파일에서 확인된 성공 지표: totAmt input이 존재하고 값이 있음
                 if 'id="totAmt"' in html_content and 'value=' in html_content:
                     return self._parse_html_response(html_content)
                 else:
@@ -155,7 +136,10 @@ class ArisuApiClient:
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
 
-            async with self._session.get(self._main_url, headers=headers) as response:
+            async with self._session.get(
+                self._main_url,
+                headers=headers,
+            ) as response:
                 if response.status == 200:
                     LOGGER.debug("Session initialized successfully")
                     # 세션 쿠키가 자동으로 저장됨

@@ -53,7 +53,7 @@
       },
       "kakaomap": {
         "title": "카카오맵 설정",
-        "description": "출발지와 도착지를 설정하여 교통정보를 조회합니다.\n{coord_system_help}",
+        "description": "출발지와 도착지를 설정하여 교통정보를 조회합니다.",
         "data": {
           "name": "경로 이름",
           "coord_system": "좌표계",

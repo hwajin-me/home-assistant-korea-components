@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import ssl
+
 import aiohttp
+import certifi
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD

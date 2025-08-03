@@ -77,7 +77,7 @@ class ArisuDevice:
 
             self._available = True
             self._last_update_success = datetime.now()
-            LOGGER.debug(f"Arisu data updated successfully for {self.customer_name} (#{self.customer_number})")
+            LOGGER.debug(f"Arisu data updated successfully for {self.customer_number}")
 
         except ArisuAuthError as err:
             self._available = False
