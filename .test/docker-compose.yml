@@ -4,7 +4,7 @@ services:
     image: "ghcr.io/home-assistant/home-assistant:stable"
     volumes:
       - ./configuration.yaml:/config/configuration.yaml
-      - ../custom_components/korea:/config/custom_components/korea
+      - ../custom_components/korea_incubator:/config/custom_components/korea_incubator
     restart: unless-stopped
     privileged: true
     environment:

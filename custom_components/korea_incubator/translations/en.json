@@ -4,7 +4,12 @@
       "user": {
         "title": "Select Service",
         "menu_options": {
-          "kepco": "KEPCO (Korea Electric Power Corporation)"
+          "kepco": "KEPCO (Korea Electric Power Corporation)",
+          "gasapp": "GasApp (Korea Gas Corporation)",
+          "safety_alert": "Safety Alert (Ministry of the Interior and Safety)",
+          "goodsflow": "GoodsFlow (Package Tracking)",
+          "arisu": "Arisu (Seoul Water Works)",
+          "kakaomap": "KakaoMap (Traffic Information)"
         }
       },
       "kepco": {
@@ -13,27 +18,88 @@
           "username": "Username",
           "password": "Password"
         }
+      },
+      "gasapp": {
+        "title": "GasApp Configuration",
+        "data": {
+          "token": "Token",
+          "member_id": "Member ID",
+          "use_contract_num": "Use Contract Number"
+        }
+      },
+      "safety_alert": {
+        "title": "Safety Alert Configuration",
+        "data": {
+          "area_code": "Area Code",
+          "area_name": "Area Name",
+          "area_code2": "Area Code 2 (Optional)",
+          "area_name2": "Area Name 2 (Optional)",
+          "area_code3": "Area Code 3 (Optional)",
+          "area_name3": "Area Name 3 (Optional)"
+        }
+      },
+      "goodsflow": {
+        "title": "GoodsFlow Configuration",
+        "data": {
+          "token": "Authentication Token"
+        }
+      },
+      "arisu": {
+        "title": "Arisu Configuration",
+        "data": {
+          "customer_number": "Customer Number",
+          "customer_name": "Customer Name"
+        }
+      },
+      "kakaomap": {
+        "title": "KakaoMap Configuration",
+        "description": "Set start and end locations to get traffic information.\n{coord_system_help}",
+        "data": {
+          "name": "Route Name",
+          "coord_system": "Coordinate System",
+          "start_x": "Start X Coordinate/Longitude",
+          "start_y": "Start Y Coordinate/Latitude",
+          "end_x": "End X Coordinate/Longitude",
+          "end_y": "End Y Coordinate/Latitude"
+        }
       }
     },
     "error": {
+      "auth": "Authentication failed.",
       "invalid_auth": "Invalid username or password.",
-      "cannot_connect": "Failed to connect to the KEPCO server.",
-      "unknown": "An unknown error occurred."
+      "cannot_connect": "Failed to connect to the server.",
+      "unknown": "An unknown error occurred.",
+      "invalid_coordinates": "Invalid coordinates.",
+      "invalid_wgs84_coordinates": "Invalid WGS84 coordinates. (Longitude: 124-132, Latitude: 33-39)",
+      "invalid_wcongnamul_coordinates": "Invalid WCONGNAMUL coordinates."
     },
     "abort": {
-      "already_configured": "This KEPCO account is already configured."
+      "already_configured": "This account is already configured."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "KEPCO Options",
-        "description": "There are no options to configure for KEPCO."
+        "title": "Options",
+        "description": "There are no options to configure."
       }
     },
     "abort": {
-      "no_options_kepco": "There are no options to configure for KEPCO."
+      "no_options": "There are no options to configure.",
+      "no_options_kepco": "There are no options to configure for KEPCO.",
+      "no_options_gasapp": "There are no options to configure for GasApp.",
+      "no_options_safety_alert": "There are no options to configure for Safety Alert.",
+      "no_options_goodsflow": "There are no options to configure for GoodsFlow.",
+      "no_options_arisu": "There are no options to configure for Arisu.",
+      "no_options_kakaomap": "There are no options to configure for KakaoMap."
+    }
+  },
+  "selector": {
+    "coord_system": {
+      "options": {
+        "WCONGNAMUL": "WCONGNAMUL (KakaoMap Default)",
+        "WGS84": "WGS84 (GPS Coordinates)"
+      }
     }
   }
 }
-

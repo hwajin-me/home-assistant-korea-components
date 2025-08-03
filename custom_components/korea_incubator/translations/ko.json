@@ -4,7 +4,12 @@
       "user": {
         "title": "서비스 선택",
         "menu_options": {
-          "kepco": "한전 (KEPCO)"
+          "kepco": "한전 (KEPCO)",
+          "gasapp": "가스앱 (한국가스공사)",
+          "safety_alert": "안전알림 (행정안전부)",
+          "goodsflow": "굿스플로우 (택배조회)",
+          "arisu": "아리수 (서울시 상수도)",
+          "kakaomap": "카카오맵 (교통정보)"
         }
       },
       "kepco": {
@@ -13,27 +18,88 @@
           "username": "사용자명",
           "password": "비밀번호"
         }
+      },
+      "gasapp": {
+        "title": "가스앱 설정",
+        "data": {
+          "token": "토큰",
+          "member_id": "회원 ID",
+          "use_contract_num": "사용계약번호"
+        }
+      },
+      "safety_alert": {
+        "title": "안전알림 설정",
+        "data": {
+          "area_code": "지역코드",
+          "area_name": "지역명",
+          "area_code2": "지역코드 2 (선택)",
+          "area_name2": "지역명 2 (선택)",
+          "area_code3": "지역코드 3 (선택)",
+          "area_name3": "지역명 3 (선택)"
+        }
+      },
+      "goodsflow": {
+        "title": "굿스플로우 설정",
+        "data": {
+          "token": "인증토큰"
+        }
+      },
+      "arisu": {
+        "title": "아리수 설정",
+        "data": {
+          "customer_number": "고객번호",
+          "customer_name": "고객명"
+        }
+      },
+      "kakaomap": {
+        "title": "카카오맵 설정",
+        "description": "출발지와 도착지를 설정하여 교통정보를 조회합니다.\n{coord_system_help}",
+        "data": {
+          "name": "경로 이름",
+          "coord_system": "좌표계",
+          "start_x": "출발지 X좌표/경도",
+          "start_y": "출발지 Y좌표/위도",
+          "end_x": "도착지 X좌표/경도",
+          "end_y": "도착지 Y좌표/위도"
+        }
       }
     },
     "error": {
+      "auth": "인증에 실패했습니다.",
       "invalid_auth": "사용자명 또는 비밀번호가 잘못되었습니다.",
-      "cannot_connect": "한전 서버에 연결할 수 없습니다.",
-      "unknown": "알 수 없는 오류가 발생했습니다."
+      "cannot_connect": "서버에 연결할 수 없습니다.",
+      "unknown": "알 수 없는 오류가 발생했습니다.",
+      "invalid_coordinates": "잘못된 좌표입니다.",
+      "invalid_wgs84_coordinates": "유효하지 않은 WGS84 좌표입니다. (경도: 124-132, 위도: 33-39)",
+      "invalid_wcongnamul_coordinates": "유효하지 않은 WCONGNAMUL 좌표입니다."
     },
     "abort": {
-      "already_configured": "이 한국전력 계정은 이미 설정되어 있습니다."
+      "already_configured": "이 계정은 이미 설정되어 있습니다."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "한전 옵션",
-        "description": "한국전력에 대한 구성 옵션이 없습니다."
+        "title": "옵션",
+        "description": "구성 옵션이 없습니다."
       }
     },
     "abort": {
-      "no_options_kepco": "한전에 대한 구성 옵션이 없습니다."
+      "no_options": "구성 옵션이 없습니다.",
+      "no_options_kepco": "한전에 대한 구성 옵션이 없습니다.",
+      "no_options_gasapp": "가스앱에 대한 구성 옵션이 없습니다.",
+      "no_options_safety_alert": "안전알림에 대한 구성 옵션이 없습니다.",
+      "no_options_goodsflow": "굿스플로우에 대한 구성 옵션이 없습니다.",
+      "no_options_arisu": "아리수에 대한 구성 옵션이 없습니다.",
+      "no_options_kakaomap": "카카오맵에 대한 구성 옵션이 없습니다."
+    }
+  },
+  "selector": {
+    "coord_system": {
+      "options": {
+        "WCONGNAMUL": "WCONGNAMUL (카카오맵 기본)",
+        "WGS84": "WGS84 (GPS 좌표)"
+      }
     }
   }
 }
-
