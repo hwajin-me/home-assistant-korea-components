@@ -244,6 +244,16 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
             except ValueError:
                 return None
 
+    # Pattern 13: YYYY-MM-DD HH:mm:ss.S
+    if not parsed_dt:
+        pattern13 = re.match(r'^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})\.(\d+)$', value)
+        if pattern13:
+            try:
+                year, month, day, hour, minute, second, microsecond = map(int, pattern13.groups())
+                parsed_dt = datetime(year, month, day, hour, minute, second, microsecond=0)
+            except ValueError:
+                return None
+
     # Add timezone information using Home Assistant's default timezone
     if parsed_dt:
         return dt_util.as_local(parsed_dt)
@@ -507,8 +517,8 @@ async def async_setup_entry(
             KoreaSensor(
                 coordinator,
                 device,
-                "parsed_data",
-                "total_alerts",
+                "metadata",
+                "count",
                 "총 안전알림 수",
                 None,
                 "건",
@@ -518,7 +528,7 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "parsed_data",
-                "latest_alert.type",
+                "data[0].EMRGNCY_STEP_NM",
                 "최신 알림 유형",
                 None,
                 None,
@@ -528,7 +538,17 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "parsed_data",
-                "latest_alert.message",
+                "data[0].DSSTR_SE_NM",
+                "최신 재난 유형",
+                None,
+                None,
+                None,
+            ),
+            KoreaSensor(
+                coordinator,
+                device,
+                "parsed_data",
+                "data[0].MSG_CN",
                 "최신 알림 내용",
                 None,
                 None,
@@ -538,12 +558,122 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "parsed_data",
-                "alert_types_summary",
-                "알림 유형 요약",
+                "data[0].RCV_AREA_NM",
+                "최신 알림 대상지",
                 None,
                 None,
                 None,
             ),
+            KoreaSensor(
+                coordinator,
+                device,
+                "parsed_data",
+                "data[0].REGIST_DT",
+                "최신 알림일자",
+                SensorDeviceClass.TIMESTAMP,
+                None,
+                None,
+            ),
+            KoreaSensor(
+                coordinator,
+                device,
+                "parsed_data",
+                "data[1].EMRGNCY_STEP_NM",
+                "지난 알림 유형",
+                None,
+                None,
+                None,
+            ),
+            KoreaSensor(
+                coordinator,
+                device,
+                "parsed_data",
+                "data[1].DSSTR_SE_NM",
+                "지난 재난 유형",
+                None,
+                None,
+                None,
+            ),
+            KoreaSensor(
+                coordinator,
+                device,
+                "parsed_data",
+                "data[1].MSG_CN",
+                "지난 알림 내용",
+                None,
+                None,
+                None,
+            ),
+            KoreaSensor(
+                coordinator,
+                device,
+                "parsed_data",
+                "data[1].RCV_AREA_NM",
+                "지난 알림 대상지",
+                None,
+                None,
+                None,
+            ),
+            KoreaSensor(
+                coordinator,
+                device,
+                "parsed_data",
+                "data[1].REGIST_DT",
+                "지난 알림일자",
+                SensorDeviceClass.TIMESTAMP,
+                None,
+                None,
+            ),
+            KoreaSensor(
+                coordinator,
+                device,
+                "parsed_data",
+                "data[2].EMRGNCY_STEP_NM",
+                "지지난 알림 유형",
+                None,
+                None,
+                None,
+            ),
+            KoreaSensor(
+                coordinator,
+                device,
+                "parsed_data",
+                "data[2].DSSTR_SE_NM",
+                "지지난 재난 유형",
+                None,
+                None,
+                None,
+            ),
+            KoreaSensor(
+                coordinator,
+                device,
+                "parsed_data",
+                "data[2].MSG_CN",
+                "지지난 알림 내용",
+                None,
+                None,
+                None,
+            ),
+            KoreaSensor(
+                coordinator,
+                device,
+                "parsed_data",
+                "data[2].RCV_AREA_NM",
+                "지지난 알림 대상지",
+                None,
+                None,
+                None,
+            ),
+            KoreaSensor(
+                coordinator,
+                device,
+                "parsed_data",
+                "data[2].REGIST_DT",
+                "지지난 알림일자",
+                SensorDeviceClass.TIMESTAMP,
+                None,
+                None,
+            )
         ]
         async_add_entities(entities)
 
@@ -1070,19 +1200,6 @@ async def async_setup_entry(
                 None,
                 None,
             ),
-
-            # 첫 번째 경로의 총 단계 수
-            KoreaSensor(
-                coordinator,
-                device,
-                "transport_route",
-                "routes[0].steps",
-                "첫번째 경로 총 단계수",
-                None,
-                "단계",
-                SensorStateClass.MEASUREMENT,
-            ),
-
             # 전체 경로 통계
             KoreaSensor(
                 coordinator,

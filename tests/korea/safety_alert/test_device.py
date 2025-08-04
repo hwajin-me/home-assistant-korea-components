@@ -40,15 +40,6 @@ async def test_async_update_success(safety_alert_device):
     ]
 
     safety_alert_device.api_client.async_get_safety_alerts = AsyncMock(return_value=mock_alerts)
-    safety_alert_device.api_client.parse_alert_data = MagicMock(return_value={
-        "total_alerts": 1,
-        "latest_alert": {
-            "type": "기상특보",
-            "message": "강풍주의보 발효"
-        },
-        "alert_types": {"기상특보": 1}
-    })
-
     await safety_alert_device.async_update()
 
     assert safety_alert_device.available is True
@@ -76,58 +67,3 @@ async def test_device_info(safety_alert_device):
     assert device_info["manufacturer"] == "행정안전부"
     assert device_info["model"] == "안전알림서비스"
 
-
-@pytest.mark.asyncio
-async def test_get_total_alerts(safety_alert_device):
-    safety_alert_device.data = {
-        "parsed_data": {"total_alerts": 5}
-    }
-
-    total = safety_alert_device.get_total_alerts()
-    assert total == 5
-
-
-@pytest.mark.asyncio
-async def test_get_latest_alert_message(safety_alert_device):
-    safety_alert_device.data = {
-        "parsed_data": {
-            "latest_alert": {"message": "강풍주의보 발효"}
-        }
-    }
-
-    message = safety_alert_device.get_latest_alert_message()
-    assert message == "강풍주의보 발효"
-
-
-@pytest.mark.asyncio
-async def test_get_latest_alert_type(safety_alert_device):
-    safety_alert_device.data = {
-        "parsed_data": {
-            "latest_alert": {"type": "기상특보"}
-        }
-    }
-
-    alert_type = safety_alert_device.get_latest_alert_type()
-    assert alert_type == "기상특보"
-
-
-@pytest.mark.asyncio
-async def test_get_alert_types_summary(safety_alert_device):
-    safety_alert_device.data = {
-        "parsed_data": {
-            "alert_types": {"기상특보": 2, "교통통제": 1}
-        }
-    }
-
-    summary = safety_alert_device.get_alert_types_summary()
-    assert "기상특보(2)" in summary
-    assert "교통통제(1)" in summary
-
-
-@pytest.mark.asyncio
-async def test_get_methods_no_data(safety_alert_device):
-    # Test methods when no data is available
-    assert safety_alert_device.get_total_alerts() == 0
-    assert safety_alert_device.get_latest_alert_message() is None
-    assert safety_alert_device.get_latest_alert_type() is None
-    assert safety_alert_device.get_alert_types_summary() == ""

@@ -52,7 +52,7 @@ class SafetyAlertApiClient:
             area_code: str = "1156000000",
             area_code2: Optional[str] = None,
             area_code3: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """Get safety alerts for the specified areas."""
         # Calculate date range (last 7 days)
         end_date = datetime.now()
@@ -101,11 +101,8 @@ class SafetyAlertApiClient:
 
                 data = await response.json()
                 LOGGER.debug(f"Safety Alert API response: {data}")
-                alerts = data.get("disasterSmsList", [])
 
-                # 생성일시 기준으로 정렬 (최신순)
-                alerts.sort(key=lambda x: x.get("CREAT_DT", ""), reverse=True)
-                return alerts
+                return data
 
         except aiohttp.ClientError as e:
             LOGGER.error(f"Safety Alert API request failed: {e}")
@@ -113,49 +110,3 @@ class SafetyAlertApiClient:
         except Exception as e:
             LOGGER.error(f"Unexpected error in Safety Alert API request: {e}")
             raise SafetyAlertDataError(f"Unexpected error: {e}")
-
-    def parse_alert_data(self, alerts: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Parse and organize alert data."""
-        if not alerts:
-            return {
-                "total_alerts": 0,
-                "latest_alert": None,
-                "alert_types": {},
-                "alerts_by_type": {}
-            }
-
-        # Count alerts by type
-        alert_types = {}
-        alerts_by_type = {}
-
-        for alert in alerts:
-            alert_type = alert.get("DSSTR_SE_NM", "기타")
-            if alert_type not in alert_types:
-                alert_types[alert_type] = 0
-                alerts_by_type[alert_type] = []
-
-            alert_types[alert_type] += 1
-            alerts_by_type[alert_type].append({
-                "message": alert.get("MSG_CN", ""),
-                "created_date": alert.get("CREAT_DT", ""),
-                "area": alert.get("RCV_AREA_NM", ""),
-                "emergency_level": alert.get("EMRGNCY_STEP_NM", "")
-            })
-
-        # Get latest alert
-        latest_alert = None
-        if alerts:
-            latest_alert = {
-                "type": alerts[0].get("DSSTR_SE_NM", ""),
-                "message": alerts[0].get("MSG_CN", ""),
-                "created_date": alerts[0].get("CREAT_DT", ""),
-                "area": alerts[0].get("RCV_AREA_NM", ""),
-                "emergency_level": alerts[0].get("EMRGNCY_STEP_NM", "")
-            }
-
-        return {
-            "total_alerts": len(alerts),
-            "latest_alert": latest_alert,
-            "alert_types": alert_types,
-            "alerts_by_type": alerts_by_type
-        }

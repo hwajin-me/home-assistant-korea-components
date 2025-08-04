@@ -39,7 +39,12 @@ class SafetyAlertDevice:
         self._name: str = f"안전알림 ({area_name})"
         self._unique_id: str = f"safety_alert_{area_code}"
         self._available: bool = True
-        self.data: Dict[str, Any] = {}
+        self.data: Dict[str, Any] = {
+            "has_data": False,
+            "parsed_data": [],
+            "count": 0,
+            "last_updated": None,
+        }
         self._last_update_success: Optional[datetime] = None
 
     @property
@@ -67,16 +72,22 @@ class SafetyAlertDevice:
         """Fetch data from Safety Alert API."""
         try:
             # Get safety alerts
-            alerts: List[Dict[str, Any]] = await self.api_client.async_get_safety_alerts(
+            result: Dict[str, Any] = await self.api_client.async_get_safety_alerts(
                 self.area_code, self.area_code2, self.area_code3
             )
 
             # Parse alert data
-            parsed_data: Dict[str, Any] = self.api_client.parse_alert_data(alerts)
+            parsed_data: List[Dict[str, Any]] = result.get("disasterSmsList", [])
+            count: int = result.get("rtnResult", {}).get("totCnt", 0)
 
             self.data = {
-                "raw_alerts": alerts,
-                "parsed_data": parsed_data,
+                "has_data": len(parsed_data) > 0,
+                "metadata": {
+                    "count": count,
+                },
+                "parsed_data": {
+                    "data": parsed_data,
+                },
                 "last_updated": datetime.now().isoformat(),
             }
 
@@ -93,35 +104,6 @@ class SafetyAlertDevice:
             self._available = False
             LOGGER.error(f"Unexpected error updating Safety Alert data for {self.area_name}: {err}")
             raise UpdateFailed(f"Unexpected error: {err}")
-
-    def get_total_alerts(self) -> int:
-        """Get total number of alerts."""
-        if not self.data.get("parsed_data"):
-            return 0
-        return self.data["parsed_data"].get("total_alerts", 0)
-
-    def get_latest_alert_message(self) -> Optional[str]:
-        """Get latest alert message."""
-        if not self.data.get("parsed_data"):
-            return None
-        latest = self.data["parsed_data"].get("latest_alert")
-        return latest.get("message") if latest else None
-
-    def get_latest_alert_type(self) -> Optional[str]:
-        """Get latest alert type."""
-        if not self.data.get("parsed_data"):
-            return None
-        latest = self.data["parsed_data"].get("latest_alert")
-        return latest.get("type") if latest else None
-
-    def get_alert_types_summary(self) -> str:
-        """Get summary of alert types."""
-        if not self.data.get("parsed_data"):
-            return ""
-        alert_types = self.data["parsed_data"].get("alert_types", {})
-        if not alert_types:
-            return "알림 없음"
-        return ", ".join([f"{k}({v})" for k, v in alert_types.items()])
 
     async def async_close_session(self) -> None:
         """Close the aiohttp session."""

@@ -61,52 +61,6 @@ async def test_async_get_safety_alerts_http_error(api_client, aiohttp_mock: AioH
     with pytest.raises(SafetyAlertConnectionError):
         await api_client.async_get_safety_alerts("1100000000")
 
-
-@pytest.mark.asyncio
-async def test_parse_alert_data_with_alerts(api_client):
-    alerts = [
-        {
-            "DSSTR_SE_NM": "기상특보",
-            "MSG_CN": "강풍주의보 발효",
-            "CREAT_DT": "2025-01-15 10:00:00",
-            "RCV_AREA_NM": "서울특별시",
-            "EMRGNCY_STEP_NM": "주의보"
-        },
-        {
-            "DSSTR_SE_NM": "기상특보",
-            "MSG_CN": "한파주의보 발효",
-            "CREAT_DT": "2025-01-15 09:00:00",
-            "RCV_AREA_NM": "서울특별시",
-            "EMRGNCY_STEP_NM": "주의보"
-        },
-        {
-            "DSSTR_SE_NM": "교통통제",
-            "MSG_CN": "도로 결빙",
-            "CREAT_DT": "2025-01-15 08:00:00",
-            "RCV_AREA_NM": "서울특별시 강남구",
-            "EMRGNCY_STEP_NM": "주의"
-        }
-    ]
-
-    parsed_data = api_client.parse_alert_data(alerts)
-
-    assert parsed_data["total_alerts"] == 3
-    assert parsed_data["latest_alert"]["type"] == "기상특보"
-    assert parsed_data["latest_alert"]["message"] == "강풍주의보 발효"
-    assert parsed_data["alert_types"]["기상특보"] == 2
-    assert parsed_data["alert_types"]["교통통제"] == 1
-
-
-@pytest.mark.asyncio
-async def test_parse_alert_data_empty(api_client):
-    parsed_data = api_client.parse_alert_data([])
-
-    assert parsed_data["total_alerts"] == 0
-    assert parsed_data["latest_alert"] is None
-    assert parsed_data["alert_types"] == {}
-    assert parsed_data["alerts_by_type"] == {}
-
-
 @pytest.mark.asyncio
 async def test_async_get_safety_alerts_with_multiple_area_codes(api_client, aiohttp_mock: AioHTTPMock):
     expected_response = {
