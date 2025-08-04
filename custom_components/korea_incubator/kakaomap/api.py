@@ -1,4 +1,6 @@
 """KakaoMap API client for Home Assistant integration."""
+from datetime import datetime
+
 import aiohttp
 from typing import Dict, Any, Optional, List
 from .exceptions import KakaoMapConnectionError, KakaoMapDataError, KakaoMapQuotaError
@@ -61,14 +63,16 @@ class KakaoMapApiClient:
         params = {
             "inputCoordSystem": coord_system,
             "outputCoordSystem": coord_system,
-            "sX": str(start_x),
-            "sY": str(start_y),
-            "eX": str(end_x),
-            "eY": str(end_y)
+            "sX": int(start_x),
+            "sY": int(start_y),
+            "eX": int(end_x),
+            "eY": int(end_y)
         }
 
         if start_time:
             params["startAt"] = start_time
+        else:
+            params["startAt"] = datetime.now().strftime("%Y%m%d%H%M") + "0"
 
         headers = {
             "Accept": "text/javascript, application/javascript, application/ecmascript, application/x-ecmascript, */*; q=0.01",
@@ -76,6 +80,8 @@ class KakaoMapApiClient:
             "X-Requested-With": "XMLHttpRequest",
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36"
         }
+
+        LOGGER.debug(f"Requesting KakaoMap transport API with params: {params}")
 
         try:
             async with self._session.get(url, params=params, headers=headers) as response:
@@ -85,7 +91,7 @@ class KakaoMapApiClient:
                     raise KakaoMapConnectionError(f"HTTP {response.status}: {response.reason}")
 
                 data = await response.json()
-                return self._parse_transport_response(data)
+                return data
 
         except aiohttp.ClientError as e:
             LOGGER.error(f"KakaoMap transport API request failed: {e}")
@@ -118,58 +124,6 @@ class KakaoMapApiClient:
         except Exception as e:
             LOGGER.error(f"Error parsing address response: {e}")
             raise KakaoMapDataError(f"Address parsing failed: {e}")
-
-    def _parse_transport_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Parse transport route response data."""
-        try:
-            result = {
-                "success": True,
-                "routes": [],
-                "summary": {
-                    "total_routes": 0,
-                    "fastest_route": None,
-                    "recommended_route": None
-                }
-            }
-
-            in_local = data.get("in_local")
-            if not in_local or in_local.get("status") != "OK":
-                result["success"] = False
-                return result
-
-            routes = in_local.get("routes", [])
-            result["summary"]["total_routes"] = len(routes)
-
-            for route in routes:
-                parsed_route = {
-                    "ranking": route.get("ranking"),
-                    "type": route.get("type"),
-                    "distance": route.get("distance", {}).get("text", ""),
-                    "time": route.get("time", {}).get("text", ""),
-                    "time_value": route.get("time", {}).get("value", 0),
-                    "walking_distance": route.get("walkingDistance", {}).get("text", ""),
-                    "walking_time": route.get("walkingTime", {}).get("text", ""),
-                    "transfers": route.get("transfers", 0),
-                    "fare": route.get("fare", {}).get("text", ""),
-                    "fare_value": route.get("fare", {}).get("value", 0),
-                    "recommended": route.get("recommended", False),
-                    "shortest_time": route.get("shortestTime", False),
-                    "summaries": route.get("summaries", [])
-                }
-
-                result["routes"].append(parsed_route)
-
-                # Set fastest and recommended routes
-                if route.get("shortestTime"):
-                    result["summary"]["fastest_route"] = parsed_route
-                if route.get("recommended"):
-                    result["summary"]["recommended_route"] = parsed_route
-
-            return result
-
-        except Exception as e:
-            LOGGER.error(f"Error parsing transport response: {e}")
-            raise KakaoMapDataError(f"Transport parsing failed: {e}")
 
     def get_route_summary(self, transport_data: Dict[str, Any]) -> str:
         """Get a summary string of the transport routes."""

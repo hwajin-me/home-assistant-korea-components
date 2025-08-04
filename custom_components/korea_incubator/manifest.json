@@ -1,6 +1,6 @@
 {
   "domain": "korea_incubator",
-  "name": "Korea Components",
+  "name": "한국 복합 컴포넌트",
   "config_flow": true,
   "documentation": "https://github.com/hwajin-me/home-assistant-korea-components/blob/main/README.md",
   "issue_tracker": "https://github.com/hwajin-me/home-assistant-korea-components/issues",
