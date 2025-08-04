@@ -1,35 +1,38 @@
 from __future__ import annotations
 
-import ssl
+from typing import Any, Dict, Optional
 
 import aiohttp
-import certifi
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 from homeassistant.core import callback
-from typing import Any, Dict, Optional
 
-from .const import DOMAIN, LOGGER
-from .kepco.api import KepcoApiClient
-from .kepco.exceptions import KepcoAuthError
-from .gasapp.api import GasAppApiClient
-from .gasapp.exceptions import GasAppAuthError
-from .safety_alert.api import SafetyAlertApiClient
-from .safety_alert.exceptions import SafetyAlertConnectionError
-from .goodsflow.api import GoodsFlowApiClient
-from .goodsflow.exceptions import GoodsFlowAuthError
 from .arisu.api import ArisuApiClient
 from .arisu.exceptions import ArisuAuthError
+from .const import DOMAIN, LOGGER
+from .gasapp.api import GasAppApiClient
+from .gasapp.exceptions import GasAppAuthError
+from .goodsflow.api import GoodsFlowApiClient
+from .goodsflow.exceptions import GoodsFlowAuthError
 from .kakaomap.api import KakaoMapApiClient
-from .kakaomap.exceptions import KakaoMapConnectionError
 from .kakaomap.coordinates import convert_coordinates, validate_coordinates
+from .kakaomap.exceptions import KakaoMapConnectionError
+from .kepco.api import KepcoApiClient
+from .kepco.exceptions import KepcoAuthError
+from .safety_alert.api import SafetyAlertApiClient
+from .safety_alert.exceptions import SafetyAlertConnectionError
+from .safety_alert.region_api import SafetyAlertRegionApiClient
 
 
 class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Korea integration."""
 
     VERSION = 1
+
+    def __init__(self):
+        """Initialize the config flow."""
+        self._safety_alert_data = {}
 
     async def async_step_user(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle the initial step."""
@@ -122,91 +125,211 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_safety_alert(self, user_input: Optional[Dict[str, Any]] = None):
-        """Handle Safety Alert configuration."""
+        """Handle Safety Alert configuration - start with sido selection."""
         errors: Dict[str, str] = {}
 
         if user_input is not None:
+            # Store the selected sido and move to sgg selection
+            self._safety_alert_data["sido_code"] = user_input["sido_code"]
+            self._safety_alert_data["sido_name"] = user_input["sido_name"]
+            return await self.async_step_safety_alert_sgg()
+
+        # Get sido list
+        try:
             async with aiohttp.ClientSession() as session:
-                client = SafetyAlertApiClient(session)
-                try:
-                    # Test the API with the provided area codes
-                    area_code2 = user_input.get("area_code2") if user_input.get("area_code2") else None
-                    area_code3 = user_input.get("area_code3") if user_input.get("area_code3") else None
+                region_client = SafetyAlertRegionApiClient(session)
+                sido_list = await region_client.async_get_sido_list()
 
-                    alerts = await client.async_get_safety_alerts(
-                        user_input["area_code"],
-                        area_code2,
-                        area_code3
+                if not sido_list:
+                    errors["base"] = "no_regions_available"
+                else:
+                    # Create options for dropdown
+                    sido_options = {region["code"]: region["name"] for region in sido_list}
+
+                    return self.async_show_form(
+                        step_id="safety_alert",
+                        data_schema=vol.Schema({
+                            vol.Required("sido_code", default="1100000000"): vol.In(sido_options),
+                            vol.Required("sido_name", default="서울특별시"): str,
+                        }),
+                        errors=errors,
                     )
 
-                    unique_id = f"safety_alert_{user_input['area_code']}"
-                    await self.async_set_unique_id(unique_id)
-                    self._abort_if_unique_id_configured()
+        except SafetyAlertConnectionError as e:
+            LOGGER.error(f"Safety Alert region API failed: {e}")
+            errors["base"] = "cannot_connect"
+        except Exception as e:
+            LOGGER.error(f"Safety Alert setup failed: {e}")
+            errors["base"] = "unknown"
 
-                    user_input["service"] = "safety_alert"
-                    return self.async_create_entry(
-                        title=f"안전알림 ({user_input['area_name']})",
-                        data=user_input
-                    )
-                except SafetyAlertConnectionError as e:
-                    LOGGER.error(f"Safety Alert connection failed: {e}")
-                    errors["base"] = "cannot_connect"
-                except Exception as e:
-                    LOGGER.error(f"Safety Alert setup failed: {e}")
-                    errors["base"] = "unknown"
-
+        # Fallback to simple form if API fails
         return self.async_show_form(
             step_id="safety_alert",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("area_code", default="1156000000"): str,
-                    vol.Required("area_name", default="서울특별시"): str,
-                    vol.Optional("area_code2"): str,
-                    vol.Optional("area_name2"): str,
-                    vol.Optional("area_code3"): str,
-                    vol.Optional("area_name3"): str,
-                }
-            ),
+            data_schema=vol.Schema({
+                vol.Required("sido_code", default="1100000000"): str,
+                vol.Required("sido_name", default="서울특별시"): str,
+            }),
             errors=errors,
         )
 
-    async def async_step_goodsflow(self, user_input: Optional[Dict[str, Any]] = None):
-        """Handle GoodsFlow configuration."""
+    async def async_step_safety_alert_sgg(self, user_input: Optional[Dict[str, Any]] = None):
+        """Handle Safety Alert sgg (시군구) selection."""
         errors: Dict[str, str] = {}
 
         if user_input is not None:
-            async with aiohttp.ClientSession() as session:
-                client = GoodsFlowApiClient(session)
-                client.set_token(user_input["token"])
-                try:
-                    if await client.async_validate_token():
-                        unique_id = f"goodsflow_{user_input['token'][:8]}"
-                        await self.async_set_unique_id(unique_id)
-                        self._abort_if_unique_id_configured()
+            # Store the selected sgg and move to optional emd selection
+            self._safety_alert_data["sgg_code"] = user_input["sgg_code"]
+            self._safety_alert_data["sgg_name"] = user_input["sgg_name"]
 
-                        user_input["service"] = "goodsflow"
-                        return self.async_create_entry(
-                            title="굿스플로우 택배조회",
-                            data=user_input
-                        )
-                    else:
-                        errors["base"] = "invalid_auth"
-                except GoodsFlowAuthError as e:
-                    LOGGER.error(f"GoodsFlow authentication failed: {e}")
-                    errors["base"] = "invalid_auth"
-                except Exception as e:
-                    LOGGER.error(f"GoodsFlow connection failed: {e}")
-                    errors["base"] = "unknown"
+            # User can choose to add emd (읍면동) or finish here
+            if user_input.get("add_emd", False):
+                return await self.async_step_safety_alert_emd()
+            else:
+                return await self._create_safety_alert_entry()
+
+        # Get sgg list for the selected sido
+        try:
+            async with aiohttp.ClientSession() as session:
+                region_client = SafetyAlertRegionApiClient(session)
+                sgg_list = await region_client.async_get_sgg_list(self._safety_alert_data["sido_code"])
+
+                if not sgg_list:
+                    errors["base"] = "no_sgg_available"
+                else:
+                    # Create options for dropdown
+                    sgg_options = {region["code"]: region["name"] for region in sgg_list}
+
+                    return self.async_show_form(
+                        step_id="safety_alert_sgg",
+                        data_schema=vol.Schema({
+                            vol.Required("sgg_code"): vol.In(sgg_options),
+                            vol.Required("sgg_name"): str,
+                            vol.Optional("add_emd", default=False): bool,
+                        }),
+                        errors=errors,
+                    )
+
+        except SafetyAlertConnectionError as e:
+            LOGGER.error(f"Safety Alert sgg API failed: {e}")
+            errors["base"] = "cannot_connect"
+        except Exception as e:
+            LOGGER.error(f"Safety Alert sgg setup failed: {e}")
+            errors["base"] = "unknown"
 
         return self.async_show_form(
-            step_id="goodsflow",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("token"): str,
-                }
-            ),
+            step_id="safety_alert_sgg",
+            data_schema=vol.Schema({
+                vol.Required("sgg_code"): str,
+                vol.Required("sgg_name"): str,
+                vol.Optional("add_emd", default=False): bool,
+            }),
             errors=errors,
         )
+
+    async def async_step_safety_alert_emd(self, user_input: Optional[Dict[str, Any]] = None):
+        """Handle Safety Alert emd (읍면동) selection."""
+        errors: Dict[str, str] = {}
+
+        if user_input is not None:
+            # Store the selected emd and create entry
+            self._safety_alert_data["emd_code"] = user_input["emd_code"]
+            self._safety_alert_data["emd_name"] = user_input["emd_name"]
+            return await self._create_safety_alert_entry()
+
+        # Get emd list for the selected sido and sgg
+        try:
+            async with aiohttp.ClientSession() as session:
+                region_client = SafetyAlertRegionApiClient(session)
+                emd_list = await region_client.async_get_emd_list(
+                    self._safety_alert_data["sido_code"],
+                    self._safety_alert_data["sgg_code"]
+                )
+
+                if not emd_list:
+                    errors["base"] = "no_emd_available"
+                else:
+                    # Create options for dropdown
+                    emd_options = {region["code"]: region["name"] for region in emd_list}
+
+                    return self.async_show_form(
+                        step_id="safety_alert_emd",
+                        data_schema=vol.Schema({
+                            vol.Required("emd_code"): vol.In(emd_options),
+                            vol.Required("emd_name"): str,
+                        }),
+                        errors=errors,
+                    )
+
+        except SafetyAlertConnectionError as e:
+            LOGGER.error(f"Safety Alert emd API failed: {e}")
+            errors["base"] = "cannot_connect"
+        except Exception as e:
+            LOGGER.error(f"Safety Alert emd setup failed: {e}")
+            errors["base"] = "unknown"
+
+        return self.async_show_form(
+            step_id="safety_alert_emd",
+            data_schema=vol.Schema({
+                vol.Required("emd_code"): str,
+                vol.Required("emd_name"): str,
+            }),
+            errors=errors,
+        )
+
+    async def _create_safety_alert_entry(self):
+        """Create the safety alert config entry."""
+        try:
+            # Test the API with the selected region(s)
+            async with aiohttp.ClientSession() as session:
+                client = SafetyAlertApiClient(session)
+
+                area_code = self._safety_alert_data.get("sgg_code", self._safety_alert_data["sido_code"])
+                area_code2 = self._safety_alert_data.get("emd_code")
+
+                alerts = await client.async_get_safety_alerts(
+                    area_code,
+                    area_code2,
+                    None
+                )
+
+                # Create display name
+                display_name = self._safety_alert_data["sido_name"]
+                if "sgg_name" in self._safety_alert_data:
+                    display_name += f" {self._safety_alert_data['sgg_name']}"
+                if "emd_name" in self._safety_alert_data:
+                    display_name += f" {self._safety_alert_data['emd_name']}"
+
+                unique_id = f"safety_alert_{area_code}"
+                await self.async_set_unique_id(unique_id)
+                self._abort_if_unique_id_configured()
+
+                entry_data = {
+                    "service": "safety_alert",
+                    "area_code": area_code,
+                    "area_name": display_name,
+                    "sido_code": self._safety_alert_data["sido_code"],
+                    "sido_name": self._safety_alert_data["sido_name"],
+                }
+
+                if "sgg_code" in self._safety_alert_data:
+                    entry_data["area_code2"] = self._safety_alert_data["sgg_code"]
+                    entry_data["area_name2"] = self._safety_alert_data["sgg_name"]
+
+                if "emd_code" in self._safety_alert_data:
+                    entry_data["area_code3"] = self._safety_alert_data["emd_code"]
+                    entry_data["area_name3"] = self._safety_alert_data["emd_name"]
+
+                return self.async_create_entry(
+                    title=f"안전알림 ({display_name})",
+                    data=entry_data
+                )
+
+        except SafetyAlertConnectionError as e:
+            LOGGER.error(f"Safety Alert connection failed: {e}")
+            return self.async_abort(reason="cannot_connect")
+        except Exception as e:
+            LOGGER.error(f"Safety Alert setup failed: {e}")
+            return self.async_abort(reason="unknown")
 
     async def async_step_arisu(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle Arisu configuration."""
@@ -346,8 +469,46 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     ]),
                     vol.Required("start_x", default="515290"): str,  # 기본값: WCONGNAMUL 건대입구역
                     vol.Required("start_y", default="1122478"): str,
-                    vol.Required("end_x", default="506190"): str,   # 기본값: WCONGNAMUL 강남역
+                    vol.Required("end_x", default="506190"): str,  # 기본값: WCONGNAMUL 강남역
                     vol.Required("end_y", default="1110730"): str,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_goodsflow(self, user_input: Optional[Dict[str, Any]] = None):
+        """Handle GoodsFlow configuration."""
+        errors: Dict[str, str] = {}
+
+        if user_input is not None:
+            async with aiohttp.ClientSession() as session:
+                client = GoodsFlowApiClient(session)
+                client.set_token(user_input["token"])
+                try:
+                    if await client.async_validate_token():
+                        unique_id = f"goodsflow_{user_input['token'][:8]}"
+                        await self.async_set_unique_id(unique_id)
+                        self._abort_if_unique_id_configured()
+
+                        user_input["service"] = "goodsflow"
+                        return self.async_create_entry(
+                            title="굿스플로우 택배조회",
+                            data=user_input
+                        )
+                    else:
+                        errors["base"] = "invalid_auth"
+                except GoodsFlowAuthError as e:
+                    LOGGER.error(f"GoodsFlow authentication failed: {e}")
+                    errors["base"] = "invalid_auth"
+                except Exception as e:
+                    LOGGER.error(f"GoodsFlow connection failed: {e}")
+                    errors["base"] = "unknown"
+
+        return self.async_show_form(
+            step_id="goodsflow",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("token"): str,
                 }
             ),
             errors=errors,

@@ -29,7 +29,8 @@ class ArisuApiClient:
         previous_date = current_date - timedelta(days=current_date.day)
         previous_month = previous_date.strftime("%Y-%m")
 
-        LOGGER.debug(f"Trying to get Arisu data for {customer_name} (#{customer_number}): current month={current_month}, previous month={previous_month}")
+        LOGGER.debug(
+            f"Trying to get Arisu data for {customer_name} (#{customer_number}): current month={current_month}, previous month={previous_month}")
 
         # 현재 월 먼저 시도
         current_data = await self.async_get_water_bill(customer_number, customer_name, current_month)
@@ -55,7 +56,8 @@ class ArisuApiClient:
             "tried_months": [current_month, previous_month]
         }
 
-    async def async_get_water_bill(self, customer_number: str, customer_name: str, billing_month: str) -> Dict[str, Any]:
+    async def async_get_water_bill(self, customer_number: str, customer_name: str, billing_month: str) -> Dict[
+        str, Any]:
         """Get water bill information from Arisu."""
         try:
             # Step 1: 초기 페이지 접속으로 세션 설정
@@ -95,13 +97,14 @@ class ArisuApiClient:
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
             }
 
-            LOGGER.debug(f"Sending Arisu request with customer_number: {customer_number}, customer_name: {customer_name}, billing_month: {billing_month}")
+            LOGGER.debug(
+                f"Sending Arisu request with customer_number: {customer_number}, customer_name: {customer_name}, billing_month: {billing_month}")
 
             async with self._session.post(
-                self._base_url,
-                data=form_data,
-                headers=headers,
-                allow_redirects=True,
+                    self._base_url,
+                    data=form_data,
+                    headers=headers,
+                    allow_redirects=True,
             ) as response:
                 LOGGER.debug(f"Arisu API response status: {response.status}")
 
@@ -137,8 +140,8 @@ class ArisuApiClient:
             }
 
             async with self._session.get(
-                self._main_url,
-                headers=headers,
+                    self._main_url,
+                    headers=headers,
             ) as response:
                 if response.status == 200:
                     LOGGER.debug("Session initialized successfully")
@@ -191,7 +194,8 @@ class ArisuApiClient:
 
         try:
             # HAR에서 확인된 고객번호 패턴: 042389659
-            customer_num_cell = soup.find('td', string=lambda text: text and re.match(r'^\d{9}$', text.strip()) if text else False)
+            customer_num_cell = soup.find('td', string=lambda text: text and re.match(r'^\d{9}$',
+                                                                                      text.strip()) if text else False)
             if customer_num_cell:
                 info['customer_number'] = customer_num_cell.get_text(strip=True)
 

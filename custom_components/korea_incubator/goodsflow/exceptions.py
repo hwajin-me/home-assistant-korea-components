@@ -4,6 +4,7 @@
 class GoodsFlowError(Exception):
     """Base exception for GoodsFlow integration."""
 
+
 class GoodsFlowAuthError(GoodsFlowError):
     """Authentication error with GoodsFlow."""
 
@@ -14,4 +15,3 @@ class GoodsFlowConnectionError(GoodsFlowError):
 
 class GoodsFlowDataError(GoodsFlowError):
     """Data parsing error with GoodsFlow."""
-

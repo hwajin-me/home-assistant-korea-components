@@ -12,7 +12,8 @@ from ..const import DOMAIN, LOGGER
 class KakaoMapDevice:
     """KakaoMap device representation."""
 
-    def __init__(self, hass, entry_id: str, name: str, start_coords: Dict[str, float], end_coords: Dict[str, float], session: aiohttp.ClientSession):
+    def __init__(self, hass, entry_id: str, name: str, start_coords: Dict[str, float], end_coords: Dict[str, float],
+                 session: aiohttp.ClientSession):
         self.hass = hass
         self.entry_id = entry_id
         self.name = name
@@ -155,11 +156,11 @@ class KakaoMapDevice:
             return None
 
     async def async_get_route_between_coordinates(
-        self,
-        start_x: float,
-        start_y: float,
-        end_x: float,
-        end_y: float
+            self,
+            start_x: float,
+            start_y: float,
+            end_x: float,
+            end_y: float
     ) -> Optional[Dict[str, Any]]:
         """Get route between coordinates (can be called externally)."""
         try:
@@ -176,4 +177,3 @@ class KakaoMapDevice:
         if self.session:
             await self.session.close()
             self.session = None
-

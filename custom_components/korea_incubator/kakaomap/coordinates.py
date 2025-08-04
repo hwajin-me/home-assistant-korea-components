@@ -2,6 +2,7 @@
 import math
 from typing import Dict, Tuple
 
+
 class CoordinateConverter:
     """Coordinate system converter for various Korean coordinate systems."""
 
@@ -30,10 +31,10 @@ class CoordinateConverter:
     # 중부원점TM 투영 파라미터
     KOREA_TM_CENTRAL = {
         'longitude_of_origin': 127.0,  # 중앙경선
-        'latitude_of_origin': 38.0,    # 원점위도
-        'scale_factor': 0.9996,        # 축척계수
-        'false_easting': 200000.0,     # 가산값 동쪽
-        'false_northing': 500000.0     # 가산값 북쪽
+        'latitude_of_origin': 38.0,  # 원점위도
+        'scale_factor': 0.9996,  # 축척계수
+        'false_easting': 200000.0,  # 가산값 동쪽
+        'false_northing': 500000.0  # 가산값 북쪽
     }
 
     @classmethod
@@ -107,7 +108,7 @@ class CoordinateConverter:
         theta = math.atan(Z_new * a / (p * a * (1 - f)))
 
         lat_new = math.atan((Z_new + e2 * a * (1 - f) * math.sin(theta) ** 3) /
-                           (p - e2 * a * math.cos(theta) ** 3))
+                            (p - e2 * a * math.cos(theta) ** 3))
         lon_new = math.atan2(Y_new, X_new)
 
         return (math.degrees(lon_new), math.degrees(lat_new))
@@ -139,7 +140,7 @@ class CoordinateConverter:
         theta = math.atan(Z_new * a / (p * a * (1 - f)))
 
         lat_new = math.atan((Z_new + e2 * a * (1 - f) * math.sin(theta) ** 3) /
-                           (p - e2 * a * math.cos(theta) ** 3))
+                            (p - e2 * a * math.cos(theta) ** 3))
         lon_new = math.atan2(Y_new, X_new)
 
         return (math.degrees(lon_new), math.degrees(lat_new))
@@ -164,29 +165,29 @@ class CoordinateConverter:
         k0 = params['scale_factor']
 
         # 보조 함수들
-        A = a * (1 - e2/4 - 3*e4/64 - 5*e6/256)
-        B = a * (3*e2/8 + 3*e4/32 + 45*e6/1024)
-        C = a * (15*e4/256 + 45*e6/1024)
-        D = a * (35*e6/3072)
+        A = a * (1 - e2 / 4 - 3 * e4 / 64 - 5 * e6 / 256)
+        B = a * (3 * e2 / 8 + 3 * e4 / 32 + 45 * e6 / 1024)
+        C = a * (15 * e4 / 256 + 45 * e6 / 1024)
+        D = a * (35 * e6 / 3072)
 
         # 자오선호장
-        M = A * lat_rad - B * math.sin(2*lat_rad) + C * math.sin(4*lat_rad) - D * math.sin(6*lat_rad)
-        M0 = A * lat0_rad - B * math.sin(2*lat0_rad) + C * math.sin(4*lat0_rad) - D * math.sin(6*lat0_rad)
+        M = A * lat_rad - B * math.sin(2 * lat_rad) + C * math.sin(4 * lat_rad) - D * math.sin(6 * lat_rad)
+        M0 = A * lat0_rad - B * math.sin(2 * lat0_rad) + C * math.sin(4 * lat0_rad) - D * math.sin(6 * lat0_rad)
 
         # 보조 변수들
-        nu = a / math.sqrt(1 - e2 * math.sin(lat_rad)**2)
-        rho = a * (1 - e2) / (1 - e2 * math.sin(lat_rad)**2)**(3/2)
-        eta2 = (nu/rho - 1)
+        nu = a / math.sqrt(1 - e2 * math.sin(lat_rad) ** 2)
+        rho = a * (1 - e2) / (1 - e2 * math.sin(lat_rad) ** 2) ** (3 / 2)
+        eta2 = (nu / rho - 1)
 
         p = lon_rad - lon0_rad
 
         # TM 투영 공식
-        T = math.tan(lat_rad)**2
-        C = e2 * math.cos(lat_rad)**2 / (1 - e2)
+        T = math.tan(lat_rad) ** 2
+        C = e2 * math.cos(lat_rad) ** 2 / (1 - e2)
 
-        x = k0 * nu * (p + (1-T+C)*p**3/6 + (5-18*T+T**2+72*C-58*eta2)*p**5/120)
-        y = k0 * (M - M0 + nu*math.tan(lat_rad) * (p**2/2 + (5-T+9*C+4*C**2)*p**4/24 +
-                  (61-58*T+T**2+600*C-330*eta2)*p**6/720))
+        x = k0 * nu * (p + (1 - T + C) * p ** 3 / 6 + (5 - 18 * T + T ** 2 + 72 * C - 58 * eta2) * p ** 5 / 120)
+        y = k0 * (M - M0 + nu * math.tan(lat_rad) * (p ** 2 / 2 + (5 - T + 9 * C + 4 * C ** 2) * p ** 4 / 24 +
+                                                     (61 - 58 * T + T ** 2 + 600 * C - 330 * eta2) * p ** 6 / 720))
 
         # 가산값 적용
         x += params['false_easting']
@@ -214,36 +215,38 @@ class CoordinateConverter:
         lon0_rad = math.radians(params['longitude_of_origin'])
 
         # 보조 함수들
-        A = a * (1 - e2/4 - 3*e4/64 - 5*e6/256)
-        B = a * (3*e2/8 + 3*e4/32 + 45*e6/1024)
-        C = a * (15*e4/256 + 45*e6/1024)
-        D = a * (35*e6/3072)
+        A = a * (1 - e2 / 4 - 3 * e4 / 64 - 5 * e6 / 256)
+        B = a * (3 * e2 / 8 + 3 * e4 / 32 + 45 * e6 / 1024)
+        C = a * (15 * e4 / 256 + 45 * e6 / 1024)
+        D = a * (35 * e6 / 3072)
 
-        M0 = A * lat0_rad - B * math.sin(2*lat0_rad) + C * math.sin(4*lat0_rad) - D * math.sin(6*lat0_rad)
+        M0 = A * lat0_rad - B * math.sin(2 * lat0_rad) + C * math.sin(4 * lat0_rad) - D * math.sin(6 * lat0_rad)
         M = M0 + y / k0
 
         # 위도 근사값 계산
-        mu = M / (a * (1 - e2/4 - 3*e4/64 - 5*e6/256))
-        lat1 = (mu + (3/2*e2 - 27/32*e4)*math.sin(2*mu) +
-                (21/16*e4 - 55/32*e6)*math.sin(4*mu) +
-                151/96*e6*math.sin(6*mu))
+        mu = M / (a * (1 - e2 / 4 - 3 * e4 / 64 - 5 * e6 / 256))
+        lat1 = (mu + (3 / 2 * e2 - 27 / 32 * e4) * math.sin(2 * mu) +
+                (21 / 16 * e4 - 55 / 32 * e6) * math.sin(4 * mu) +
+                151 / 96 * e6 * math.sin(6 * mu))
 
         # 보조 변수들
-        nu1 = a / math.sqrt(1 - e2 * math.sin(lat1)**2)
-        rho1 = a * (1 - e2) / (1 - e2 * math.sin(lat1)**2)**(3/2)
-        T1 = math.tan(lat1)**2
-        C1 = e2 * math.cos(lat1)**2 / (1 - e2)
-        eta1_2 = (nu1/rho1 - 1)
+        nu1 = a / math.sqrt(1 - e2 * math.sin(lat1) ** 2)
+        rho1 = a * (1 - e2) / (1 - e2 * math.sin(lat1) ** 2) ** (3 / 2)
+        T1 = math.tan(lat1) ** 2
+        C1 = e2 * math.cos(lat1) ** 2 / (1 - e2)
+        eta1_2 = (nu1 / rho1 - 1)
         D_var = x / (nu1 * k0)
 
         # 위도 계산
         lat = (lat1 - (nu1 * math.tan(lat1) / rho1) *
-               (D_var**2/2 - (5+3*T1+10*C1-4*C1**2-9*eta1_2)*D_var**4/24 +
-                (61+90*T1+298*C1+45*T1**2-252*eta1_2-3*C1**2)*D_var**6/720))
+               (D_var ** 2 / 2 - (5 + 3 * T1 + 10 * C1 - 4 * C1 ** 2 - 9 * eta1_2) * D_var ** 4 / 24 +
+                (61 + 90 * T1 + 298 * C1 + 45 * T1 ** 2 - 252 * eta1_2 - 3 * C1 ** 2) * D_var ** 6 / 720))
 
         # 경도 계산
-        lon = (lon0_rad + (D_var - (1+2*T1+C1)*D_var**3/6 +
-               (5-2*C1+28*T1-3*C1**2+8*eta1_2+24*T1**2)*D_var**5/120) / math.cos(lat1))
+        lon = (lon0_rad + (D_var - (1 + 2 * T1 + C1) * D_var ** 3 / 6 +
+                           (
+                                       5 - 2 * C1 + 28 * T1 - 3 * C1 ** 2 + 8 * eta1_2 + 24 * T1 ** 2) * D_var ** 5 / 120) / math.cos(
+            lat1))
 
         return (math.degrees(lon), math.degrees(lat))
 
@@ -307,4 +310,3 @@ def validate_coordinates(coords: Dict[str, float], coord_system: str) -> bool:
         return (100000 <= x <= 600000) and (1000000 <= y <= 1500000)
 
     return False
-

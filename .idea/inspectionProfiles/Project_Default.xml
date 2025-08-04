@@ -73,6 +73,19 @@
     <inspection_tool class="MessDetectorValidationInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true" />
     <inspection_tool class="PhpCSFixerValidationInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true" />
     <inspection_tool class="PhpCSValidationInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="5">
+            <item index="0" class="java.lang.String" itemvalue="aiohttp_mock" />
+            <item index="1" class="java.lang.String" itemvalue="opentelemetry-api" />
+            <item index="2" class="java.lang.String" itemvalue="opentelemetry-sdk" />
+            <item index="3" class="java.lang.String" itemvalue="pycryptodome" />
+            <item index="4" class="java.lang.String" itemvalue="curl-cffi" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
     <inspection_tool class="SecurityAdvisoriesInspection" enabled="true" level="WARNING" enabled_by_default="true">
       <option name="optionConfiguration">
         <list>

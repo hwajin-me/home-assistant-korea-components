@@ -1,5 +1,6 @@
 """Exceptions for Safety Alert integration."""
 
+
 class SafetyAlertError(Exception):
     """Base exception for Safety Alert integration."""
 
@@ -10,4 +11,3 @@ class SafetyAlertConnectionError(SafetyAlertError):
 
 class SafetyAlertDataError(SafetyAlertError):
     """Data parsing error with Safety Alert API."""
-

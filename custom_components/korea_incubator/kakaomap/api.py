@@ -47,13 +47,13 @@ class KakaoMapApiClient:
             raise KakaoMapDataError(f"Unexpected error: {e}")
 
     async def async_get_public_transport_route(
-        self,
-        start_x: float,
-        start_y: float,
-        end_x: float,
-        end_y: float,
-        coord_system: str = "WCONGNAMUL",
-        start_time: Optional[str] = None
+            self,
+            start_x: float,
+            start_y: float,
+            end_x: float,
+            end_y: float,
+            coord_system: str = "WCONGNAMUL",
+            start_time: Optional[str] = None
     ) -> Dict[str, Any]:
         """Get public transport route information."""
         url = f"{self._base_url}/route/pubtrans.json"
@@ -182,4 +182,3 @@ class KakaoMapApiClient:
         # Fall back to first route
         first_route = transport_data["routes"][0]
         return f"{first_route['time']} ({first_route['fare']}, 환승 {first_route['transfers']}회)"
-

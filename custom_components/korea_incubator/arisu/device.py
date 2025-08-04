@@ -17,12 +17,12 @@ class ArisuDevice:
     """Arisu device representation with type safety."""
 
     def __init__(
-        self,
-        hass: HomeAssistant,
-        entry_id: str,
-        customer_number: str,
-        customer_name: str,
-        session: aiohttp.ClientSession
+            self,
+            hass: HomeAssistant,
+            entry_id: str,
+            customer_number: str,
+            customer_name: str,
+            session: aiohttp.ClientSession
     ) -> None:
         """Initialize Arisu device."""
         self.hass: HomeAssistant = hass

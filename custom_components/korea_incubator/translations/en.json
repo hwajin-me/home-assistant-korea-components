@@ -28,14 +28,28 @@
         }
       },
       "safety_alert": {
-        "title": "Safety Alert Configuration",
+        "title": "Safety Alert Setup - Select Province/City",
+        "description": "Select the province or city to receive safety alerts.",
         "data": {
-          "area_code": "Area Code",
-          "area_name": "Area Name",
-          "area_code2": "Area Code 2 (Optional)",
-          "area_name2": "Area Name 2 (Optional)",
-          "area_code3": "Area Code 3 (Optional)",
-          "area_name3": "Area Name 3 (Optional)"
+          "sido_code": "Province/City Code",
+          "sido_name": "Province/City Name"
+        }
+      },
+      "safety_alert_sgg": {
+        "title": "Safety Alert Setup - Select District",
+        "description": "Select the district to receive safety alerts. Check 'Add Sub-district' if you want to specify down to the sub-district level.",
+        "data": {
+          "sgg_code": "District",
+          "sgg_name": "District Name",
+          "add_emd": "Add Sub-district"
+        }
+      },
+      "safety_alert_emd": {
+        "title": "Safety Alert Setup - Select Sub-district",
+        "description": "Select the sub-district to receive safety alerts.",
+        "data": {
+          "emd_code": "Sub-district",
+          "emd_name": "Sub-district Name"
         }
       },
       "goodsflow": {
@@ -71,7 +85,10 @@
       "unknown": "An unknown error occurred.",
       "invalid_coordinates": "Invalid coordinates.",
       "invalid_wgs84_coordinates": "Invalid WGS84 coordinates. (Longitude: 124-132, Latitude: 33-39)",
-      "invalid_wcongnamul_coordinates": "Invalid WCONGNAMUL coordinates."
+      "invalid_wcongnamul_coordinates": "Invalid WCONGNAMUL coordinates.",
+      "no_regions_available": "No regions available.",
+      "no_sgg_available": "No districts available for the selected province/city.",
+      "no_emd_available": "No sub-districts available for the selected district."
     },
     "abort": {
       "already_configured": "This account is already configured."

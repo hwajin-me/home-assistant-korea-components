@@ -13,7 +13,8 @@ from ..const import DOMAIN, LOGGER
 class GasAppDevice:
     """GasApp device representation."""
 
-    def __init__(self, hass, entry_id: str, token: str, member_id: str, use_contract_num: str, session: aiohttp.ClientSession):
+    def __init__(self, hass, entry_id: str, token: str, member_id: str, use_contract_num: str,
+                 session: aiohttp.ClientSession):
         self.hass = hass
         self.entry_id = entry_id
         self.token = token
@@ -125,4 +126,3 @@ class GasAppDevice:
         if self.session:
             await self.session.close()
             self.session = None
-

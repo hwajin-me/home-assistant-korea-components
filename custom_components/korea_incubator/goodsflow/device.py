@@ -102,4 +102,3 @@ class GoodsFlowDevice:
         if self.session:
             await self.session.close()
             self.session = None
-

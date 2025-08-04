@@ -4,6 +4,7 @@
 class GasAppError(Exception):
     """Base exception for GasApp integration."""
 
+
 class GasAppAuthError(GasAppError):
     """Authentication error with GasApp."""
 
@@ -14,4 +15,3 @@ class GasAppConnectionError(GasAppError):
 
 class GasAppDataError(GasAppError):
     """Data parsing error with GasApp."""
-

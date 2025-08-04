@@ -67,7 +67,8 @@ class GoodsFlowApiClient:
             LOGGER.error(f"Unexpected error in GoodsFlow API request: {e}")
             raise GoodsFlowDataError(f"Unexpected error: {e}")
 
-    async def async_get_tracking_list(self, limit: int = 10, start: int = 0, type_filter: str = "ALL") -> Dict[str, Any]:
+    async def async_get_tracking_list(self, limit: int = 10, start: int = 0, type_filter: str = "ALL") -> Dict[
+        str, Any]:
         """Get tracking list from GoodsFlow API."""
         params = {
             "limit": str(limit),
@@ -110,4 +111,3 @@ class GoodsFlowApiClient:
             "delivered_packages": delivered_count,
             "packages": packages
         }
-

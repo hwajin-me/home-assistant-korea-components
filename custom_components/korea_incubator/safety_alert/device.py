@@ -17,14 +17,14 @@ class SafetyAlertDevice:
     """Safety Alert device representation with type safety."""
 
     def __init__(
-        self,
-        hass: HomeAssistant,
-        entry_id: str,
-        area_code: str,
-        area_name: str,
-        area_code2: Optional[str] = None,
-        area_code3: Optional[str] = None,
-        session: aiohttp.ClientSession = None
+            self,
+            hass: HomeAssistant,
+            entry_id: str,
+            area_code: str,
+            area_name: str,
+            area_code2: Optional[str] = None,
+            area_code3: Optional[str] = None,
+            session: aiohttp.ClientSession = None
     ) -> None:
         """Initialize Safety Alert device."""
         self.hass: HomeAssistant = hass

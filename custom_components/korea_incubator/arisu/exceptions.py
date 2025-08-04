@@ -4,6 +4,7 @@
 class ArisuError(Exception):
     """Base exception for Arisu integration."""
 
+
 class ArisuAuthError(ArisuError):
     """Authentication error with Arisu."""
 
@@ -14,4 +15,3 @@ class ArisuConnectionError(ArisuError):
 
 class ArisuDataError(ArisuError):
     """Data parsing error with Arisu."""
-

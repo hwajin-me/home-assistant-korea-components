@@ -5,6 +5,7 @@ from typing import Dict, Any, Optional
 from .exceptions import GasAppAuthError, GasAppConnectionError, GasAppDataError
 from ..const import LOGGER
 
+
 class GasAppApiClient:
     """API client for GasApp integration."""
 
@@ -108,4 +109,3 @@ class GasAppApiClient:
         except Exception as e:
             LOGGER.error(f"Failed to get current bill: {e}")
             raise GasAppDataError(f"Failed to get current bill: {e}")
-
