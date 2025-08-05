@@ -1,0 +1,122 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Select Service",
+        "menu_options": {
+          "kepco": "KEPCO (Korea Electric Power Corporation)",
+          "gasapp": "GasApp (Korea Gas Corporation)",
+          "safety_alert": "Safety Alert (Ministry of the Interior and Safety)",
+          "goodsflow": "GoodsFlow (Package Tracking)",
+          "arisu": "Arisu (Seoul Water Works)",
+          "kakaomap": "KakaoMap (Traffic Information)"
+        }
+      },
+      "kepco": {
+        "title": "KEPCO Login",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "gasapp": {
+        "title": "GasApp Configuration",
+        "data": {
+          "token": "Token",
+          "member_id": "Member ID",
+          "use_contract_num": "Use Contract Number"
+        }
+      },
+      "safety_alert": {
+        "title": "Safety Alert Setup - Select Province/City",
+        "description": "Select the province or city to receive safety alerts.",
+        "data": {
+          "sido_code": "Province/City Code",
+          "sido_name": "Province/City Name"
+        }
+      },
+      "safety_alert_sgg": {
+        "title": "Safety Alert Setup - Select District",
+        "description": "Select the district to receive safety alerts. Check 'Add Sub-district' if you want to specify down to the sub-district level.",
+        "data": {
+          "sgg_code": "District",
+          "sgg_name": "District Name",
+          "add_emd": "Add Sub-district"
+        }
+      },
+      "safety_alert_emd": {
+        "title": "Safety Alert Setup - Select Sub-district",
+        "description": "Select the sub-district to receive safety alerts.",
+        "data": {
+          "emd_code": "Sub-district",
+          "emd_name": "Sub-district Name"
+        }
+      },
+      "goodsflow": {
+        "title": "GoodsFlow Configuration",
+        "data": {
+          "token": "Authentication Token"
+        }
+      },
+      "arisu": {
+        "title": "Arisu Configuration",
+        "data": {
+          "customer_number": "Customer Number",
+          "customer_name": "Customer Name"
+        }
+      },
+      "kakaomap": {
+        "title": "KakaoMap Configuration",
+        "description": "Set start and end locations to get traffic information.",
+        "data": {
+          "name": "Route Name",
+          "coord_system": "Coordinate System",
+          "start_x": "Start X Coordinate/Longitude",
+          "start_y": "Start Y Coordinate/Latitude",
+          "end_x": "End X Coordinate/Longitude",
+          "end_y": "End Y Coordinate/Latitude"
+        }
+      }
+    },
+    "error": {
+      "auth": "Authentication failed. ({error})",
+      "invalid_auth": "Invalid username or password. ({error})",
+      "cannot_connect": "Failed to connect to the server. ({error})",
+      "unknown": "An unknown error occurred. ({error})",
+      "invalid_coordinates": "Invalid coordinates.",
+      "invalid_wgs84_coordinates": "Invalid WGS84 coordinates. (Longitude: 124-132, Latitude: 33-39)",
+      "invalid_wcongnamul_coordinates": "Invalid WCONGNAMUL coordinates.",
+      "no_regions_available": "No regions available.",
+      "no_sgg_available": "No districts available for the selected province/city.",
+      "no_emd_available": "No sub-districts available for the selected district."
+    },
+    "abort": {
+      "already_configured": "This account is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "description": "There are no options to configure."
+      }
+    },
+    "abort": {
+      "no_options": "There are no options to configure.",
+      "no_options_kepco": "There are no options to configure for KEPCO.",
+      "no_options_gasapp": "There are no options to configure for GasApp.",
+      "no_options_safety_alert": "There are no options to configure for Safety Alert.",
+      "no_options_goodsflow": "There are no options to configure for GoodsFlow.",
+      "no_options_arisu": "There are no options to configure for Arisu.",
+      "no_options_kakaomap": "There are no options to configure for KakaoMap."
+    }
+  },
+  "selector": {
+    "coord_system": {
+      "options": {
+        "WCONGNAMUL": "WCONGNAMUL (KakaoMap Default)",
+        "WGS84": "WGS84 (GPS Coordinates)"
+      }
+    }
+  }
+}

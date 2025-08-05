@@ -1,0 +1,13 @@
+homeassistant>=2024.10.3
+pip>=21.3.1
+ruff==0.7.3
+beautifulsoup4>=4.11.0
+aiohttp
+pycryptodome>=3.15.0
+aiohttp_mock
+pytest-homeassistant-custom-component
+fake-useragent==1.5.1
+voluptuous~=0.15.2
+pytest-socket==0.7.0
+pytest~=8.3.3
+curl-cffi>=0.7.4
