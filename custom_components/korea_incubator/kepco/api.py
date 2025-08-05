@@ -74,7 +74,7 @@ class KepcoApiClient:
         encrypted_username_hex = encrypted_username_bytes.hex()
         encrypted_password_hex = encrypted_password_bytes.hex()
 
-        LOGGER.debug(f"ID/PW: {encrypted_username_hex} / {encrypted_password_hex}")
+        LOGGER.debug(f"KEPCO ID/PW: {encrypted_username_hex} / {encrypted_password_hex}, Session ID: {sessid}")
 
         user_id = f"{sessid}_{encrypted_username_hex}"
         user_pw = f"{sessid}_{encrypted_password_hex}"
