@@ -1,7 +1,7 @@
 services:
-  homeassistant-korea:
-    container_name: homeassistant-korea
-    image: "ghcr.io/home-assistant/home-assistant:stable"
+  homeassistant-korea-2025:
+    container_name: homeassistant-korea-2025
+    image: "homeassistant/home-assistant:2025.7"
     volumes:
       - ./configuration.yaml:/config/configuration.yaml
       - ../custom_components/korea_incubator:/config/custom_components/korea_incubator
@@ -13,6 +13,21 @@ services:
       - "8123:8123"
     networks:
       - podman-default
+  homeassistant-korea-2024:
+    container_name: homeassistant-korea-2024
+    image: "homeassistant/home-assistant:2024.7"
+    volumes:
+      - ./configuration.yaml:/config/configuration.yaml
+      - ../custom_components/korea_incubator:/config/custom_components/korea_incubator
+    restart: unless-stopped
+    privileged: true
+    environment:
+      - TZ=Asia/Seoul
+    ports:
+      - "8124:8123"
+    networks:
+      - podman-default
+
 
 networks:
   podman-default:
