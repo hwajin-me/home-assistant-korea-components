@@ -21,7 +21,9 @@ class KepcoApiClient:
 
     async def async_get_session_and_rsa_key(self):
         url = "https://pp.kepco.co.kr:8030/intro.do"
-        async with self._session.get(url) as response:
+        async with self._session.get(
+            url=url
+        ) as response:
             response.raise_for_status()
             LOGGER.debug(f"Intro page response status: {response.status}")
             LOGGER.debug(f"Intro page response headers: {response.headers}")
@@ -89,6 +91,7 @@ class KepcoApiClient:
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
             "Referer": "https://pp.kepco.co.kr:8030/intro.do",
+            "Cookie": f"JSESSIONID={jsessionid}",
         }
 
         async with self._session.post(login_url, data=payload, headers=headers, allow_redirects=True) as response:
