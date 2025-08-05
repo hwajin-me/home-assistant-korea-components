@@ -6,7 +6,7 @@ aiohttp
 pycryptodome>=3.15.0
 aiohttp_mock
 pytest-homeassistant-custom-component
-fake-useragent==1.5.1
+fake-useragent==2.2.0
 voluptuous~=0.15.2
 pytest-socket==0.7.0
 pytest~=8.3.3
