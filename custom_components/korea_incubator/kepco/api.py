@@ -57,7 +57,7 @@ class KepcoApiClient:
         try:
             jsessionid, rsa_modulus, rsa_exponent, sessid = await self.async_get_session_and_rsa_key()
         except KepcoAuthError as e:
-            LOGGER.error(f"Login failed: {e}")
+            LOGGER.error(f"KEPCO Login failed: {e}")
             return False
 
         LOGGER.debug(f"KEPCO Login Request with {username} and {password}")
@@ -100,6 +100,7 @@ class KepcoApiClient:
                 # 최종적으로 도달한 URL이 confirmInfo.do 이거나, 로그인 성공을 나타내는 페이지인지 확인
                 if "confirmInfo.do" in str(response.url):  # or check for specific content on the final page
                     return True
+            LOGGER.error(f"KEPCO Login failed with status {response.status}: {text}")
             return False
 
     async def _request(self, method, url, **kwargs):
@@ -126,7 +127,7 @@ class KepcoApiClient:
                         response.raise_for_status()
                         return await response.json()
                 else:
-                    LOGGER.error("Re-login failed.")
+                    LOGGER.error("KEPCO Re-login failed.")
             raise  # Re-raise if not 401 or re-login failed
 
     async def async_get_recent_usage(self):

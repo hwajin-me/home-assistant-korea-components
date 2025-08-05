@@ -1,30 +1,28 @@
 from __future__ import annotations
 
-import ssl
 from datetime import timedelta
 from typing import Dict, Any, Union
 
 import aiohttp
-import certifi
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, LOGGER
+from .arisu.device import ArisuDevice
+from .arisu.exceptions import ArisuAuthError
+from .const import DOMAIN, LOGGER, PLATFORMS
+from .gasapp.device import GasAppDevice
+from .gasapp.exceptions import GasAppAuthError
+from .goodsflow.device import GoodsFlowDevice
+from .goodsflow.exceptions import GoodsFlowAuthError
+from .kakaomap.device import KakaoMapDevice
+from .kakaomap.exceptions import KakaoMapConnectionError, KakaoMapDataError
 from .kepco.api import KepcoApiClient
 from .kepco.device import KepcoDevice
 from .kepco.exceptions import KepcoAuthError
-from .gasapp.device import GasAppDevice
-from .gasapp.exceptions import GasAppAuthError
 from .safety_alert.device import SafetyAlertDevice
 from .safety_alert.exceptions import SafetyAlertConnectionError, SafetyAlertDataError
-from .goodsflow.device import GoodsFlowDevice
-from .goodsflow.exceptions import GoodsFlowAuthError
-from .arisu.device import ArisuDevice
-from .arisu.exceptions import ArisuAuthError
-from .kakaomap.device import KakaoMapDevice
-from .kakaomap.exceptions import KakaoMapConnectionError, KakaoMapDataError
 
 # Device type union for type hints
 DeviceType = Union[
@@ -36,15 +34,14 @@ DeviceType = Union[
     KakaoMapDevice
 ]
 
-PLATFORMS = ["sensor"]
-
-
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up the Korea platform from a config entry."""
     service: str = entry.data.get("service")
     device: DeviceType
+    update_interval: timedelta = timedelta(minutes=20)
 
     if service == "kepco":
+        update_interval = timedelta(minutes=15)
         device = KepcoDevice(
             hass,
             entry.entry_id,
@@ -79,6 +76,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 raise UpdateFailed(f"Error communicating with KEPCO API: {err}") from err
 
     elif service == "gasapp":
+        update_interval = timedelta(hours=1)
         device = GasAppDevice(
             hass,
             entry.entry_id,
@@ -109,7 +107,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 raise UpdateFailed(f"Authentication failed for GasApp: {err}") from err
             except Exception as err:
                 raise UpdateFailed(f"Error communicating with GasApp API: {err}") from err
+
     elif service == "safety_alert":
+        update_interval = timedelta(minutes=5)
         device = SafetyAlertDevice(
             hass,
             entry.entry_id,
@@ -143,6 +143,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 raise UpdateFailed(f"Error communicating with SafetyAlert API: {err}") from err
 
     elif service == "goodsflow":
+        update_interval = timedelta(minutes=15)
         device = GoodsFlowDevice(
             hass,
             entry.entry_id,
@@ -173,6 +174,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 raise UpdateFailed(f"Error communicating with GoodsFlow API: {err}") from err
 
     elif service == "arisu":
+        update_interval = timedelta(minutes=30)
         device = ArisuDevice(
             hass,
             entry.entry_id,
@@ -204,6 +206,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 raise UpdateFailed(f"Error communicating with Arisu API: {err}") from err
 
     elif service == "kakaomap":
+        update_interval = timedelta(minutes=1)
         device = KakaoMapDevice(
             hass,
             entry.entry_id,
@@ -245,7 +248,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         LOGGER,
         name=f"{DOMAIN}_{service}",
         update_method=async_update_data,
-        update_interval=timedelta(minutes=30),
+        update_interval=update_interval
     )
 
     # Store coordinator and device in hass.data

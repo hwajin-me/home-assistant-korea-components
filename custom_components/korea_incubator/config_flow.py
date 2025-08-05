@@ -44,6 +44,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_kepco(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle KEPCO configuration."""
         errors: Dict[str, str] = {}
+        error_info: Dict[str, str] = {}
 
         if user_input is not None:
             async with aiohttp.ClientSession() as session:
@@ -62,12 +63,15 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         return self.async_create_entry(title=f"한전 ({user_input[CONF_USERNAME]})", data=user_input)
                     else:
                         errors["base"] = "auth"
+                        error_info["auth"] = "Login returned false"
                 except KepcoAuthError as e:
                     LOGGER.error(f"KEPCO login failed: {e}")
                     errors["base"] = "invalid_auth"
+                    error_info["invalid_auth"] = str(e)
                 except Exception as e:
                     LOGGER.error(f"KEPCO login failed: {e}")
                     errors["base"] = "unknown"
+                    error_info["unknown"] = str(e)
 
         return self.async_show_form(
             step_id="kepco",
@@ -78,11 +82,13 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+            description_placeholders=error_info,
         )
 
     async def async_step_gasapp(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle GasApp configuration."""
         errors: Dict[str, str] = {}
+        error_info: Dict[str, str] = {}
 
         if user_input is not None:
             async with aiohttp.ClientSession() as session:
@@ -105,12 +111,15 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         )
                     else:
                         errors["base"] = "auth"
+                        error_info["auth"] = "Credential validation returned false"
                 except GasAppAuthError as e:
                     LOGGER.error(f"GasApp authentication failed: {e}")
                     errors["base"] = "invalid_auth"
+                    error_info["invalid_auth"] = str(e)
                 except Exception as e:
                     LOGGER.error(f"GasApp connection failed: {e}")
                     errors["base"] = "unknown"
+                    error_info["unknown"] = str(e)
 
         return self.async_show_form(
             step_id="gasapp",
@@ -122,11 +131,13 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+            description_placeholders=error_info,
         )
 
     async def async_step_safety_alert(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle Safety Alert configuration - start with sido selection."""
         errors: Dict[str, str] = {}
+        error_info: Dict[str, str] = {}
 
         if user_input is not None:
             # Store the selected sido and move to sgg selection
@@ -142,6 +153,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 if not sido_list:
                     errors["base"] = "no_regions_available"
+                    error_info["no_regions_available"] = "No sido data returned from API"
                 else:
                     # Create options for dropdown
                     sido_options = {region["code"]: region["name"] for region in sido_list}
@@ -153,14 +165,17 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             vol.Required("sido_name", default="서울특별시"): str,
                         }),
                         errors=errors,
+                        description_placeholders=error_info,
                     )
 
         except SafetyAlertConnectionError as e:
             LOGGER.error(f"Safety Alert region API failed: {e}")
             errors["base"] = "cannot_connect"
+            error_info["cannot_connect"] = str(e)
         except Exception as e:
             LOGGER.error(f"Safety Alert setup failed: {e}")
             errors["base"] = "unknown"
+            error_info["unknown"] = str(e)
 
         # Fallback to simple form if API fails
         return self.async_show_form(
@@ -170,11 +185,13 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required("sido_name", default="서울특별시"): str,
             }),
             errors=errors,
+            description_placeholders=error_info,
         )
 
     async def async_step_safety_alert_sgg(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle Safety Alert sgg (시군구) selection."""
         errors: Dict[str, str] = {}
+        error_info: Dict[str, str] = {}
 
         if user_input is not None:
             # Store the selected sgg and move to optional emd selection
@@ -195,6 +212,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 if not sgg_list:
                     errors["base"] = "no_sgg_available"
+                    error_info["no_sgg_available"] = f"No sgg data returned for sido code {self._safety_alert_data['sido_code']}"
                 else:
                     # Create options for dropdown
                     sgg_options = {region["code"]: region["name"] for region in sgg_list}
@@ -207,14 +225,17 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             vol.Optional("add_emd", default=False): bool,
                         }),
                         errors=errors,
+                        description_placeholders=error_info,
                     )
 
         except SafetyAlertConnectionError as e:
             LOGGER.error(f"Safety Alert sgg API failed: {e}")
             errors["base"] = "cannot_connect"
+            error_info["cannot_connect"] = str(e)
         except Exception as e:
             LOGGER.error(f"Safety Alert sgg setup failed: {e}")
             errors["base"] = "unknown"
+            error_info["unknown"] = str(e)
 
         return self.async_show_form(
             step_id="safety_alert_sgg",
@@ -224,11 +245,13 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional("add_emd", default=False): bool,
             }),
             errors=errors,
+            description_placeholders=error_info,
         )
 
     async def async_step_safety_alert_emd(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle Safety Alert emd (읍면동) selection."""
         errors: Dict[str, str] = {}
+        error_info: Dict[str, str] = {}
 
         if user_input is not None:
             # Store the selected emd and create entry
@@ -247,6 +270,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 if not emd_list:
                     errors["base"] = "no_emd_available"
+                    error_info["no_emd_available"] = f"No emd data returned for sido {self._safety_alert_data['sido_code']} and sgg {self._safety_alert_data['sgg_code']}"
                 else:
                     # Create options for dropdown
                     emd_options = {region["code"]: region["name"] for region in emd_list}
@@ -258,14 +282,17 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             vol.Required("emd_name"): str,
                         }),
                         errors=errors,
+                        description_placeholders=error_info,
                     )
 
         except SafetyAlertConnectionError as e:
             LOGGER.error(f"Safety Alert emd API failed: {e}")
             errors["base"] = "cannot_connect"
+            error_info["cannot_connect"] = str(e)
         except Exception as e:
             LOGGER.error(f"Safety Alert emd setup failed: {e}")
             errors["base"] = "unknown"
+            error_info["unknown"] = str(e)
 
         return self.async_show_form(
             step_id="safety_alert_emd",
@@ -274,6 +301,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required("emd_name"): str,
             }),
             errors=errors,
+            description_placeholders=error_info,
         )
 
     async def _create_safety_alert_entry(self):
@@ -334,6 +362,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_arisu(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle Arisu configuration."""
         errors: Dict[str, str] = {}
+        error_info: Dict[str, str] = {}
 
         if user_input is not None:
             async with aiohttp.ClientSession() as session:
@@ -357,12 +386,15 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         )
                     else:
                         errors["base"] = "invalid_auth"
+                        error_info["invalid_auth"] = "Credentials validation failed"
                 except ArisuAuthError as e:
                     LOGGER.error(f"Arisu authentication failed: {e}")
                     errors["base"] = "invalid_auth"
+                    error_info["invalid_auth"] = str(e)
                 except Exception as e:
                     LOGGER.error(f"Arisu connection failed: {e}")
                     errors["base"] = "unknown"
+                    error_info["unknown"] = str(e)
 
         return self.async_show_form(
             step_id="arisu",
@@ -373,11 +405,13 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+            description_placeholders=error_info,
         )
 
     async def async_step_kakaomap(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle KakaoMap configuration."""
         errors: Dict[str, str] = {}
+        error_info: Dict[str, str] = {}
 
         if user_input is not None:
             async with aiohttp.ClientSession() as session:
@@ -401,8 +435,10 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         # 좌표 유효성 검사
                         if not validate_coordinates(start_coords_input, "WGS84"):
                             errors["start_x"] = "invalid_wgs84_coordinates"
+                            error_info["invalid_wgs84_coordinates"] = f"Longitude: {start_coords_input['longitude']}, Latitude: {start_coords_input['latitude']}"
                         if not validate_coordinates(end_coords_input, "WGS84"):
                             errors["end_x"] = "invalid_wgs84_coordinates"
+                            error_info["invalid_wgs84_coordinates"] = f"Longitude: {end_coords_input['longitude']}, Latitude: {end_coords_input['latitude']}"
 
                         if not errors:
                             # WGS84를 WCONGNAMUL로 변환
@@ -422,8 +458,10 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         # 좌표 유효성 검사
                         if not validate_coordinates(start_coords, "WCONGNAMUL"):
                             errors["start_x"] = "invalid_wcongnamul_coordinates"
+                            error_info["invalid_wcongnamul_coordinates"] = f"X: {start_coords['x']}, Y: {start_coords['y']}"
                         if not validate_coordinates(end_coords, "WCONGNAMUL"):
                             errors["end_x"] = "invalid_wcongnamul_coordinates"
+                            error_info["invalid_wcongnamul_coordinates"] = f"X: {end_coords['x']}, Y: {end_coords['y']}"
 
                     if not errors:
                         # Test coordinate to address conversion
@@ -448,16 +486,20 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             )
                         else:
                             errors["base"] = "invalid_coordinates"
+                            error_info["invalid_coordinates"] = "Address lookup failed with the provided coordinates"
 
                 except KakaoMapConnectionError as e:
                     LOGGER.error(f"KakaoMap connection failed: {e}")
                     errors["base"] = "cannot_connect"
+                    error_info["cannot_connect"] = str(e)
                 except ValueError as e:
                     LOGGER.error(f"Invalid coordinates: {e}")
                     errors["base"] = "invalid_coordinates"
+                    error_info["invalid_coordinates"] = str(e)
                 except Exception as e:
                     LOGGER.error(f"KakaoMap setup failed: {e}")
                     errors["base"] = "unknown"
+                    error_info["unknown"] = str(e)
 
         return self.async_show_form(
             step_id="kakaomap",
@@ -474,11 +516,13 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+            description_placeholders=error_info,
         )
 
     async def async_step_goodsflow(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle GoodsFlow configuration."""
         errors: Dict[str, str] = {}
+        error_info: Dict[str, str] = {}
 
         if user_input is not None:
             async with aiohttp.ClientSession() as session:
@@ -497,12 +541,15 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         )
                     else:
                         errors["base"] = "invalid_auth"
+                        error_info["invalid_auth"] = "Token validation failed"
                 except GoodsFlowAuthError as e:
                     LOGGER.error(f"GoodsFlow authentication failed: {e}")
                     errors["base"] = "invalid_auth"
+                    error_info["invalid_auth"] = str(e)
                 except Exception as e:
                     LOGGER.error(f"GoodsFlow connection failed: {e}")
                     errors["base"] = "unknown"
+                    error_info["unknown"] = str(e)
 
         return self.async_show_form(
             step_id="goodsflow",
@@ -512,6 +559,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+            description_placeholders=error_info,
         )
 
     @staticmethod

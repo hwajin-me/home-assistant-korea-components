@@ -8,9 +8,11 @@
     "@hwajin-me"
   ],
   "requirements": [
+    "fake-useragent",
     "aiohttp",
     "pycryptodome",
-    "beautifulsoup4"
+    "beautifulsoup4",
+    "voluptuous"
   ],
   "version": "0.1.0",
   "iot_class": "cloud_polling"

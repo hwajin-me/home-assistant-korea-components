@@ -79,10 +79,10 @@
       }
     },
     "error": {
-      "auth": "Authentication failed.",
-      "invalid_auth": "Invalid username or password.",
-      "cannot_connect": "Failed to connect to the server.",
-      "unknown": "An unknown error occurred.",
+      "auth": "Authentication failed. ({error})",
+      "invalid_auth": "Invalid username or password. ({error})",
+      "cannot_connect": "Failed to connect to the server. ({error})",
+      "unknown": "An unknown error occurred. ({error})",
       "invalid_coordinates": "Invalid coordinates.",
       "invalid_wgs84_coordinates": "Invalid WGS84 coordinates. (Longitude: 124-132, Latitude: 33-39)",
       "invalid_wcongnamul_coordinates": "Invalid WCONGNAMUL coordinates.",

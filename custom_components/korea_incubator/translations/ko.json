@@ -79,10 +79,10 @@
       }
     },
     "error": {
-      "auth": "인증에 실패했습니다.",
-      "invalid_auth": "사용자명 또는 비밀번호가 잘못되었습니다.",
-      "cannot_connect": "서버에 연결할 수 없습니다.",
-      "unknown": "알 수 없는 오류가 발생했습니다.",
+      "auth": "인증에 실패했습니다. ({error})",
+      "invalid_auth": "사용자명 또는 비밀번호가 잘못되었습니다. ({error})",
+      "cannot_connect": "서버에 연결할 수 없습니다. ({error})",
+      "unknown": "알 수 없는 오류가 발생했습니다. ({error})",
       "invalid_coordinates": "잘못된 좌표입니다.",
       "invalid_wgs84_coordinates": "유효하지 않은 WGS84 좌표입니다. (경도: 124-132, 위도: 33-39)",
       "invalid_wcongnamul_coordinates": "유효하지 않은 WCONGNAMUL 좌표입니다.",
