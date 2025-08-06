@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import aiohttp
+from curl_cffi import AsyncSession
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
@@ -10,7 +11,7 @@ from ..const import DOMAIN, LOGGER
 
 
 class KepcoDevice:
-    def __init__(self, hass, entry_id: str, username: str, password: str, session: aiohttp.ClientSession):
+    def __init__(self, hass, entry_id: str, username: str, password: str, session: aiohttp.ClientSession|AsyncSession):
         self.hass = hass
         self.entry_id = entry_id
         self.username = username

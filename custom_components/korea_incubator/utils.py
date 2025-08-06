@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import re
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -8,6 +9,76 @@ import pytz
 from homeassistant.util import dt as dt_util
 
 from custom_components.korea_incubator.const import TZ_ASIA_SEOUL
+
+
+class RSAKey:
+    """rsa.js의 RSAKey와 동일한 기능을 하는 Python 클래스"""
+
+    def __init__(self):
+        self.n = None
+        self.e = 0
+
+    def set_public(self, modulus_hex, exponent_hex):
+        """RSA 공개키를 16진수 문자열로부터 설정"""
+        if modulus_hex and exponent_hex and len(modulus_hex) > 0 and len(exponent_hex) > 0:
+            self.n = int(modulus_hex, 16)
+            self.e = int(exponent_hex, 16)
+        else:
+            raise ValueError("Invalid RSA public key")
+
+    def do_public(self, x):
+        """x^e (mod n) 계산"""
+        return pow(x, self.e, self.n)
+
+    def encrypt(self, text):
+        """PKCS#1 RSA 암호화"""
+        key_size = (self.n.bit_length() + 7) // 8
+        m = pkcs1pad2(text, key_size)
+        if m is None:
+            return None
+        c = self.do_public(m)
+        if c is None:
+            return None
+        h = hex(c)[2:]  # '0x' 제거
+        # 홀수 길이면 앞에 '0' 추가
+        if len(h) % 2 == 1:
+            h = "0" + h
+        return h
+
+
+def pkcs1pad2(s, n):
+    """rsa.js의 pkcs1pad2 함수와 동일한 PKCS#1 타입 2 패딩"""
+    # UTF-8 인코딩
+    s_bytes = s.encode('utf-8')
+    s_len = len(s_bytes)
+
+    if n < s_len + 11:
+        raise ValueError("Message too long for RSA")
+
+    # 바이트 배열 생성
+    ba = bytearray(n)
+
+    # 메시지를 뒤에서부터 배치
+    ba[n - s_len:n] = s_bytes
+
+    # 0x00 구분자
+    ba[n - s_len - 1] = 0
+
+    # 랜덤 논제로 패딩 (2부터 메시지 앞까지)
+    for i in range(2, n - s_len - 1):
+        # 0이 아닌 랜덤 바이트 생성
+        while True:
+            rand_byte = random.randint(1, 255)
+            if rand_byte != 0:
+                ba[i] = rand_byte
+                break
+
+    # PKCS#1 타입 2 헤더
+    ba[0] = 0x00
+    ba[1] = 0x02
+
+    # 바이트 배열을 정수로 변환
+    return int.from_bytes(ba, 'big')
 
 
 def get_value_from_path(data: Dict[str, Any], path: str) -> Any:

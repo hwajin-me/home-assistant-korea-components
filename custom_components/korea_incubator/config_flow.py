@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 import aiohttp
+import curl_cffi
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
@@ -47,7 +48,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         error_info: Dict[str, str] = {}
 
         if user_input is not None:
-            async with aiohttp.ClientSession() as session:
+            async with curl_cffi.AsyncSession() as session:
                 client = KepcoApiClient(session)
                 client.set_credentials(user_input[CONF_USERNAME], user_input[CONF_PASSWORD])
                 try:

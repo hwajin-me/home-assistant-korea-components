@@ -4,6 +4,7 @@ from datetime import timedelta
 from typing import Dict, Any, Union
 
 import aiohttp
+import curl_cffi
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
@@ -47,7 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry.entry_id,
             entry.data.get(CONF_USERNAME),
             entry.data.get(CONF_PASSWORD),
-            aiohttp.ClientSession()
+            curl_cffi.AsyncSession()
         )
 
         # Initial login and data fetch
