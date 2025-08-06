@@ -1,8 +1,8 @@
 import pytest
 import aiohttp
-from aiohttp_mock import AioHTTPMock
+import respx
 from custom_components.korea_incubator.arisu.api import ArisuApiClient
-from custom_components.korea_incubator.arisu.exceptions import ArisuAuthError, ArisuConnectionError, ArisuDataError
+from custom_components.korea_incubator.arisu.exceptions import ArisuConnectionError
 
 
 @pytest.fixture
@@ -11,11 +11,11 @@ async def api_client():
         yield ArisuApiClient(session)
 
 
+@respx.mock
 @pytest.mark.asyncio
-async def test_async_get_water_bill_data_success(api_client, aiohttp_mock: AioHTTPMock):
+async def test_async_get_water_bill_data_success(api_client):
     # Mock initial session request
-    aiohttp_mock.get("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do?_m=m1_1",
-                     status=200, payload="")
+    respx.get("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do?_m=m1_1").respond(200)
 
     # Mock successful bill data response
     bill_html = '''
@@ -31,8 +31,7 @@ async def test_async_get_water_bill_data_success(api_client, aiohttp_mock: AioHT
     </html>
     '''
 
-    aiohttp_mock.post("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do",
-                     status=200, payload=bill_html, content_type="text/html")
+    respx.post("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do").respond(200, text=bill_html, headers={'Content-Type': 'text/html'})
 
     result = await api_client.async_get_water_bill_data("042389659", "홍길동")
 
@@ -43,15 +42,14 @@ async def test_async_get_water_bill_data_success(api_client, aiohttp_mock: AioHT
     assert result["arrears_info"]["overdue_amount"] == 0
 
 
+@respx.mock
 @pytest.mark.asyncio
-async def test_async_get_water_bill_data_no_data(api_client, aiohttp_mock: AioHTTPMock):
+async def test_async_get_water_bill_data_no_data(api_client):
     # Mock initial session request
-    aiohttp_mock.get("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do?_m=m1_1",
-                     status=200, payload="")
+    respx.get("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do?_m=m1_1").respond(200)
 
     # Mock response without bill data
-    aiohttp_mock.post("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do",
-                     status=200, payload="<html><body>No data</body></html>", content_type="text/html")
+    respx.post("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do").respond(200, text="<html><body>No data</body></html>", headers={'Content-Type': 'text/html'})
 
     result = await api_client.async_get_water_bill_data("000000000", "없는사람")
 
@@ -59,24 +57,23 @@ async def test_async_get_water_bill_data_no_data(api_client, aiohttp_mock: AioHT
     assert "No bill data found" in result["error"]
 
 
+@respx.mock
 @pytest.mark.asyncio
-async def test_async_get_water_bill_http_error(api_client, aiohttp_mock: AioHTTPMock):
-    aiohttp_mock.get("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do?_m=m1_1",
-                     status=500)
+async def test_async_get_water_bill_http_error(api_client):
+    respx.get("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do?_m=m1_1").respond(500)
 
     with pytest.raises(ArisuConnectionError):
         await api_client.async_get_water_bill_data("042389659", "홍길동")
 
 
+@respx.mock
 @pytest.mark.asyncio
-async def test_async_get_water_bill_fallback_to_previous_month(api_client, aiohttp_mock: AioHTTPMock):
+async def test_async_get_water_bill_fallback_to_previous_month(api_client):
     # Mock initial session request
-    aiohttp_mock.get("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do?_m=m1_1",
-                     status=200, payload="")
+    respx.get("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do?_m=m1_1").respond(200)
 
     # First request (current month) - no data
-    aiohttp_mock.post("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do",
-                     status=200, payload="<html><body>No data</body></html>", content_type="text/html")
+    respx.post("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do").respond(200, text="<html><body>No data</body></html>", headers={'Content-Type': 'text/html'})
 
     # Second request (previous month) - with data
     bill_html = '''
@@ -87,8 +84,7 @@ async def test_async_get_water_bill_fallback_to_previous_month(api_client, aioht
         </body>
     </html>
     '''
-    aiohttp_mock.post("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do",
-                     status=200, payload=bill_html, content_type="text/html")
+    respx.post("https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do").respond(200, text=bill_html, headers={'Content-Type': 'text/html'})
 
     result = await api_client.async_get_water_bill_data("042389659", "홍길동")
 

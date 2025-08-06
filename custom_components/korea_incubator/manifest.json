@@ -8,10 +8,12 @@
     "@hwajin-me"
   ],
   "requirements": [
-    "fake-useragent",
-    "aiohttp",
-    "pycryptodome",
-    "beautifulsoup4",
+    "fake-useragent==1.5.1",
+    "aiohttp>=3.9.5",
+    "cryptography>=42.0.8",
+    "pycryptodome==3.20.0",
+    "beautifulsoup4==4.11.0",
+    "curl-cffi>=0.7.4",
     "voluptuous"
   ],
   "version": "0.1.0",

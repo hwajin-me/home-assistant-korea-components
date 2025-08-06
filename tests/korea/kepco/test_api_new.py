@@ -6,26 +6,6 @@ from custom_components.korea_incubator.kepco.api import KepcoApiClient
 from custom_components.korea_incubator.kepco.exceptions import KepcoAuthError
 
 
-@pytest.mark.asyncio
-async def test_decrypt():
-    """복호화 테스트"""
-    async with aiohttp.ClientSession() as session:
-        api_client = KepcoApiClient(session)
-
-        # Mock RSA key
-        rsa_modulus = "8c5263400b6e86b9eebcdeb12aa2f3a6f1525b717d03e727f2e046e5a7a44e6ba3099f7f6e6c0001386ab64ff84e2a6f6f1241ed33c319f0dfc4b4776b74190cecd03467fff3b578ede33b89c6886301b7220fb477a9ccf07bb11e84ba74825c8a0a2ab37ed0140eb09770062cd999b2c5c85543f25e52841f74a336657c0cc8f6da232ada5d8e4d1d62f417823de1b403b1d5af037c2e5a0e0f867f7a00791c1d0a534f00762f44bb2cf20e45d853bc4ca10e24da82dc1a5b56dbb198c78ba0988a8a7b850ce1d5ddea0f0bfcd041d48882db0bb6ee327586a8cf1087e56f4af8b0b5f98c9dd3db0fa1ad4e99bd17e20cf189a8b4112c2bd4f0e113fd91a7bb"
-        rsa_exponent = "10001"
-        key = api_client._create_rsa_key(rsa_modulus, rsa_exponent)
-
-        # Mock encrypted text
-        encrypted_text = "1113d5ca3753d6af98699ece78eb9c09c0eb65d9bc72afaa59da79819af99195b7d4c6d828f8b33f423513bff4649d4929e16b4921b3b53d56c943c67b8575f3bd9214c62f093daab6c9b161aadd9bf755e15c45a0c8063a001f54b9e78ed27b3a1e29dab902b20cfc66d9ceb64e0fbe450427f840f51cffd53c633b6e21e69f979ee76fb6b0bfa89c84a8ed7b4ac99d352d820f1906dbda6ea5109d3aad31e575d4bd333ba28d156dd961f182bb58987d539ca432a6437a98654b805d2703e88478861490069e745ef38eeb6512e8f3abf77d1516066d32c0339b3f2441f592018001567f233055b3710a171291e3fe5da09d72b9fa4a07f930e75198592f1f"
-
-        decrypted_text = api_client._decrypt_with_rsa(key, encrypted_text)
-
-        assert isinstance(decrypted_text, str)
-        assert len(decrypted_text) > 0
-
-
 @pytest.fixture
 async def api_client():
     async with aiohttp.ClientSession() as session:

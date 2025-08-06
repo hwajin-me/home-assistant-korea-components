@@ -11,6 +11,7 @@ services:
       - TZ=Asia/Seoul
     ports:
       - "8123:8123"
+      - "6789:6789"
     networks:
       - podman-default
   homeassistant-korea-2024:
@@ -25,6 +26,7 @@ services:
       - TZ=Asia/Seoul
     ports:
       - "8124:8123"
+      - "6790:6789"
     networks:
       - podman-default
 
