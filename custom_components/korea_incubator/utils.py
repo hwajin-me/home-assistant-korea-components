@@ -7,6 +7,8 @@ from typing import Dict, Any, Optional
 import pytz
 from homeassistant.util import dt as dt_util
 
+from custom_components.korea_incubator.const import TZ_ASIA_SEOUL
+
 
 def get_value_from_path(data: Dict[str, Any], path: str) -> Any:
     """Get a value from a nested dictionary using a dot-separated path.
@@ -113,7 +115,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
                 year = int(pattern2.group(1))
                 month = int(pattern2.group(2))
                 day = int(pattern2.group(3))
-                parsed_dt = datetime(year, month, day, tzinfo=pytz.timezone("Asia/Seoul"))
+                parsed_dt = datetime(year, month, day, tzinfo=TZ_ASIA_SEOUL)
             except ValueError:
                 return None
 
@@ -123,7 +125,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
         if pattern3:
             try:
                 year, month, day = map(int, pattern3.groups())
-                parsed_dt = datetime(year, month, day, tzinfo=pytz.timezone("Asia/Seoul"))
+                parsed_dt = datetime(year, month, day, tzinfo=TZ_ASIA_SEOUL)
             except ValueError:
                 return None
 
@@ -133,7 +135,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
         if pattern4:
             try:
                 year, month, day = map(int, pattern4.groups())
-                parsed_dt = datetime(year, month, day, tzinfo=pytz.timezone("Asia/Seoul"))
+                parsed_dt = datetime(year, month, day, tzinfo=TZ_ASIA_SEOUL)
             except ValueError:
                 return None
 
@@ -143,7 +145,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
         if pattern5:
             try:
                 year, month = map(int, pattern5.groups())
-                parsed_dt = datetime(year, month, 1, tzinfo=pytz.timezone("Asia/Seoul"))
+                parsed_dt = datetime(year, month, 1, tzinfo=TZ_ASIA_SEOUL)
             except ValueError:
                 return None
 
@@ -153,7 +155,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
         if pattern6:
             try:
                 year, month = map(int, pattern6.groups())
-                parsed_dt = datetime(year, month, 1, tzinfo=pytz.timezone("Asia/Seoul"))
+                parsed_dt = datetime(year, month, 1, tzinfo=TZ_ASIA_SEOUL)
             except ValueError:
                 return None
 
@@ -164,7 +166,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
             try:
                 year = int(pattern7.group(1))
                 month = int(pattern7.group(2))
-                parsed_dt = datetime(year, month, 1, tzinfo=pytz.timezone("Asia/Seoul"))
+                parsed_dt = datetime(year, month, 1, tzinfo=TZ_ASIA_SEOUL)
             except ValueError:
                 return None
 
@@ -174,7 +176,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
         if pattern8:
             try:
                 month, day, hour = map(int, pattern8.groups())
-                parsed_dt = datetime(current_year, month, day, hour, 0, 0, tzinfo=pytz.timezone("Asia/Seoul"))
+                parsed_dt = datetime(current_year, month, day, hour, 0, 0, tzinfo=TZ_ASIA_SEOUL)
             except ValueError:
                 return None
 
@@ -184,7 +186,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
         if pattern9:
             try:
                 year, month, day = map(int, pattern9.groups())
-                parsed_dt = datetime(year, month, day, tzinfo=pytz.timezone("Asia/Seoul"))
+                parsed_dt = datetime(year, month, day, tzinfo=TZ_ASIA_SEOUL)
             except ValueError:
                 return None
 
@@ -194,7 +196,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
         if pattern10:
             try:
                 year, month = map(int, pattern10.groups())
-                parsed_dt = datetime(year, month, 1, tzinfo=pytz.timezone("Asia/Seoul"))
+                parsed_dt = datetime(year, month, 1, tzinfo=TZ_ASIA_SEOUL)
             except ValueError:
                 return None
 
@@ -204,7 +206,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
         if pattern11:
             try:
                 month, day, year = map(int, pattern11.groups())
-                parsed_dt = datetime(year, month, day, tzinfo=pytz.timezone("Asia/Seoul"))
+                parsed_dt = datetime(year, month, day, tzinfo=TZ_ASIA_SEOUL)
             except ValueError:
                 return None
 
@@ -214,7 +216,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
         if pattern12:
             try:
                 month, day, year = map(int, pattern12.groups())
-                parsed_dt = datetime(year, month, day, tzinfo=pytz.timezone("Asia/Seoul"))
+                parsed_dt = datetime(year, month, day, tzinfo=TZ_ASIA_SEOUL)
             except ValueError:
                 return None
 
@@ -224,7 +226,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
         if pattern13:
             try:
                 year, month, day, hour, minute, second, microsecond = map(int, pattern13.groups())
-                parsed_dt = datetime(year, month, day, hour, minute, second, microsecond=0, tzinfo=pytz.timezone("Asia/Seoul"))
+                parsed_dt = datetime(year, month, day, hour, minute, second, microsecond=0, tzinfo=TZ_ASIA_SEOUL)
             except ValueError:
                 return None
 
