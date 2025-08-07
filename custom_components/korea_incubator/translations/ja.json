@@ -1,0 +1,123 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "サービス選択",
+        "menu_options": {
+          "kepco": "韓国電力 (KEPCO)",
+          "gasapp": "ガスアプリ (韓国ガス公社)",
+          "safety_alert": "安全アラート (行政安全部)",
+          "goodsflow": "グッズフロー (宅配便追跡)",
+          "arisu": "アリス (ソウル市上水道)",
+          "kakaomap": "カカオマップ (交通情報)"
+        }
+      },
+      "kepco": {
+        "title": "韓国電力ログイン",
+        "data": {
+          "username": "ユーザー名",
+          "password": "パスワード"
+        }
+      },
+      "gasapp": {ㅏ
+        "title": "ガスアプリ設定",
+        "data": {
+          "token": "トークン",
+          "member_id": "会員ID",
+          "use_contract_num": "使用契約番号"
+        }
+      },
+      "safety_alert": {
+        "title": "安全アラート設定 - 道の選択",
+        "description": "安全アラートを受信する道を選択してください。",
+        "data": {
+          "sido_code": "道コード",
+          "sido_name": "道名"
+        }
+      },
+      "safety_alert_sgg": {
+        "title": "安全アラート設定 - 市郡区の選択",
+        "description": "安全アラートを受信する市郡区を選択してください。邑面洞まで細分化したい場合は「邑面洞追加」オプションを選択してください。",
+        "data": {
+          "sgg_code": "市郡区",
+          "sgg_name": "市郡区名",
+          "add_emd": "邑面洞追加"
+        }
+      },
+      "safety_alert_emd": {
+        "title": "安全アラート設定 - 邑面洞の選択",
+        "description": "安全アラートを受信する邑面洞を選択してください。",
+        "data": {
+          "emd_code": "邑面洞",
+          "emd_name": "邑面洞名"
+        }
+      },
+      "goodsflow": {
+        "title": "グッズフロー設定",
+        "data": {
+          "token": "認証トークン"
+        }
+      },
+      "arisu": {
+        "title": "アリス設定",
+        "data": {
+          "customer_number": "顧客番号",
+          "customer_name": "顧客名"
+        }
+      },
+      "kakaomap": {
+        "title": "カカオマップ設定",
+        "description": "出発地と目的地を設定して交通情報を照会します。",
+        "data": {
+          "name": "ルート名",
+          "coord_system": "座標系",
+          "start_x": "出発地X座標/経度",
+          "start_y": "出発地Y座標/緯度",
+          "end_x": "目的地X座標/経度",
+          "end_y": "目的地Y座標/緯度"
+        }
+      }
+    },
+    "error": {
+      "auth": "認証に失敗しました。({error})",
+      "invalid_auth": "ユーザー名またはパスワードが間違っています。({error})",
+      "cannot_connect": "サーバーに接続できません。({error})",
+      "unknown": "不明なエラーが発生しました。({error})",
+      "invalid_coordinates": "無効な座標です。",
+      "invalid_wgs84_coordinates": "無効なWGS84座標です。(経度: 124-132, 緯度: 33-39)",
+      "invalid_wcongnamul_coordinates": "無効なWCONGNAMUL座標です。",
+      "no_regions_available": "利用可能な地域がありません。",
+      "no_sgg_available": "選択した道に利用可能な市郡区がありません。",
+      "no_emd_available": "選択した市郡区に利用可能な邑面洞がありません。"
+    },
+    "abort": {
+      "already_configured": "このアカウントは既に設定されています。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "オプション",
+        "description": "設定オプションはありません。"
+      }
+    },
+    "abort": {
+      "no_options": "設定オプションはありません。",
+      "no_options_kepco": "韓国電力に対する設定オプションはありません。",
+      "no_options_gasapp": "ガスアプリに対する設定オプションはありません。",
+      "no_options_safety_alert": "安全アラートに対する設定オプションはありません。",
+      "no_options_goodsflow": "グッズフローに対する設定オプションはありません。",
+      "no_options_arisu": "アリスに対する設定オプションはありません。",
+      "no_options_kakaomap": "カカオマップに対する設定オプションはありません。"
+    }
+  },
+  "selector": {
+    "coord_system": {
+      "options": {
+        "WCONGNAMUL": "WCONGNAMUL（カカオマップ基本）",
+        "WGS84": "WGS84（GPS座標）"
+      }
+    }
+  }
+}
+

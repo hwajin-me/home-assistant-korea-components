@@ -1,0 +1,22 @@
+# https://www.home-assistant.io/integrations/default_config/
+default_config:
+
+# Uncomment this if you are using SSL/TLS, running in Docker container, etc.
+http:
+  server_port: 8123
+
+# https://www.home-assistant.io/integrations/homeassistant/
+homeassistant:
+  debug: true
+
+# https://www.home-assistant.io/integrations/logger/
+logger:
+  default: info
+  logs:
+    custom_components.korea_incubator: debug
+
+debugpy:
+  start: true
+  wait: false
+  host: 0.0.0.0
+  port: 6789

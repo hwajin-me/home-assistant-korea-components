@@ -1,0 +1,21 @@
+{
+  "domain": "korea_incubator",
+  "name": "한국 복합 컴포넌트",
+  "config_flow": true,
+  "documentation": "https://github.com/hwajin-me/home-assistant-korea-components/blob/main/README.md",
+  "issue_tracker": "https://github.com/hwajin-me/home-assistant-korea-components/issues",
+  "codeowners": [
+    "@hwajin-me"
+  ],
+  "requirements": [
+    "fake-useragent==1.5.1",
+    "aiohttp>=3.9.5",
+    "cryptography>=42.0.8",
+    "pycryptodome==3.20.0",
+    "beautifulsoup4>=4.11.0",
+    "curl-cffi>=0.7.4",
+    "voluptuous~=0.15.2"
+  ],
+  "version": "0.1.0",
+  "iot_class": "cloud_polling"
+}
