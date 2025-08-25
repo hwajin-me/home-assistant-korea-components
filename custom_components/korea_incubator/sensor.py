@@ -334,6 +334,8 @@ async def async_setup_entry(
                 None,
                 None,
                 None,
+                value_translation=lambda x: (
+                    x["data"][0]["RCV_AREA_NM"] if len(x["data"][0]["RCV_AREA_NM"]) < 250 else "전체"),
             ),
             KoreaSensor(
                 coordinator,
@@ -384,6 +386,8 @@ async def async_setup_entry(
                 None,
                 None,
                 None,
+                value_translation=lambda x: (
+                    x["data"][1]["RCV_AREA_NM"] if len(x["data"][1]["RCV_AREA_NM"]) < 250 else "전체"),
             ),
             KoreaSensor(
                 coordinator,
@@ -434,6 +438,9 @@ async def async_setup_entry(
                 None,
                 None,
                 None,
+                ## 너무 길면 에러나서 250자 이상이면 "전체" 로 표기
+                value_translation=lambda x: (
+                    x["data"][2]["RCV_AREA_NM"] if len(x["data"][2]["RCV_AREA_NM"]) < 250 else "전체"),
             ),
             KoreaSensor(
                 coordinator,
