@@ -87,6 +87,9 @@ class KepcoDevice:
 
     async def async_close_session(self):
         """Close the aiohttp session."""
-        if self.session and not self.session.closed:
+        if self.session and isinstance(self.session, aiohttp.ClientSession) and not self.session.closed:
+            await self.session.close()
+            self.session = None
+        elif isinstance(self.session, AsyncSession):
             await self.session.close()
             self.session = None
