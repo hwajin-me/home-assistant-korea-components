@@ -123,7 +123,7 @@ class KepcoApiClient:
             LOGGER.debug(f"API request to {url} response body: {response.text}")
             return json.loads(response.text)
         except Exception as e:
-            LOGGER.error(f"API call to {url} failed with status {e.status}: {e.message}")
+            LOGGER.error(f"API call to {url} failed", e)
             LOGGER.warning("API call failed with 401, attempting re-login.")
             if await self.async_login(self._username, self._password):
                 LOGGER.info("Re-login successful, retrying original request.")
