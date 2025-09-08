@@ -42,7 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     update_interval: timedelta = timedelta(minutes=20)
 
     if service == "kepco":
-        update_interval = timedelta(seconds=2)
+        update_interval = timedelta(minutes=5)
         device = KepcoDevice(
             hass,
             entry.entry_id,
