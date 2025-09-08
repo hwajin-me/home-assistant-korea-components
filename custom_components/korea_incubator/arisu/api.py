@@ -29,6 +29,9 @@ class ArisuApiClient:
         previous_date = current_date - timedelta(days=current_date.day)
         previous_month = previous_date.strftime("%Y-%m")
 
+        pprevious_date = previous_date - timedelta(days=previous_date.day)
+        pprevious_month = pprevious_date.strftime("%Y-%m")
+
         LOGGER.debug(
             f"Trying to get Arisu data for {customer_name} (#{customer_number}): current month={current_month}, previous month={previous_month}")
 
@@ -40,7 +43,6 @@ class ArisuApiClient:
             current_data["billing_month"] = current_month
             return current_data
 
-        # 현재 월에 데이터가 없으면 지난달 시도
         LOGGER.debug(f"No current month data, trying previous month for {customer_name} (#{customer_number})")
         previous_data = await self.async_get_water_bill(customer_number, customer_name, previous_month)
 
@@ -49,11 +51,19 @@ class ArisuApiClient:
             previous_data["billing_month"] = previous_month
             return previous_data
 
+        LOGGER.debug(f"No current month data, trying previous month for {customer_name} (#{pprevious_month})")
+        pprevious_data = await self.async_get_water_bill(customer_number, customer_name, pprevious_month)
+
+        if pprevious_data.get("success", False):
+            LOGGER.debug(f"Successfully got previous month data for {customer_name} (#{customer_number})")
+            pprevious_data["billing_month"] = previous_month
+            return pprevious_data
+
         # 둘 다 실패하면 오류 반환
         return {
             "success": False,
-            "error": f"No bill data found for {current_month} and {previous_month}",
-            "tried_months": [current_month, previous_month]
+            "error": f"No bill data found for {current_month} and {previous_month} {pprevious_month}",
+            "tried_months": [current_month, previous_month, pprevious_month]
         }
 
     async def async_get_water_bill(self, customer_number: str, customer_name: str, billing_month: str) -> Dict[
@@ -112,7 +122,7 @@ class ArisuApiClient:
                     raise ArisuConnectionError(f"HTTP {response.status}: {response.reason}")
 
                 html_content = await response.text()
-                LOGGER.debug(f"Response content length: {len(html_content)}")
+                LOGGER.debug(f"Response content: {html_content}")
 
                 if 'id="totAmt"' in html_content and 'value=' in html_content:
                     return self._parse_html_response(html_content)

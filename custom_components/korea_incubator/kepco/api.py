@@ -120,27 +120,24 @@ class KepcoApiClient:
             response = await self._session.request(method, url, **kwargs)
             LOGGER.debug(f"API request to {url} response status: {response.status_code}")
             LOGGER.debug(f"API request to {url} response headers: {response.headers}")
+            LOGGER.debug(f"API request to {url} response body: {response.text}")
             return json.loads(response.text)
-        except aiohttp.ClientResponseError as e:
-            LOGGER.error(f"API call to {url} failed with status {e.status}: {e.message}")
-            if e.status == 401 and self._username and self._password:
-                LOGGER.warning("API call failed with 401, attempting re-login.")
-                if await self.async_login(self._username, self._password):
-                    LOGGER.info("Re-login successful, retrying original request.")
-                    try:
-                        response = await self._session.request(method, url, **kwargs)
-                        LOGGER.debug(f"API request to {url} response status: {response.status_code}")
-                        LOGGER.debug(f"API request to {url} response headers: {response.headers}")
-                        return json.loads(response.text)
-                    except Exception as retry_e:
-                        LOGGER.error(f"Retry request failed: {retry_e}")
-                        raise KepcoAuthError(f"Retry failed: {retry_e}")
-                else:
-                    LOGGER.error("KEPCO Re-login failed.")
-            raise  # Re-raise if not 401 or re-login failed
         except Exception as e:
-            LOGGER.error(f"Client error for {url}: {e}")
-            raise KepcoAuthError(f"Connection error: {e}")
+            LOGGER.error(f"API call to {url} failed with status {e.status}: {e.message}")
+            LOGGER.warning("API call failed with 401, attempting re-login.")
+            if await self.async_login(self._username, self._password):
+                LOGGER.info("Re-login successful, retrying original request.")
+                try:
+                    response = await self._session.request(method, url, **kwargs)
+                    LOGGER.debug(f"API request to {url} response status: {response.status_code}")
+                    LOGGER.debug(f"API request to {url} response headers: {response.headers}")
+                    return json.loads(response.text)
+                except Exception as retry_e:
+                    LOGGER.error(f"Retry request failed: {retry_e}", retry_e)
+                    raise KepcoAuthError(f"Retry failed: {retry_e}", retry_e)
+            else:
+                LOGGER.error("KEPCO Re-login failed.")
+            raise  # Re-raise if not 401 or re-login failed
 
     async def async_get_recent_usage(self):
         url = "https://pp.kepco.co.kr:8030/low/main/recent_usage.do"
