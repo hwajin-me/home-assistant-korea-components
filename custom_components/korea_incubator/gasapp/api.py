@@ -30,14 +30,10 @@ class GasAppApiClient:
         return {
             "X-Token": self._token,
             "X-Member": self._member_id,
-            "X-Platform": "IOS",
             "X-Company": "1",
-            "X-Webversion": "6.10.153",
             "X-Version": "4.2.5.24144",
-            "Accept-Encoding": "gzip, zlib, deflate, zstd, br",
             "Host": "app.gasapp.co.kr",
             "Connection": "close",
-            "User-Agent": "HomeAssistant-Korea-Components/1.0",
         }
 
     async def async_validate_credentials(self) -> bool:
