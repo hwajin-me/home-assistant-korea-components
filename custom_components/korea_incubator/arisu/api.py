@@ -156,7 +156,7 @@ class ArisuApiClient:
                 if 'id="totAmt"' in html_content and "value=" in html_content:
                     return self._parse_html_response(html_content)
                 else:
-                    LOGGER.warning(
+                    LOGGER.debug(
                         f"No bill data structure found for customer: {customer_name} (#{customer_number})"
                     )
                     return {"success": False, "error": "No bill data structure found"}

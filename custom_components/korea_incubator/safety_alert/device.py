@@ -12,7 +12,7 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .api import SafetyAlertApiClient
 from .exceptions import SafetyAlertConnectionError, SafetyAlertDataError
-from ..const import DOMAIN, LOGGER
+from ..const import DOMAIN, LOGGER, TZ_ASIA_SEOUL
 
 
 class SafetyAlertDevice:
@@ -26,7 +26,7 @@ class SafetyAlertDevice:
         area_name: str,
         area_code2: Optional[str] = None,
         area_code3: Optional[str] = None,
-        session: aiohttp.ClientSession = None,
+        session: aiohttp.ClientSession = None,  # __init__.py에서 항상 전달됨
     ) -> None:
         """Initialize Safety Alert device."""
         self.hass: HomeAssistant = hass
@@ -35,7 +35,7 @@ class SafetyAlertDevice:
         self.area_name: str = area_name
         self.area_code2: Optional[str] = area_code2
         self.area_code3: Optional[str] = area_code3
-        self.session: aiohttp.ClientSession = session
+        self.session: aiohttp.ClientSession = session  # 타입 힌트 수정
         self.api_client: SafetyAlertApiClient = SafetyAlertApiClient(self.session)
 
         self._name: str = f"안전알림 ({area_name})"
@@ -90,11 +90,11 @@ class SafetyAlertDevice:
                 "parsed_data": {
                     "data": parsed_data,
                 },
-                "last_updated": datetime.now().isoformat(),
+                "last_updated": datetime.now(TZ_ASIA_SEOUL).isoformat(),
             }
 
             self._available = True
-            self._last_update_success = datetime.now()
+            self._last_update_success = datetime.now(TZ_ASIA_SEOUL)
             LOGGER.debug(f"Safety Alert data updated successfully for {self.area_name}")
 
         except (SafetyAlertConnectionError, SafetyAlertDataError) as err:
