@@ -90,7 +90,7 @@ class ArisuDevice:
 
         except (ArisuConnectionError, ArisuDataError) as err:
             self._available = False
-            LOGGER.error(f"Error updating Arisu data for {self.customer_number}: {err}")
+            LOGGER.warning(f"Could not fetch Arisu data for {self.customer_number}: {err}")
             raise UpdateFailed(f"Error communicating with Arisu API: {err}")
 
         except Exception as err:

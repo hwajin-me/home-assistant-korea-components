@@ -297,6 +297,23 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
             except ValueError:
                 return None
 
+    # Pattern 12-1: YYYY/MM/DD HH:mm:ss (국민안전24 재난문자 발송일시 형식)
+    if not parsed_dt:
+        pattern12_1 = re.match(
+            r"^(\d{4})/(\d{1,2})/(\d{1,2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})$",
+            value,
+        )
+        if pattern12_1:
+            try:
+                year, month, day, hour, minute, second = map(
+                    int, pattern12_1.groups()
+                )
+                parsed_dt = datetime(
+                    year, month, day, hour, minute, second, tzinfo=TZ_ASIA_SEOUL
+                )
+            except ValueError:
+                return None
+
     # Pattern 13: YYYY-MM-DD HH:mm:ss.S
     if not parsed_dt:
         pattern13 = re.match(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Dict, Any, Optional, Union, Callable
 
 from homeassistant.components.sensor import (
@@ -10,6 +11,7 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
@@ -36,7 +38,7 @@ DeviceType = Union[
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Korea sensors from a config entry."""
     data: Dict[str, Any] = hass.data[DOMAIN][entry.entry_id]
@@ -289,16 +291,6 @@ async def async_setup_entry(
             KoreaSensor(
                 coordinator,
                 device,
-                "metadata",
-                "count",
-                "총 안전알림 수",
-                None,
-                "건",
-                SensorStateClass.MEASUREMENT,
-            ),
-            KoreaSensor(
-                coordinator,
-                device,
                 "parsed_data",
                 "data[0].EMRGNCY_STEP_NM",
                 "최신 알림 유형",
@@ -347,117 +339,6 @@ async def async_setup_entry(
                 "parsed_data",
                 "data[0].REGIST_DT",
                 "최신 알림일자",
-                SensorDeviceClass.TIMESTAMP,
-                None,
-                None,
-            ),
-            KoreaSensor(
-                coordinator,
-                device,
-                "parsed_data",
-                "data[1].EMRGNCY_STEP_NM",
-                "지난 알림 유형",
-                None,
-                None,
-                None,
-            ),
-            KoreaSensor(
-                coordinator,
-                device,
-                "parsed_data",
-                "data[1].DSSTR_SE_NM",
-                "지난 재난 유형",
-                None,
-                None,
-                None,
-            ),
-            KoreaSensor(
-                coordinator,
-                device,
-                "parsed_data",
-                "data[1].MSG_CN",
-                "지난 알림 내용",
-                None,
-                None,
-                None,
-            ),
-            KoreaSensor(
-                coordinator,
-                device,
-                "parsed_data",
-                "data[1].RCV_AREA_NM",
-                "지난 알림 대상지",
-                None,
-                None,
-                None,
-                value_translation=lambda x: (
-                    x["data"][1]["RCV_AREA_NM"]
-                    if "data" in x and len(x["data"][1]["RCV_AREA_NM"]) < 250
-                    else "전체"
-                ),
-            ),
-            KoreaSensor(
-                coordinator,
-                device,
-                "parsed_data",
-                "data[1].REGIST_DT",
-                "지난 알림일자",
-                SensorDeviceClass.TIMESTAMP,
-                None,
-                None,
-            ),
-            KoreaSensor(
-                coordinator,
-                device,
-                "parsed_data",
-                "data[2].EMRGNCY_STEP_NM",
-                "지지난 알림 유형",
-                None,
-                None,
-                None,
-            ),
-            KoreaSensor(
-                coordinator,
-                device,
-                "parsed_data",
-                "data[2].DSSTR_SE_NM",
-                "지지난 재난 유형",
-                None,
-                None,
-                None,
-            ),
-            KoreaSensor(
-                coordinator,
-                device,
-                "parsed_data",
-                "data[2].MSG_CN",
-                "지지난 알림 내용",
-                None,
-                None,
-                None,
-            ),
-            KoreaSensor(
-                coordinator,
-                device,
-                "parsed_data",
-                "data[2].RCV_AREA_NM",
-                "지지난 알림 대상지",
-                None,
-                None,
-                None,
-                ## 너무 길면 에러나서 250자 이상이면 "전체" 로 표기
-                value_translation=lambda x: (
-                    x["data"][2]["RCV_AREA_NM"]
-                    if "data" in x and len(x["data"][2]["RCV_AREA_NM"]) < 250
-                    else "전체"
-                ),
-            ),
-            KoreaSensor(
-                coordinator,
-                device,
-                "parsed_data",
-                "data[2].REGIST_DT",
-                "지지난 알림일자",
                 SensorDeviceClass.TIMESTAMP,
                 None,
                 None,
@@ -1057,7 +938,60 @@ async def async_setup_entry(
             ),
         ]
         async_add_entities(entities)
+    elif service == "transit":
+        from .transit.sensor import SubwayArrivalSensor, BusArrivalSensor
+        from .transit.device import subway_device, bus_stop_device
+        for station, coord in data.get("subway_coords", {}).items():
+            for item in data.get("subway_items", []):
+                if item["station"] != station: continue
+                di = subway_device(item["station"], item["direction"], item.get("line_id",""))
+                for idx in range(2):
+                    entities.append(SubwayArrivalSensor(coord, item["station"], item["direction"], item.get("line_id",""), idx, di))
+        for stop in data.get("bus_stops", []):
+            coord = data.get("bus_coords", {}).get(stop["stop_id"])
+            if not coord: continue
+            di = bus_stop_device(stop["stop_id"], stop["stop_name"])
+            for bus_name in stop.get("buses", []):
+                for idx in range(2):
+                    entities.append(BusArrivalSensor(coord, bus_name, idx, di))
+        async_add_entities(entities)
 
+    elif service == "fuel":
+        from .fuel.sensor import FuelAvgSensor, FuelLowSensor
+        c = data["coordinator"]
+        for cfg in data.get("configs", []):
+            entities += [FuelAvgSensor(c, cfg["sido_code"], cfg["fuel_code"]),
+                         FuelLowSensor(c, cfg["sido_code"], cfg["fuel_code"])]
+        async_add_entities(entities)
+
+    elif service == "school":
+        from .school.sensor import SchoolLunchSensor, SchoolInfoSensor
+        entities = [SchoolLunchSensor(data["coordinator"], entry),
+                    SchoolInfoSensor(data["coordinator"], entry)]
+        async_add_entities(entities)
+
+    elif service == "disaster":
+        from .disaster.sensor import DisasterMessageSensor, DisasterCountSensor
+        region = data.get("region", "")
+        c = data["coordinator"]
+        entities = [DisasterMessageSensor(c, region), DisasterCountSensor(c, region)]
+        async_add_entities(entities)
+
+    elif service == "pharmacy":
+        from .pharmacy.sensor import PharmacySensor
+        entities = [PharmacySensor(data["coordinator"], entry.data["q0"], entry.data.get("q1",""))]
+        async_add_entities(entities)
+
+    elif service == "airkorea":
+        from .airkorea.sensor import AirQualitySensor, POLLUTANTS, UVIndexSensor, AirStagnationSensor
+        c = data["coordinator"]
+        for st in data.get("stations", []):
+            name = st["stationName"]
+            for field, label, unit in POLLUTANTS:
+                entities.append(AirQualitySensor(c, name, field, label, unit))
+            entities.append(UVIndexSensor(c, name))
+            entities.append(AirStagnationSensor(c, name))
+        async_add_entities(entities)
 
 class KoreaSensor(CoordinatorEntity, SensorEntity):
     """Generic Korea sensor using unified data access pattern."""
@@ -1137,6 +1071,9 @@ class KoreaSensor(CoordinatorEntity, SensorEntity):
                     if parsed_datetime:
                         return parsed_datetime
                     return None
+                # If it's already a datetime object, return it as-is
+                elif isinstance(raw_value, datetime):
+                    return raw_value
 
             elif (
                 self._attr_device_class == SensorDeviceClass.MONETARY

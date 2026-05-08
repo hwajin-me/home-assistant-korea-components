@@ -1,0 +1,138 @@
+search_location:
+  name: 장소 좌표 검색
+  description: >
+    서울시 대중교통 API를 사용하여 장소 이름으로 좌표를 검색합니다.
+    bus_api_key(공공데이터포털 서비스 키)가 필요합니다.
+    대중교통 항목이 설정되어 있어야 합니다.
+  fields:
+    keyword:
+      name: 장소 이름
+      description: 검색할 장소 (예. 강남역, 서울역, 시청)
+      required: true
+      example: "강남역"
+      selector:
+        text:
+
+search_transit_path:
+  name: 대중교통 환승정보 조회
+  description: >
+    출발지와 도착지의 좌표로 대중교통 경로를 검색합니다.
+    좌표는 '장소 좌표 검색'으로 먼저 조회하세요.
+  fields:
+    start_x:
+      name: 출발지 X좌표 (경도)
+      required: true
+      example: "126.977969"
+      selector:
+        text:
+    start_y:
+      name: 출발지 Y좌표 (위도)
+      required: true
+      example: "37.566535"
+      selector:
+        text:
+    end_x:
+      name: 도착지 X좌표 (경도)
+      required: true
+      example: "127.027621"
+      selector:
+        text:
+    end_y:
+      name: 도착지 Y좌표 (위도)
+      required: true
+      example: "37.497942"
+      selector:
+        text:
+
+search_pharmacy:
+  name: 약국 검색
+  description: 지역의 운영 약국 목록을 조회합니다. 약국 정보 항목이 설정되어 있어야 합니다.
+  fields:
+    region:
+      name: 시도
+      description: 시도명 (예. 서울특별시)
+      required: true
+      example: "서울특별시"
+      selector:
+        text:
+    district:
+      name: 시군구
+      description: 시군구명 (선택, 예. 강남구)
+      required: false
+      example: "강남구"
+      selector:
+        text:
+    count:
+      name: 조회 수
+      description: 최대 조회 건수
+      required: false
+      example: "10"
+      selector:
+        number:
+          min: 1
+          max: 50
+          mode: slider
+
+get_living_index_forecast:
+  name: 생활기상지수 예보 조회
+  description: >
+    자외선지수 또는 대기정체지수의 3시간 단위 예보를 조회합니다 (최대 78시간).
+    에어코리아 항목이 설정되어 있어야 합니다.
+  fields:
+    index_type:
+      name: 지수 종류
+      description: 조회할 생활기상지수 종류
+      required: true
+      default: "uv"
+      selector:
+        select:
+          options:
+            - label: "자외선지수"
+              value: "uv"
+            - label: "대기정체지수"
+              value: "stagnation"
+    region:
+      name: 지역
+      description: >
+        시도명 (예: 서울, 부산, 경기). 비워두면 설정된 기본 지역 사용.
+      required: false
+      default: ""
+      selector:
+        select:
+          options:
+            - label: "기본 (설정 지역)"
+              value: ""
+            - label: "서울"
+              value: "서울"
+            - label: "부산"
+              value: "부산"
+            - label: "대구"
+              value: "대구"
+            - label: "인천"
+              value: "인천"
+            - label: "광주"
+              value: "광주"
+            - label: "대전"
+              value: "대전"
+            - label: "울산"
+              value: "울산"
+            - label: "세종"
+              value: "세종"
+            - label: "경기"
+              value: "경기"
+            - label: "강원"
+              value: "강원"
+            - label: "충북"
+              value: "충북"
+            - label: "충남"
+              value: "충남"
+            - label: "전북"
+              value: "전북"
+            - label: "전남"
+              value: "전남"
+            - label: "경북"
+              value: "경북"
+            - label: "경남"
+              value: "경남"
+            - label: "제주"
+              value: "제주"
