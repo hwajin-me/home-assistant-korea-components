@@ -1,0 +1,250 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Service Selection",
+        "menu_options": {
+          "weather_warning": "Weather Warning",
+          "transit": "Transit",
+          "fuel": "Fuel Prices",
+          "school": "School Info",
+          "disaster": "Disaster Alerts",
+          "safety_alert": "Safety Alert",
+          "kepco": "KEPCO",
+          "gasapp": "GasApp",
+          "goodsflow": "GoodsFlow",
+          "arisu": "Arisu Water",
+          "kakaomap": "KakaoMap",
+          "pharmacy": "Pharmacy",
+          "airkorea": "AirKorea",
+          "kma_weather": "KMA Weather",
+          "earthquake": "Earthquake"
+        }
+      },
+      "weather_warning": {
+        "title": "Weather Warning",
+        "data": {
+          "api_key": "API Key",
+          "area_codes": "Areas"
+        }
+      },
+      "transit": {
+        "title": "Transit Keys",
+        "data": {
+          "seoul_api_key": "Seoul Key",
+          "bus_api_key": "Bus Key"
+        }
+      },
+      "transit_add": {
+        "title": "Add",
+        "menu_options": {
+          "transit_subway": "Subway",
+          "transit_bus_search": "Bus",
+          "transit_done": "Done"
+        }
+      },
+      "transit_subway": {
+        "title": "Subway",
+        "data": {
+          "station": "Station",
+          "direction": "Direction",
+          "line_id": "Line"
+        }
+      },
+      "transit_bus_search": {
+        "title": "Add Bus Stop",
+        "description": "Enter the KakaoMap bus stop ID",
+        "data": {
+          "kakao_stop_id": "KakaoMap Stop ID"
+        }
+      },
+      "fuel": {
+        "title": "Fuel",
+        "data": {
+          "api_key": "Key",
+          "sido_codes": "Regions",
+          "fuel_codes": "Types"
+        }
+      },
+      "school": {
+        "title": "School",
+        "data": {
+          "api_key": "Key",
+          "school_level": "Level"
+        }
+      },
+      "school_search": {
+        "title": "Search",
+        "data": {
+          "school_search": "Name",
+          "selected_school": "Select"
+        }
+      },
+      "school_class": {
+        "title": "Select Grade/Class",
+        "data": {
+          "grade_classes": "Grade-Class"
+        }
+      },
+      "school_periods": {
+        "title": "Periods",
+        "data": {
+          "period_1": "P1",
+          "period_2": "P2",
+          "period_3": "P3",
+          "period_4": "P4",
+          "period_5": "P5",
+          "period_6": "P6",
+          "period_7": "P7",
+          "lunch_start": "Lunch Start",
+          "lunch_end": "Lunch End"
+        }
+      },
+      "disaster": {
+        "title": "Disaster",
+        "data": {
+          "api_key": "Key",
+          "region_filter": "Region",
+          "sub_region": "Sub-region (optional)"
+        }
+      },
+      "safety_alert": {
+        "title": "Safety Alert",
+        "data": {
+          "area_code": "Code",
+          "area_name": "Name"
+        }
+      },
+      "kepco": {
+        "title": "KEPCO",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "gasapp": {
+        "title": "GasApp",
+        "data": {
+          "token": "Token",
+          "member_id": "ID",
+          "contract_num": "Contract"
+        }
+      },
+      "arisu": {
+        "title": "Arisu",
+        "data": {
+          "customer_number": "Number",
+          "customer_name": "Name"
+        }
+      },
+      "pharmacy": {
+        "title": "Pharmacy",
+        "data": {
+          "api_key": "Key",
+          "q0": "Province",
+          "q1": "City"
+        }
+      },
+      "transit_bus_select": {
+        "title": "Select Bus Routes",
+        "data": {
+          "buses": "Bus Routes"
+        }
+      },
+      "airkorea": {
+        "title": "AirKorea - Province",
+        "data": {
+          "api_key": "Key",
+          "sido": "Province",
+          "living_api_key": "Living Index API Key (blank = same)"
+        }
+      },
+      "airkorea_select": {
+        "title": "Select Stations",
+        "data": {
+          "stations": "Stations"
+        }
+      },
+      "kma_weather": {
+        "title": "KMA Weather - Province",
+        "data": {
+          "api_key": "Key",
+          "sido": "Province"
+        }
+      },
+      "earthquake": {
+        "title": "Earthquake",
+        "data": {
+          "api_key": "Key",
+          "latitude": "Lat",
+          "longitude": "Lon",
+          "radius_km": "Radius",
+          "min_magnitude": "Min Magnitude"
+        }
+      },
+      "kma_weather_sgg": {
+        "title": "Select Districts",
+        "data": {
+          "regions": "Districts",
+          "air_station": "Air Station (O₃/UV)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect.",
+      "invalid_api_key": "Invalid key.",
+      "no_schools_found": "No schools.",
+      "no_selection": "Select one.",
+      "no_stops_found": "No stops.",
+      "no_stations_found": "No stations found."
+    },
+    "abort": {
+      "already_configured": "Already configured.",
+      "no_options": "No options available."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Edit Settings"
+      }
+    }
+  },
+  "entity": {
+    "event": {
+      "weather_warning": {
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "advisory": "Advisory",
+              "warning": "Warning",
+              "pre_advisory": "Upcoming advisory",
+              "pre_warning": "Upcoming warning",
+              "cancelled": "Cancelled",
+              "none": "None"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "school_lunch": {
+        "name": "Lunch"
+      },
+      "school_info": {
+        "name": "Info"
+      },
+      "disaster_message": {
+        "name": "Alert"
+      }
+    },
+    "calendar": {
+      "school_academic": {
+        "name": "Events"
+      },
+      "school_class": {
+        "name": "Schedule"
+      }
+    }
+  }
+}

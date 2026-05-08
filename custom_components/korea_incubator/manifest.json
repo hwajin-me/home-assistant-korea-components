@@ -10,12 +10,13 @@
   "issue_tracker": "https://github.com/hwajin-me/home-assistant-korea-components/issues",
   "requirements": [
     "aiohttp>=3.9.5",
-    "beautifulsoup4>=4.11.0",
+    "beautifulsoup4>=4.13.0",
+    "soupsieve>=2.4.1",
     "cryptography>=42.0.8",
     "curl-cffi>=0.7.4",
     "fake-useragent==1.5.1",
     "pycryptodome==3.20.0",
-    "voluptuous~=0.15.2"
+    "voluptuous>=0.15.2"
   ],
-  "version": "1.0.0"
+  "version": "1.1.4"
 }
