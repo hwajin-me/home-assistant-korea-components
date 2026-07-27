@@ -110,13 +110,5 @@
       "no_options_arisu": "There are no options to configure for Arisu.",
       "no_options_kakaomap": "There are no options to configure for KakaoMap."
     }
-  },
-  "selector": {
-    "coord_system": {
-      "options": {
-        "WCONGNAMUL": "WCONGNAMUL (KakaoMap Default)",
-        "WGS84": "WGS84 (GPS Coordinates)"
-      }
-    }
   }
 }

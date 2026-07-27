@@ -4,11 +4,17 @@ import datetime
 from typing import Dict, Any, Optional, Union, Mapping
 
 import pytz
-from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
+from homeassistant.components.binary_sensor import (
+    BinarySensorEntity,
+    BinarySensorDeviceClass,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+)
 
 from .arisu.device import ArisuDevice
 from .const import DOMAIN
@@ -26,14 +32,12 @@ DeviceType = Union[
     SafetyAlertDevice,
     GoodsFlowDevice,
     ArisuDevice,
-    KakaoMapDevice
+    KakaoMapDevice,
 ]
 
 
 async def async_setup_entry(
-        hass: HomeAssistant,
-        entry: ConfigEntry,
-        async_add_entities
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
 ) -> None:
     """Set up Korea binary sensors from a config entry."""
     data: Dict[str, Any] = hass.data[DOMAIN][entry.entry_id]
@@ -60,16 +64,18 @@ async def async_setup_entry(
 
 class SafetyAlertSensor(CoordinatorEntity, BinarySensorEntity):
     """Binary sensor for safety alert data."""
+
     _attr_has_entity_name = True
 
-    def __init__(self,
-                 coordinator: DataUpdateCoordinator,
-                 device: SafetyAlertDevice,
-                 name: str,
-                 id: str,
-                 device_class: Optional[BinarySensorDeviceClass] = None,
-                 icon: Optional[str] = None,
-                 ):
+    def __init__(
+        self,
+        coordinator: DataUpdateCoordinator,
+        device: SafetyAlertDevice,
+        name: str,
+        id: str,
+        device_class: Optional[BinarySensorDeviceClass] = None,
+        icon: Optional[str] = None,
+    ):
         """Initialize the safety alert sensor."""
         super().__init__(coordinator)
         self._device: SafetyAlertDevice = device
@@ -102,13 +108,15 @@ class SafetyAlertSensor(CoordinatorEntity, BinarySensorEntity):
 
         alerts = []
         for alert in self.coordinator.data.get("parsed_data", {}).get("data", []):
-            alerts.append({
-                "emergency_step": alert.get("EMRGNCY_STEP_NM"),
-                "disaster_type": alert.get("DSSTR_SE_NM"),
-                "message": alert.get("MSG_CN"),
-                "reception_area": alert.get("RCV_AREA_NM"),
-                "registration_date": parse_date_value(alert.get("REGIST_DT"))
-            })
+            alerts.append(
+                {
+                    "emergency_step": alert.get("EMRGNCY_STEP_NM"),
+                    "disaster_type": alert.get("DSSTR_SE_NM"),
+                    "message": alert.get("MSG_CN"),
+                    "reception_area": alert.get("RCV_AREA_NM"),
+                    "registration_date": parse_date_value(alert.get("REGIST_DT")),
+                }
+            )
 
         # Sort alerts by registration date in descending order
         alerts.sort(key=lambda x: x["registration_date"], reverse=True)
@@ -119,9 +127,9 @@ class SafetyAlertSensor(CoordinatorEntity, BinarySensorEntity):
                 "disaster_type": latest_alert.get("DSSTR_SE_NM"),
                 "message": latest_alert.get("MSG_CN"),
                 "reception_area": latest_alert.get("RCV_AREA_NM"),
-                "registration_date": parse_date_value(latest_alert.get("REGIST_DT"))
+                "registration_date": parse_date_value(latest_alert.get("REGIST_DT")),
             },
-            "alerts": alerts
+            "alerts": alerts,
         }
 
     @property
@@ -131,7 +139,7 @@ class SafetyAlertSensor(CoordinatorEntity, BinarySensorEntity):
             return None
 
         # Get the latest alert data
-        latest_alert = self.coordinator.data.get("parsed_data", {}).get("data", [{}])[0]
+        latest_alert = self.coordinator.data.get("parsed_data", {}).get("data", [{}])
         if not latest_alert:
             return None
 
@@ -139,9 +147,11 @@ class SafetyAlertSensor(CoordinatorEntity, BinarySensorEntity):
         # and regist date is greater or equal to the current date
 
         return bool(
-            latest_alert.get("EMRGNCY_STEP_NM") and
-            parse_date_value(latest_alert.get("REGIST_DT")) >= datetime.datetime.combine(datetime.date.today(),
-                                                                                         datetime.time(0, 0, 0),
-                                                                                         tzinfo=pytz.timezone(
-                                                                                             "Asia/Seoul"))
+            latest_alert[0].get("EMRGNCY_STEP_NM")
+            and parse_date_value(latest_alert[0].get("REGIST_DT"))
+            >= datetime.datetime.combine(
+                datetime.date.today(),
+                datetime.time(0, 0, 0),
+                tzinfo=pytz.timezone("Asia/Seoul"),
+            )
         )

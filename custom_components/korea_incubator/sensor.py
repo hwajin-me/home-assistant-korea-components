@@ -10,7 +10,10 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+)
 
 from .arisu.device import ArisuDevice
 from .const import DOMAIN, ENERGY_KILO_WATT_HOUR, CURRENCY_KRW
@@ -28,14 +31,12 @@ DeviceType = Union[
     SafetyAlertDevice,
     GoodsFlowDevice,
     ArisuDevice,
-    KakaoMapDevice
+    KakaoMapDevice,
 ]
 
 
 async def async_setup_entry(
-        hass: HomeAssistant,
-        entry: ConfigEntry,
-        async_add_entities
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
 ) -> None:
     """Set up Korea sensors from a config entry."""
     data: Dict[str, Any] = hass.data[DOMAIN][entry.entry_id]
@@ -113,7 +114,7 @@ async def async_setup_entry(
                 "누진단계",
                 None,
                 "level",
-                None
+                None,
             ),
             KoreaSensor(
                 coordinator,
@@ -334,6 +335,11 @@ async def async_setup_entry(
                 None,
                 None,
                 None,
+                value_translation=lambda x: (
+                    x["data"][0]["RCV_AREA_NM"]
+                    if "data" in x and len(x["data"][0]["RCV_AREA_NM"]) < 250
+                    else "전체"
+                ),
             ),
             KoreaSensor(
                 coordinator,
@@ -384,6 +390,11 @@ async def async_setup_entry(
                 None,
                 None,
                 None,
+                value_translation=lambda x: (
+                    x["data"][1]["RCV_AREA_NM"]
+                    if "data" in x and len(x["data"][1]["RCV_AREA_NM"]) < 250
+                    else "전체"
+                ),
             ),
             KoreaSensor(
                 coordinator,
@@ -434,6 +445,12 @@ async def async_setup_entry(
                 None,
                 None,
                 None,
+                ## 너무 길면 에러나서 250자 이상이면 "전체" 로 표기
+                value_translation=lambda x: (
+                    x["data"][2]["RCV_AREA_NM"]
+                    if "data" in x and len(x["data"][2]["RCV_AREA_NM"]) < 250
+                    else "전체"
+                ),
             ),
             KoreaSensor(
                 coordinator,
@@ -444,7 +461,7 @@ async def async_setup_entry(
                 SensorDeviceClass.TIMESTAMP,
                 None,
                 None,
-            )
+            ),
         ]
         async_add_entities(entities)
 
@@ -571,7 +588,6 @@ async def async_setup_entry(
                 None,
                 None,
             ),
-
             # 추천 경로 정보
             KoreaSensor(
                 coordinator,
@@ -633,7 +649,6 @@ async def async_setup_entry(
                 "min",
                 None,
             ),
-
             # 최단시간 경로
             KoreaSensor(
                 coordinator,
@@ -675,7 +690,6 @@ async def async_setup_entry(
                 "회",
                 SensorStateClass.MEASUREMENT,
             ),
-
             # 최소환승 경로
             KoreaSensor(
                 coordinator,
@@ -717,7 +731,6 @@ async def async_setup_entry(
                 "회",
                 SensorStateClass.MEASUREMENT,
             ),
-
             # 첫 번째 경로 상세 정보
             KoreaSensor(
                 coordinator,
@@ -779,7 +792,6 @@ async def async_setup_entry(
                 None,
                 None,
             ),
-
             # 첫 번째 경로 상세 단계 정보 (steps)
             KoreaSensor(
                 coordinator,
@@ -1012,7 +1024,6 @@ async def async_setup_entry(
                 CURRENCY_KRW,
                 None,
             ),
-
             # 실시간 교통 정보
             KoreaSensor(
                 coordinator,
@@ -1054,17 +1065,17 @@ class KoreaSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
 
     def __init__(
-            self,
-            coordinator: DataUpdateCoordinator,
-            device: DeviceType,
-            data_key: Optional[str],
-            value_key: Optional[str],
-            name: str,
-            device_class: Optional[SensorDeviceClass],
-            unit: Optional[str],
-            state_class: Optional[SensorStateClass],
-            icon: Optional[str] = None,
-            value_translation: Optional[Callable[[Any], Any]] = None
+        self,
+        coordinator: DataUpdateCoordinator,
+        device: DeviceType,
+        data_key: Optional[str],
+        value_key: Optional[str],
+        name: str,
+        device_class: Optional[SensorDeviceClass],
+        unit: Optional[str],
+        state_class: Optional[SensorStateClass],
+        icon: Optional[str] = None,
+        value_translation: Optional[Callable[[Any], Any]] = None,
     ) -> None:
         """Initialize the Korea sensor."""
         super().__init__(coordinator)
@@ -1077,7 +1088,9 @@ class KoreaSensor(CoordinatorEntity, SensorEntity):
         self._attr_native_unit_of_measurement: Optional[str] = unit
         self._attr_state_class: Optional[SensorStateClass] = state_class
         self._attr_icon: Optional[str] = icon
-        self._attr_unique_id: str = f"korea_{device.unique_id}_{data_key}_{value_key.replace('.', '_')}"
+        self._attr_unique_id: str = (
+            f"korea_{device.unique_id}_{data_key}_{value_key.replace('.', '_')}"
+        )
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -1099,7 +1112,9 @@ class KoreaSensor(CoordinatorEntity, SensorEntity):
             # Apply custom value translation if provided
             return self._value_translation(self.coordinator.data)
 
-        data_source: Optional[Dict[str, Any]] = self.coordinator.data.get(self._data_key)
+        data_source: Optional[Dict[str, Any]] = self.coordinator.data.get(
+            self._data_key
+        )
         if not data_source:
             return None
 
@@ -1123,17 +1138,19 @@ class KoreaSensor(CoordinatorEntity, SensorEntity):
                         return parsed_datetime
                     return None
 
-            elif self._attr_device_class == SensorDeviceClass.MONETARY \
-                    or self._attr_device_class == SensorDeviceClass.DISTANCE \
-                    or self._attr_device_class == SensorDeviceClass.GAS \
-                    or self._attr_device_class == SensorDeviceClass.WATER \
-                    :
+            elif (
+                self._attr_device_class == SensorDeviceClass.MONETARY
+                or self._attr_device_class == SensorDeviceClass.DISTANCE
+                or self._attr_device_class == SensorDeviceClass.GAS
+                or self._attr_device_class == SensorDeviceClass.WATER
+            ):
                 # Extract numeric value from strings like "1,550원"
                 if isinstance(raw_value, str):
                     import re
-                    numeric_match = re.search(r'[\d,]+', raw_value)
+
+                    numeric_match = re.search(r"[\d,]+", raw_value)
                     if numeric_match:
-                        numeric_str = numeric_match.group().replace(',', '')
+                        numeric_str = numeric_match.group().replace(",", "")
                         try:
                             return int(numeric_str)
                         except ValueError:
@@ -1142,7 +1159,8 @@ class KoreaSensor(CoordinatorEntity, SensorEntity):
                 # Extract numeric value from strings like "28분"
                 if isinstance(raw_value, str):
                     import re
-                    numeric_match = re.search(r'\d+', raw_value)
+
+                    numeric_match = re.search(r"\d+", raw_value)
                     if numeric_match:
                         try:
                             return int(numeric_match.group())

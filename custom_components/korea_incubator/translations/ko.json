@@ -110,13 +110,5 @@
       "no_options_arisu": "아리수에 대한 구성 옵션이 없습니다.",
       "no_options_kakaomap": "카카오맵에 대한 구성 옵션이 없습니다."
     }
-  },
-  "selector": {
-    "coord_system": {
-      "options": {
-        "WCONGNAMUL": "WCONGNAMUL (카카오맵 기본)",
-        "WGS84": "WGS84 (GPS 좌표)"
-      }
-    }
   }
 }

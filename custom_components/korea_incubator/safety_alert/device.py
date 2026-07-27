@@ -1,12 +1,14 @@
 """Safety Alert device for Home Assistant integration."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Dict, Any, Optional, List
+
 import aiohttp
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import UpdateFailed
-from homeassistant.core import HomeAssistant
 
 from .api import SafetyAlertApiClient
 from .exceptions import SafetyAlertConnectionError, SafetyAlertDataError
@@ -17,14 +19,14 @@ class SafetyAlertDevice:
     """Safety Alert device representation with type safety."""
 
     def __init__(
-            self,
-            hass: HomeAssistant,
-            entry_id: str,
-            area_code: str,
-            area_name: str,
-            area_code2: Optional[str] = None,
-            area_code3: Optional[str] = None,
-            session: aiohttp.ClientSession = None
+        self,
+        hass: HomeAssistant,
+        entry_id: str,
+        area_code: str,
+        area_name: str,
+        area_code2: Optional[str] = None,
+        area_code3: Optional[str] = None,
+        session: aiohttp.ClientSession = None,
     ) -> None:
         """Initialize Safety Alert device."""
         self.hass: HomeAssistant = hass
@@ -97,12 +99,16 @@ class SafetyAlertDevice:
 
         except (SafetyAlertConnectionError, SafetyAlertDataError) as err:
             self._available = False
-            LOGGER.error(f"Error updating Safety Alert data for {self.area_name}: {err}")
+            LOGGER.error(
+                f"Error updating Safety Alert data for {self.area_name}: {err}"
+            )
             raise UpdateFailed(f"Error communicating with Safety Alert API: {err}")
 
         except Exception as err:
             self._available = False
-            LOGGER.error(f"Unexpected error updating Safety Alert data for {self.area_name}: {err}")
+            LOGGER.error(
+                f"Unexpected error updating Safety Alert data for {self.area_name}: {err}"
+            )
             raise UpdateFailed(f"Unexpected error: {err}")
 
     async def async_close_session(self) -> None:

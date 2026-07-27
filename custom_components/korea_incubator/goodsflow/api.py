@@ -1,6 +1,9 @@
 """GoodsFlow API client for Home Assistant integration."""
+
+from typing import Dict, Any
+
 import aiohttp
-from typing import Dict, Any, List, Optional
+
 from .exceptions import GoodsFlowAuthError, GoodsFlowConnectionError, GoodsFlowDataError
 from ..const import LOGGER
 
@@ -47,15 +50,21 @@ class GoodsFlowApiClient:
         headers = self._get_headers()
 
         try:
-            async with self._session.request(method, url, headers=headers, **kwargs) as response:
-                LOGGER.debug(f"GoodsFlow API request to {url} status: {response.status}")
+            async with self._session.request(
+                method, url, headers=headers, **kwargs
+            ) as response:
+                LOGGER.debug(
+                    f"GoodsFlow API request to {url} status: {response.status}"
+                )
 
                 if response.status == 401:
                     raise GoodsFlowAuthError("Authentication failed")
                 elif response.status == 403:
                     raise GoodsFlowAuthError("Access denied")
                 elif response.status >= 400:
-                    raise GoodsFlowConnectionError(f"HTTP {response.status}: {response.reason}")
+                    raise GoodsFlowConnectionError(
+                        f"HTTP {response.status}: {response.reason}"
+                    )
 
                 response.raise_for_status()
                 return await response.json()
@@ -67,14 +76,11 @@ class GoodsFlowApiClient:
             LOGGER.error(f"Unexpected error in GoodsFlow API request: {e}")
             raise GoodsFlowDataError(f"Unexpected error: {e}")
 
-    async def async_get_tracking_list(self, limit: int = 10, start: int = 0, type_filter: str = "ALL") -> Dict[
-        str, Any]:
+    async def async_get_tracking_list(
+        self, limit: int = 10, start: int = 0, type_filter: str = "ALL"
+    ) -> Dict[str, Any]:
         """Get tracking list from GoodsFlow API."""
-        params = {
-            "limit": str(limit),
-            "start": str(start),
-            "type": type_filter
-        }
+        params = {"limit": str(limit), "start": str(start), "type": type_filter}
 
         return await self._request("GET", "trans/trace/list/v3", params=params)
 
@@ -85,7 +91,7 @@ class GoodsFlowApiClient:
                 "total_packages": 0,
                 "active_packages": 0,
                 "delivered_packages": 0,
-                "packages": []
+                "packages": [],
             }
 
         trans_list = data.get("data", {}).get("transList", {})
@@ -109,5 +115,5 @@ class GoodsFlowApiClient:
             "total_packages": total_count,
             "active_packages": active_count,
             "delivered_packages": delivered_count,
-            "packages": packages
+            "packages": packages,
         }

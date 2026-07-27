@@ -1,0 +1,21 @@
+# Test dependencies
+pytest>=6.0.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+
+# Home Assistant testing dependencies
+homeassistant>=2023.1.0
+
+# Project dependencies (for testing)
+fake-useragent>=1.5.1
+aiohttp>=3.9.5
+cryptography>=42.0.8
+pycryptodome>=3.20.0
+beautifulsoup4>=4.11.0
+curl-cffi>=0.7.4
+voluptuous>=0.15.2
+
+# Additional testing utilities
+responses>=0.24.0
+freezegun>=1.2.0

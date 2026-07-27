@@ -5,7 +5,6 @@ import re
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-import pytz
 from homeassistant.util import dt as dt_util
 
 from custom_components.korea_incubator.const import TZ_ASIA_SEOUL
@@ -20,7 +19,12 @@ class RSAKey:
 
     def set_public(self, modulus_hex, exponent_hex):
         """RSA 공개키를 16진수 문자열로부터 설정"""
-        if modulus_hex and exponent_hex and len(modulus_hex) > 0 and len(exponent_hex) > 0:
+        if (
+            modulus_hex
+            and exponent_hex
+            and len(modulus_hex) > 0
+            and len(exponent_hex) > 0
+        ):
             self.n = int(modulus_hex, 16)
             self.e = int(exponent_hex, 16)
         else:
@@ -49,7 +53,7 @@ class RSAKey:
 def pkcs1pad2(s, n):
     """rsa.js의 pkcs1pad2 함수와 동일한 PKCS#1 타입 2 패딩"""
     # UTF-8 인코딩
-    s_bytes = s.encode('utf-8')
+    s_bytes = s.encode("utf-8")
     s_len = len(s_bytes)
 
     if n < s_len + 11:
@@ -59,7 +63,7 @@ def pkcs1pad2(s, n):
     ba = bytearray(n)
 
     # 메시지를 뒤에서부터 배치
-    ba[n - s_len:n] = s_bytes
+    ba[n - s_len : n] = s_bytes
 
     # 0x00 구분자
     ba[n - s_len - 1] = 0
@@ -78,7 +82,7 @@ def pkcs1pad2(s, n):
     ba[1] = 0x02
 
     # 바이트 배열을 정수로 변환
-    return int.from_bytes(ba, 'big')
+    return int.from_bytes(ba, "big")
 
 
 def get_value_from_path(data: Dict[str, Any], path: str) -> Any:
@@ -90,7 +94,7 @@ def get_value_from_path(data: Dict[str, Any], path: str) -> Any:
     - "data.history[2].value" for nested array access
     - "data.history[-2].value" for second to last element
     """
-    keys = path.split('.')
+    keys = path.split(".")
     value = data
 
     for key in keys:
@@ -98,9 +102,9 @@ def get_value_from_path(data: Dict[str, Any], path: str) -> Any:
             return None
 
         # Handle array indexing with square brackets: items[0] or items[-1]
-        if '[' in key and key.endswith(']'):
-            array_key, index_part = key.split('[', 1)
-            index_str = index_part.rstrip(']')
+        if "[" in key and key.endswith("]"):
+            array_key, index_part = key.split("[", 1)
+            index_str = index_part.rstrip("]")
 
             try:
                 index = int(index_str)
@@ -123,7 +127,7 @@ def get_value_from_path(data: Dict[str, Any], path: str) -> Any:
                 return None
 
         # Handle numeric string as array index: items.0 or items.-1
-        elif key.lstrip('-').isdigit():
+        elif key.lstrip("-").isdigit():
             index = int(key)
             if isinstance(value, (list, tuple)):
                 try:
@@ -170,7 +174,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
     parsed_dt = None
 
     # Pattern 1: YYYY-MM-DD
-    pattern1 = re.match(r'^(\d{4})-(\d{1,2})-(\d{1,2})$', value)
+    pattern1 = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})$", value)
     if pattern1:
         try:
             year, month, day = map(int, pattern1.groups())
@@ -180,7 +184,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
 
     # Pattern 2: YYYYMMDD
     if not parsed_dt:
-        pattern2 = re.match(r'^(\d{4})(\d{2})(\d{2})$', value)
+        pattern2 = re.match(r"^(\d{4})(\d{2})(\d{2})$", value)
         if pattern2:
             try:
                 year = int(pattern2.group(1))
@@ -192,7 +196,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
 
     # Pattern 3: YYYY/MM/DD
     if not parsed_dt:
-        pattern3 = re.match(r'^(\d{4})/(\d{1,2})/(\d{1,2})$', value)
+        pattern3 = re.match(r"^(\d{4})/(\d{1,2})/(\d{1,2})$", value)
         if pattern3:
             try:
                 year, month, day = map(int, pattern3.groups())
@@ -202,7 +206,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
 
     # Pattern 4: YYYY.MM.DD (dot separator)
     if not parsed_dt:
-        pattern4 = re.match(r'^(\d{4})\.(\d{1,2})\.(\d{1,2})$', value)
+        pattern4 = re.match(r"^(\d{4})\.(\d{1,2})\.(\d{1,2})$", value)
         if pattern4:
             try:
                 year, month, day = map(int, pattern4.groups())
@@ -212,7 +216,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
 
     # Pattern 5: YYYY-MM (year-month with dash, defaults to 1st day)
     if not parsed_dt:
-        pattern5 = re.match(r'^(\d{4})-(\d{1,2})$', value)
+        pattern5 = re.match(r"^(\d{4})-(\d{1,2})$", value)
         if pattern5:
             try:
                 year, month = map(int, pattern5.groups())
@@ -222,7 +226,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
 
     # Pattern 6: YYYY.MM (year-month with dot, defaults to 1st day)
     if not parsed_dt:
-        pattern6 = re.match(r'^(\d{4})\.(\d{1,2})$', value)
+        pattern6 = re.match(r"^(\d{4})\.(\d{1,2})$", value)
         if pattern6:
             try:
                 year, month = map(int, pattern6.groups())
@@ -232,7 +236,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
 
     # Pattern 7: YYYYMM (year-month without separator, defaults to 1st day)
     if not parsed_dt:
-        pattern7 = re.match(r'^(\d{4})(\d{2})$', value)
+        pattern7 = re.match(r"^(\d{4})(\d{2})$", value)
         if pattern7:
             try:
                 year = int(pattern7.group(1))
@@ -243,17 +247,19 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
 
     # Pattern 8: MM/DD HH (e.g., "08/01 10" -> 2025-08-01 10:00:00)
     if not parsed_dt:
-        pattern8 = re.match(r'^(\d{1,2})/(\d{1,2})\s+(\d{1,2})$', value)
+        pattern8 = re.match(r"^(\d{1,2})/(\d{1,2})\s+(\d{1,2})$", value)
         if pattern8:
             try:
                 month, day, hour = map(int, pattern8.groups())
-                parsed_dt = datetime(current_year, month, day, hour, 0, 0, tzinfo=TZ_ASIA_SEOUL)
+                parsed_dt = datetime(
+                    current_year, month, day, hour, 0, 0, tzinfo=TZ_ASIA_SEOUL
+                )
             except ValueError:
                 return None
 
     # Pattern 9: Korean date format (e.g., "2025년 1월 11일")
     if not parsed_dt:
-        pattern9 = re.match(r'^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일$', value)
+        pattern9 = re.match(r"^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일$", value)
         if pattern9:
             try:
                 year, month, day = map(int, pattern9.groups())
@@ -263,7 +269,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
 
     # Pattern 10: Korean year-month format (e.g., "2025년 1월", defaults to 1st day)
     if not parsed_dt:
-        pattern10 = re.match(r'^(\d{4})년\s*(\d{1,2})월$', value)
+        pattern10 = re.match(r"^(\d{4})년\s*(\d{1,2})월$", value)
         if pattern10:
             try:
                 year, month = map(int, pattern10.groups())
@@ -273,7 +279,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
 
     # Pattern 11: US date format MM/DD/YYYY (e.g., "01/11/2025" or "1/11/2025")
     if not parsed_dt:
-        pattern11 = re.match(r'^(\d{1,2})/(\d{1,2})/(\d{4})$', value)
+        pattern11 = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", value)
         if pattern11:
             try:
                 month, day, year = map(int, pattern11.groups())
@@ -283,7 +289,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
 
     # Pattern 12: US date format with dots MM.DD.YYYY
     if not parsed_dt:
-        pattern12 = re.match(r'^(\d{1,2})\.(\d{1,2})\.(\d{4})$', value)
+        pattern12 = re.match(r"^(\d{1,2})\.(\d{1,2})\.(\d{4})$", value)
         if pattern12:
             try:
                 month, day, year = map(int, pattern12.groups())
@@ -293,11 +299,25 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
 
     # Pattern 13: YYYY-MM-DD HH:mm:ss.S
     if not parsed_dt:
-        pattern13 = re.match(r'^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})\.(\d+)$', value)
+        pattern13 = re.match(
+            r"^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})\.(\d+)$",
+            value,
+        )
         if pattern13:
             try:
-                year, month, day, hour, minute, second, microsecond = map(int, pattern13.groups())
-                parsed_dt = datetime(year, month, day, hour, minute, second, microsecond=0, tzinfo=TZ_ASIA_SEOUL)
+                year, month, day, hour, minute, second, microsecond = map(
+                    int, pattern13.groups()
+                )
+                parsed_dt = datetime(
+                    year,
+                    month,
+                    day,
+                    hour,
+                    minute,
+                    second,
+                    microsecond=0,
+                    tzinfo=TZ_ASIA_SEOUL,
+                )
             except ValueError:
                 return None
 

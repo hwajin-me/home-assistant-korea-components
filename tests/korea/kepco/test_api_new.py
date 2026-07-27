@@ -32,17 +32,27 @@ async def test_async_get_session_and_rsa_key():
         mock_response.status = 200
         mock_response.text = AsyncMock(return_value=mock_html)
         mock_response.headers = MagicMock()
-        mock_response.headers.getall.return_value = ["JSESSIONID=test_jsessionid; Path=/; HttpOnly"]
+        mock_response.headers.getall.return_value = [
+            "JSESSIONID=test_jsessionid; Path=/; HttpOnly"
+        ]
         mock_response.raise_for_status = MagicMock()
 
         # Mock session.get
-        with patch.object(session, 'get') as mock_get:
+        with patch.object(session, "get") as mock_get:
             mock_get.return_value.__aenter__.return_value = mock_response
 
-            jsessionid, rsa_modulus, rsa_exponent, sessid = await api_client.async_get_session_and_rsa_key()
+            (
+                jsessionid,
+                rsa_modulus,
+                rsa_exponent,
+                sessid,
+            ) = await api_client.async_get_session_and_rsa_key()
 
             assert jsessionid == "test_jsessionid"
-            assert rsa_modulus == "d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3"
+            assert (
+                rsa_modulus
+                == "d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3"
+            )
             assert rsa_exponent == "10001"
             assert sessid == "test_sessid_12345"
 
@@ -103,8 +113,8 @@ async def test_prepare_encrypted_credentials():
         assert user_pw.startswith(f"{sessid}_")
 
         # 암호화된 부분 추출
-        encrypted_username = user_id[len(sessid) + 1:]
-        encrypted_password = user_pw[len(sessid) + 1:]
+        encrypted_username = user_id[len(sessid) + 1 :]
+        encrypted_password = user_pw[len(sessid) + 1 :]
 
         # hex 문자열인지 확인
         bytes.fromhex(encrypted_username)
@@ -125,8 +135,13 @@ async def test_async_login_success():
         api_client = KepcoApiClient(session)
 
         # Mock async_get_session_and_rsa_key
-        with patch.object(api_client, 'async_get_session_and_rsa_key') as mock_session:
-            mock_session.return_value = ("test_jsessionid", "d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3", "10001", "test_sessid_12345")
+        with patch.object(api_client, "async_get_session_and_rsa_key") as mock_session:
+            mock_session.return_value = (
+                "test_jsessionid",
+                "d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3",
+                "10001",
+                "test_sessid_12345",
+            )
 
             # Mock login POST response
             mock_response = AsyncMock()
@@ -135,7 +150,7 @@ async def test_async_login_success():
             mock_response.text = AsyncMock(return_value="로그인 성공")
             mock_response.headers = {}
 
-            with patch.object(session, 'post') as mock_post:
+            with patch.object(session, "post") as mock_post:
                 mock_post.return_value.__aenter__.return_value = mock_response
 
                 result = await api_client.async_login("test_user", "test_password")
@@ -149,8 +164,13 @@ async def test_async_login_failure():
         api_client = KepcoApiClient(session)
 
         # Mock async_get_session_and_rsa_key
-        with patch.object(api_client, 'async_get_session_and_rsa_key') as mock_session:
-            mock_session.return_value = ("test_jsessionid", "d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3", "10001", "test_sessid_12345")
+        with patch.object(api_client, "async_get_session_and_rsa_key") as mock_session:
+            mock_session.return_value = (
+                "test_jsessionid",
+                "d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3",
+                "10001",
+                "test_sessid_12345",
+            )
 
             # Mock failed login POST response (no confirmInfo.do in URL)
             mock_response = AsyncMock()
@@ -159,7 +179,7 @@ async def test_async_login_failure():
             mock_response.text = AsyncMock(return_value="로그인 실패")
             mock_response.headers = {}
 
-            with patch.object(session, 'post') as mock_post:
+            with patch.object(session, "post") as mock_post:
                 mock_post.return_value.__aenter__.return_value = mock_response
 
                 result = await api_client.async_login("test_user", "wrong_password")
@@ -173,7 +193,7 @@ async def test_async_login_missing_rsa_data():
         api_client = KepcoApiClient(session)
 
         # Mock session method to raise KepcoAuthError
-        with patch.object(api_client, 'async_get_session_and_rsa_key') as mock_session:
+        with patch.object(api_client, "async_get_session_and_rsa_key") as mock_session:
             mock_session.side_effect = KepcoAuthError("Failed to get RSA data")
 
             result = await api_client.async_login("test_user", "test_password")
@@ -188,7 +208,7 @@ async def test_async_get_recent_usage():
 
         # Mock _request method
         expected_data = {"result": {"F_AP_QT": "123.45", "KWH_BILL": "678"}}
-        with patch.object(api_client, '_request') as mock_request:
+        with patch.object(api_client, "_request") as mock_request:
             mock_request.return_value = expected_data
 
             data = await api_client.async_get_recent_usage()
@@ -203,8 +223,10 @@ async def test_async_get_usage_info():
         api_client = KepcoApiClient(session)
 
         # Mock _request method
-        expected_data = {"result": {"BILL_LAST_MONTH": "10000", "PREDICT_TOTAL_CHARGE_REV": "15000"}}
-        with patch.object(api_client, '_request') as mock_request:
+        expected_data = {
+            "result": {"BILL_LAST_MONTH": "10000", "PREDICT_TOTAL_CHARGE_REV": "15000"}
+        }
+        with patch.object(api_client, "_request") as mock_request:
             mock_request.return_value = expected_data
 
             data = await api_client.async_get_usage_info()
@@ -220,4 +242,3 @@ async def test_set_credentials():
         api_client.set_credentials("test_user", "test_password")
         assert api_client._username == "test_user"
         assert api_client._password == "test_password"
-

@@ -1,6 +1,7 @@
 """GoodsFlow device for Home Assistant integration."""
+
 from datetime import datetime
-from typing import Dict, Any, Optional
+
 import aiohttp
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import UpdateFailed

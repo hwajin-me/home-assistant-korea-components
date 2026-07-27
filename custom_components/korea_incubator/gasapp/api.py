@@ -1,6 +1,8 @@
 """GasApp API client for Home Assistant integration."""
-import aiohttp
+
 from typing import Dict, Any, Optional
+
+import aiohttp
 
 from .exceptions import GasAppAuthError, GasAppConnectionError, GasAppDataError
 from ..const import LOGGER
@@ -30,14 +32,10 @@ class GasAppApiClient:
         return {
             "X-Token": self._token,
             "X-Member": self._member_id,
-            "X-Platform": "IOS",
             "X-Company": "1",
-            "X-Webversion": "6.10.153",
             "X-Version": "4.2.5.24144",
-            "Accept-Encoding": "gzip, zlib, deflate, zstd, br",
             "Host": "app.gasapp.co.kr",
             "Connection": "close",
-            "User-Agent": "HomeAssistant-Korea-Components/1.0",
         }
 
     async def async_validate_credentials(self) -> bool:
@@ -55,7 +53,9 @@ class GasAppApiClient:
         headers = self._get_headers()
 
         try:
-            async with self._session.request(method, url, headers=headers, **kwargs) as response:
+            async with self._session.request(
+                method, url, headers=headers, **kwargs
+            ) as response:
                 LOGGER.debug(f"GasApp API request to {url} status: {response.status}")
 
                 if response.status == 401:
@@ -63,7 +63,9 @@ class GasAppApiClient:
                 elif response.status == 403:
                     raise GasAppAuthError("Access denied")
                 elif response.status >= 400:
-                    raise GasAppConnectionError(f"HTTP {response.status}: {response.reason}")
+                    raise GasAppConnectionError(
+                        f"HTTP {response.status}: {response.reason}"
+                    )
 
                 response.raise_for_status()
                 return await response.json()
@@ -83,7 +85,7 @@ class GasAppApiClient:
         params = {
             "useContractNum": self._use_contract_num,
             "customerNum": "",
-            "amiYn": "N"
+            "amiYn": "N",
         }
 
         return await self._request("GET", "home", params=params)

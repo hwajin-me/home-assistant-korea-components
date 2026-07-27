@@ -39,7 +39,14 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial step."""
         return self.async_show_menu(
             step_id="user",
-            menu_options=["kepco", "gasapp", "safety_alert", "goodsflow", "arisu", "kakaomap"],
+            menu_options=[
+                "kepco",
+                "gasapp",
+                "safety_alert",
+                "goodsflow",
+                "arisu",
+                "kakaomap",
+            ],
         )
 
     async def async_step_kepco(self, user_input: Optional[Dict[str, Any]] = None):
@@ -50,18 +57,21 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             async with curl_cffi.AsyncSession() as session:
                 client = KepcoApiClient(session)
-                client.set_credentials(user_input[CONF_USERNAME], user_input[CONF_PASSWORD])
+                client.set_credentials(
+                    user_input[CONF_USERNAME], user_input[CONF_PASSWORD]
+                )
                 try:
                     if await client.async_login(
-                            user_input[CONF_USERNAME],
-                            user_input[CONF_PASSWORD]
+                        user_input[CONF_USERNAME], user_input[CONF_PASSWORD]
                     ):
                         unique_id = f"kepco_{user_input[CONF_USERNAME]}"
                         await self.async_set_unique_id(unique_id)
                         self._abort_if_unique_id_configured()
 
                         user_input["service"] = "kepco"
-                        return self.async_create_entry(title=f"한전 ({user_input[CONF_USERNAME]})", data=user_input)
+                        return self.async_create_entry(
+                            title=f"한전 ({user_input[CONF_USERNAME]})", data=user_input
+                        )
                     else:
                         errors["base"] = "auth"
                         error_info["error"] = "Login returned false"
@@ -97,7 +107,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 client.set_credentials(
                     user_input["token"],
                     user_input["member_id"],
-                    user_input["use_contract_num"]
+                    user_input["use_contract_num"],
                 )
                 try:
                     if await client.async_validate_credentials():
@@ -108,7 +118,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         user_input["service"] = "gasapp"
                         return self.async_create_entry(
                             title=f"가스앱 ({user_input['use_contract_num']})",
-                            data=user_input
+                            data=user_input,
                         )
                     else:
                         errors["base"] = "auth"
@@ -135,7 +145,9 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders=error_info,
         )
 
-    async def async_step_safety_alert(self, user_input: Optional[Dict[str, Any]] = None):
+    async def async_step_safety_alert(
+        self, user_input: Optional[Dict[str, Any]] = None
+    ):
         """Handle Safety Alert configuration - start with sido selection."""
         errors: Dict[str, str] = {}
         error_info: Dict[str, str] = {}
@@ -157,14 +169,20 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     error_info["error"] = "No sido data returned from API"
                 else:
                     # Create options for dropdown
-                    sido_options = {region["code"]: region["name"] for region in sido_list}
+                    sido_options = {
+                        region["code"]: region["name"] for region in sido_list
+                    }
 
                     return self.async_show_form(
                         step_id="safety_alert",
-                        data_schema=vol.Schema({
-                            vol.Required("sido_code", default="1100000000"): vol.In(sido_options),
-                            vol.Required("sido_name", default="서울특별시"): str,
-                        }),
+                        data_schema=vol.Schema(
+                            {
+                                vol.Required("sido_code", default="1100000000"): vol.In(
+                                    sido_options
+                                ),
+                                vol.Required("sido_name", default="서울특별시"): str,
+                            }
+                        ),
                         errors=errors,
                         description_placeholders=error_info,
                     )
@@ -181,15 +199,19 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Fallback to simple form if API fails
         return self.async_show_form(
             step_id="safety_alert",
-            data_schema=vol.Schema({
-                vol.Required("sido_code", default="1100000000"): str,
-                vol.Required("sido_name", default="서울특별시"): str,
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required("sido_code", default="1100000000"): str,
+                    vol.Required("sido_name", default="서울특별시"): str,
+                }
+            ),
             errors=errors,
             description_placeholders=error_info,
         )
 
-    async def async_step_safety_alert_sgg(self, user_input: Optional[Dict[str, Any]] = None):
+    async def async_step_safety_alert_sgg(
+        self, user_input: Optional[Dict[str, Any]] = None
+    ):
         """Handle Safety Alert sgg (시군구) selection."""
         errors: Dict[str, str] = {}
         error_info: Dict[str, str] = {}
@@ -209,22 +231,30 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         try:
             async with aiohttp.ClientSession() as session:
                 region_client = SafetyAlertRegionApiClient(session)
-                sgg_list = await region_client.async_get_sgg_list(self._safety_alert_data["sido_code"])
+                sgg_list = await region_client.async_get_sgg_list(
+                    self._safety_alert_data["sido_code"]
+                )
 
                 if not sgg_list:
                     errors["base"] = "no_sgg_available"
-                    error_info["error"] = f"No sgg data returned for sido code {self._safety_alert_data['sido_code']}"
+                    error_info["error"] = (
+                        f"No sgg data returned for sido code {self._safety_alert_data['sido_code']}"
+                    )
                 else:
                     # Create options for dropdown
-                    sgg_options = {region["code"]: region["name"] for region in sgg_list}
+                    sgg_options = {
+                        region["code"]: region["name"] for region in sgg_list
+                    }
 
                     return self.async_show_form(
                         step_id="safety_alert_sgg",
-                        data_schema=vol.Schema({
-                            vol.Required("sgg_code"): vol.In(sgg_options),
-                            vol.Required("sgg_name"): str,
-                            vol.Optional("add_emd", default=False): bool,
-                        }),
+                        data_schema=vol.Schema(
+                            {
+                                vol.Required("sgg_code"): vol.In(sgg_options),
+                                vol.Required("sgg_name"): str,
+                                vol.Optional("add_emd", default=False): bool,
+                            }
+                        ),
                         errors=errors,
                         description_placeholders=error_info,
                     )
@@ -240,16 +270,20 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="safety_alert_sgg",
-            data_schema=vol.Schema({
-                vol.Required("sgg_code"): str,
-                vol.Required("sgg_name"): str,
-                vol.Optional("add_emd", default=False): bool,
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required("sgg_code"): str,
+                    vol.Required("sgg_name"): str,
+                    vol.Optional("add_emd", default=False): bool,
+                }
+            ),
             errors=errors,
             description_placeholders=error_info,
         )
 
-    async def async_step_safety_alert_emd(self, user_input: Optional[Dict[str, Any]] = None):
+    async def async_step_safety_alert_emd(
+        self, user_input: Optional[Dict[str, Any]] = None
+    ):
         """Handle Safety Alert emd (읍면동) selection."""
         errors: Dict[str, str] = {}
         error_info: Dict[str, str] = {}
@@ -266,22 +300,28 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 region_client = SafetyAlertRegionApiClient(session)
                 emd_list = await region_client.async_get_emd_list(
                     self._safety_alert_data["sido_code"],
-                    self._safety_alert_data["sgg_code"]
+                    self._safety_alert_data["sgg_code"],
                 )
 
                 if not emd_list:
                     errors["base"] = "no_emd_available"
-                    error_info["error"] = f"No emd data returned for sido {self._safety_alert_data['sido_code']} and sgg {self._safety_alert_data['sgg_code']}"
+                    error_info["error"] = (
+                        f"No emd data returned for sido {self._safety_alert_data['sido_code']} and sgg {self._safety_alert_data['sgg_code']}"
+                    )
                 else:
                     # Create options for dropdown
-                    emd_options = {region["code"]: region["name"] for region in emd_list}
+                    emd_options = {
+                        region["code"]: region["name"] for region in emd_list
+                    }
 
                     return self.async_show_form(
                         step_id="safety_alert_emd",
-                        data_schema=vol.Schema({
-                            vol.Required("emd_code"): vol.In(emd_options),
-                            vol.Required("emd_name"): str,
-                        }),
+                        data_schema=vol.Schema(
+                            {
+                                vol.Required("emd_code"): vol.In(emd_options),
+                                vol.Required("emd_name"): str,
+                            }
+                        ),
                         errors=errors,
                         description_placeholders=error_info,
                     )
@@ -297,10 +337,12 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="safety_alert_emd",
-            data_schema=vol.Schema({
-                vol.Required("emd_code"): str,
-                vol.Required("emd_name"): str,
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required("emd_code"): str,
+                    vol.Required("emd_name"): str,
+                }
+            ),
             errors=errors,
             description_placeholders=error_info,
         )
@@ -312,13 +354,13 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             async with aiohttp.ClientSession() as session:
                 client = SafetyAlertApiClient(session)
 
-                area_code = self._safety_alert_data.get("sgg_code", self._safety_alert_data["sido_code"])
+                area_code = self._safety_alert_data.get(
+                    "sgg_code", self._safety_alert_data["sido_code"]
+                )
                 area_code2 = self._safety_alert_data.get("emd_code")
 
                 alerts = await client.async_get_safety_alerts(
-                    area_code,
-                    area_code2,
-                    None
+                    area_code, area_code2, None
                 )
 
                 # Create display name
@@ -349,8 +391,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     entry_data["area_name3"] = self._safety_alert_data["emd_name"]
 
                 return self.async_create_entry(
-                    title=f"안전알림 ({display_name})",
-                    data=entry_data
+                    title=f"안전알림 ({display_name})", data=entry_data
                 )
 
         except SafetyAlertConnectionError as e:
@@ -371,8 +412,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 try:
                     # Test the API with the provided credentials (both customer number and name)
                     bill_data = await client.async_get_water_bill_data(
-                        user_input["customer_number"],
-                        user_input["customer_name"]
+                        user_input["customer_number"], user_input["customer_name"]
                     )
 
                     if bill_data.get("success", False):
@@ -383,7 +423,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         user_input["service"] = "arisu"
                         return self.async_create_entry(
                             title=f"아리수 ({user_input['customer_number']})",
-                            data=user_input
+                            data=user_input,
                         )
                     else:
                         errors["base"] = "invalid_auth"
@@ -426,43 +466,55 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         # WGS84 좌표를 입력받은 경우
                         start_coords_input = {
                             "longitude": float(user_input["start_x"]),
-                            "latitude": float(user_input["start_y"])
+                            "latitude": float(user_input["start_y"]),
                         }
                         end_coords_input = {
                             "longitude": float(user_input["end_x"]),
-                            "latitude": float(user_input["end_y"])
+                            "latitude": float(user_input["end_y"]),
                         }
 
                         # 좌표 유효성 검사
                         if not validate_coordinates(start_coords_input, "WGS84"):
                             errors["start_x"] = "invalid_wgs84_coordinates"
-                            error_info["error"] = f"Longitude: {start_coords_input['longitude']}, Latitude: {start_coords_input['latitude']}"
+                            error_info["error"] = (
+                                f"Longitude: {start_coords_input['longitude']}, Latitude: {start_coords_input['latitude']}"
+                            )
                         if not validate_coordinates(end_coords_input, "WGS84"):
                             errors["end_x"] = "invalid_wgs84_coordinates"
-                            error_info["error"] = f"Longitude: {end_coords_input['longitude']}, Latitude: {end_coords_input['latitude']}"
+                            error_info["error"] = (
+                                f"Longitude: {end_coords_input['longitude']}, Latitude: {end_coords_input['latitude']}"
+                            )
 
                         if not errors:
                             # WGS84를 WCONGNAMUL로 변환
-                            start_coords = convert_coordinates(start_coords_input, "WGS84", "WCONGNAMUL")
-                            end_coords = convert_coordinates(end_coords_input, "WGS84", "WCONGNAMUL")
+                            start_coords = convert_coordinates(
+                                start_coords_input, "WGS84", "WCONGNAMUL"
+                            )
+                            end_coords = convert_coordinates(
+                                end_coords_input, "WGS84", "WCONGNAMUL"
+                            )
                     else:
                         # WCONGNAMUL 좌표를 입력받은 경우
                         start_coords = {
                             "x": float(user_input["start_x"]),
-                            "y": float(user_input["start_y"])
+                            "y": float(user_input["start_y"]),
                         }
                         end_coords = {
                             "x": float(user_input["end_x"]),
-                            "y": float(user_input["end_y"])
+                            "y": float(user_input["end_y"]),
                         }
 
                         # 좌표 유효성 검사
                         if not validate_coordinates(start_coords, "WCONGNAMUL"):
                             errors["start_x"] = "invalid_wcongnamul_coordinates"
-                            error_info["error"] = f"X: {start_coords['x']}, Y: {start_coords['y']}"
+                            error_info["error"] = (
+                                f"X: {start_coords['x']}, Y: {start_coords['y']}"
+                            )
                         if not validate_coordinates(end_coords, "WCONGNAMUL"):
                             errors["end_x"] = "invalid_wcongnamul_coordinates"
-                            error_info["error"] = f"X: {end_coords['x']}, Y: {end_coords['y']}"
+                            error_info["error"] = (
+                                f"X: {end_coords['x']}, Y: {end_coords['y']}"
+                            )
 
                     if not errors:
                         # Test coordinate to address conversion
@@ -471,7 +523,9 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         )
 
                         if start_address.get("success"):
-                            unique_id = f"kakaomap_{user_input['name'].replace(' ', '_')}"
+                            unique_id = (
+                                f"kakaomap_{user_input['name'].replace(' ', '_')}"
+                            )
                             await self.async_set_unique_id(unique_id)
                             self._abort_if_unique_id_configured()
 
@@ -483,11 +537,13 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                             return self.async_create_entry(
                                 title=f"카카오맵 ({user_input['name']})",
-                                data=user_input
+                                data=user_input,
                             )
                         else:
                             errors["base"] = "invalid_coordinates"
-                            error_info["error"] = "Address lookup failed with the provided coordinates"
+                            error_info["error"] = (
+                                "Address lookup failed with the provided coordinates"
+                            )
 
                 except KakaoMapConnectionError as e:
                     LOGGER.error(f"KakaoMap connection failed: {e}")
@@ -507,12 +563,16 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required("name", default="집↔회사"): str,
-                    vol.Required("coord_system", default="WCONGNAMUL"): vol.In([
-                        "WCONGNAMUL", "WGS84"
-                    ]),
-                    vol.Required("start_x", default="515290"): str,  # 기본값: WCONGNAMUL 건대입구역
+                    vol.Required("coord_system", default="WCONGNAMUL"): vol.In(
+                        ["WCONGNAMUL", "WGS84"]
+                    ),
+                    vol.Required(
+                        "start_x", default="515290"
+                    ): str,  # 기본값: WCONGNAMUL 건대입구역
                     vol.Required("start_y", default="1122478"): str,
-                    vol.Required("end_x", default="506190"): str,  # 기본값: WCONGNAMUL 강남역
+                    vol.Required(
+                        "end_x", default="506190"
+                    ): str,  # 기본값: WCONGNAMUL 강남역
                     vol.Required("end_y", default="1110730"): str,
                 }
             ),
@@ -537,8 +597,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                         user_input["service"] = "goodsflow"
                         return self.async_create_entry(
-                            title="굿스플로우 택배조회",
-                            data=user_input
+                            title="굿스플로우 택배조회", data=user_input
                         )
                     else:
                         errors["base"] = "invalid_auth"

@@ -7,7 +7,6 @@ import aiohttp
 
 
 class TestKepcoRSAEncryption(unittest.TestCase):
-
     def setUp(self):
         """테스트 초기화"""
         self.session = MagicMock(spec=aiohttp.ClientSession)
@@ -43,8 +42,8 @@ class TestKepcoRSAEncryption(unittest.TestCase):
 
         # When - 암호화
         cipher_encrypt = PKCS1_v1_5.new(self.test_key.publickey())
-        encrypted_username = cipher_encrypt.encrypt(test_username.encode('utf-8'))
-        encrypted_password = cipher_encrypt.encrypt(test_password.encode('utf-8'))
+        encrypted_username = cipher_encrypt.encrypt(test_username.encode("utf-8"))
+        encrypted_password = cipher_encrypt.encrypt(test_password.encode("utf-8"))
 
         # When - 복호화 (검증용)
         cipher_decrypt = PKCS1_v1_5.new(self.test_key)
@@ -52,8 +51,8 @@ class TestKepcoRSAEncryption(unittest.TestCase):
         decrypted_password = cipher_decrypt.decrypt(encrypted_password, None)
 
         # Then
-        self.assertEqual(decrypted_username.decode('utf-8'), test_username)
-        self.assertEqual(decrypted_password.decode('utf-8'), test_password)
+        self.assertEqual(decrypted_username.decode("utf-8"), test_username)
+        self.assertEqual(decrypted_password.decode("utf-8"), test_password)
 
     def test_hex_conversion(self):
         """16진수 변환 테스트"""
@@ -62,12 +61,12 @@ class TestKepcoRSAEncryption(unittest.TestCase):
 
         # When
         cipher = PKCS1_v1_5.new(self.test_key.publickey())
-        encrypted_bytes = cipher.encrypt(test_data.encode('utf-8'))
+        encrypted_bytes = cipher.encrypt(test_data.encode("utf-8"))
         encrypted_hex = encrypted_bytes.hex()
 
         # Then
         self.assertIsInstance(encrypted_hex, str)
-        self.assertTrue(all(c in '0123456789abcdef' for c in encrypted_hex))
+        self.assertTrue(all(c in "0123456789abcdef" for c in encrypted_hex))
         self.assertEqual(len(encrypted_hex) % 2, 0)  # 짝수 길이여야 함
 
     def test_user_credential_formatting(self):
@@ -105,8 +104,8 @@ class TestKepcoRSAEncryption(unittest.TestCase):
 
         # When
         cipher = PKCS1_v1_5.new(self.test_key.publickey())
-        encrypted_username = cipher.encrypt(empty_username.encode('utf-8'))
-        encrypted_password = cipher.encrypt(empty_password.encode('utf-8'))
+        encrypted_username = cipher.encrypt(empty_username.encode("utf-8"))
+        encrypted_password = cipher.encrypt(empty_password.encode("utf-8"))
 
         # Then
         self.assertIsInstance(encrypted_username, bytes)
@@ -122,8 +121,8 @@ class TestKepcoRSAEncryption(unittest.TestCase):
 
         # When
         cipher = PKCS1_v1_5.new(self.test_key.publickey())
-        encrypted_username = cipher.encrypt(unicode_username.encode('utf-8'))
-        encrypted_password = cipher.encrypt(unicode_password.encode('utf-8'))
+        encrypted_username = cipher.encrypt(unicode_username.encode("utf-8"))
+        encrypted_password = cipher.encrypt(unicode_password.encode("utf-8"))
 
         # Then
         self.assertIsInstance(encrypted_username, bytes)
@@ -134,9 +133,9 @@ class TestKepcoRSAEncryption(unittest.TestCase):
         decrypted_username = cipher_decrypt.decrypt(encrypted_username, None)
         decrypted_password = cipher_decrypt.decrypt(encrypted_password, None)
 
-        self.assertEqual(decrypted_username.decode('utf-8'), unicode_username)
-        self.assertEqual(decrypted_password.decode('utf-8'), unicode_password)
+        self.assertEqual(decrypted_username.decode("utf-8"), unicode_username)
+        self.assertEqual(decrypted_password.decode("utf-8"), unicode_password)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

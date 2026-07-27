@@ -7,10 +7,7 @@ from homeassistant.const import Platform
 DOMAIN = "korea_incubator"
 LOGGER = getLogger(__package__)
 
-PLATFORMS = [
-    Platform.SENSOR,
-    Platform.BINARY_SENSOR
-]
+PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
 CURRENCY_KRW = "KRW"
 ENERGY_KILO_WATT_HOUR = "kWh"

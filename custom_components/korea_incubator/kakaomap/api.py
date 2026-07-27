@@ -1,9 +1,11 @@
 """KakaoMap API client for Home Assistant integration."""
+
 from datetime import datetime
+from typing import Dict, Any, Optional
 
 import aiohttp
-from typing import Dict, Any, Optional, List
-from .exceptions import KakaoMapConnectionError, KakaoMapDataError, KakaoMapQuotaError
+
+from .exceptions import KakaoMapConnectionError, KakaoMapDataError
 from ..const import LOGGER
 
 
@@ -14,7 +16,9 @@ class KakaoMapApiClient:
         self._session = session
         self._base_url = "https://map.kakao.com"
 
-    async def async_coordinate_to_address(self, x: float, y: float, coord_system: str = "WCONGNAMUL") -> Dict[str, Any]:
+    async def async_coordinate_to_address(
+        self, x: float, y: float, coord_system: str = "WCONGNAMUL"
+    ) -> Dict[str, Any]:
         """Convert coordinates to address information."""
         url = f"{self._base_url}/etc/areaAddressInfo.json"
 
@@ -23,20 +27,26 @@ class KakaoMapApiClient:
             "inputCoordSystem": coord_system,
             "outputCoordSystem": coord_system,
             "x": str(x),
-            "y": str(y)
+            "y": str(y),
         }
 
         headers = {
             "Accept": "application/json",
-            "User-Agent": "HomeAssistant-Korea-Components/1.0"
+            "User-Agent": "HomeAssistant-Korea-Components/1.0",
         }
 
         try:
-            async with self._session.get(url, params=params, headers=headers) as response:
-                LOGGER.debug(f"KakaoMap coordinate API response status: {response.status}")
+            async with self._session.get(
+                url, params=params, headers=headers
+            ) as response:
+                LOGGER.debug(
+                    f"KakaoMap coordinate API response status: {response.status}"
+                )
 
                 if response.status != 200:
-                    raise KakaoMapConnectionError(f"HTTP {response.status}: {response.reason}")
+                    raise KakaoMapConnectionError(
+                        f"HTTP {response.status}: {response.reason}"
+                    )
 
                 data = await response.json()
                 return self._parse_address_response(data)
@@ -49,13 +59,13 @@ class KakaoMapApiClient:
             raise KakaoMapDataError(f"Unexpected error: {e}")
 
     async def async_get_public_transport_route(
-            self,
-            start_x: float,
-            start_y: float,
-            end_x: float,
-            end_y: float,
-            coord_system: str = "WCONGNAMUL",
-            start_time: Optional[str] = None
+        self,
+        start_x: float,
+        start_y: float,
+        end_x: float,
+        end_y: float,
+        coord_system: str = "WCONGNAMUL",
+        start_time: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Get public transport route information."""
         url = f"{self._base_url}/route/pubtrans.json"
@@ -66,7 +76,7 @@ class KakaoMapApiClient:
             "sX": int(start_x),
             "sY": int(start_y),
             "eX": int(end_x),
-            "eY": int(end_y)
+            "eY": int(end_y),
         }
 
         if start_time:
@@ -78,17 +88,23 @@ class KakaoMapApiClient:
             "Accept": "text/javascript, application/javascript, application/ecmascript, application/x-ecmascript, */*; q=0.01",
             "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,ja;q=0.7",
             "X-Requested-With": "XMLHttpRequest",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
         }
 
         LOGGER.debug(f"Requesting KakaoMap transport API with params: {params}")
 
         try:
-            async with self._session.get(url, params=params, headers=headers) as response:
-                LOGGER.debug(f"KakaoMap transport API response status: {response.status}")
+            async with self._session.get(
+                url, params=params, headers=headers
+            ) as response:
+                LOGGER.debug(
+                    f"KakaoMap transport API response status: {response.status}"
+                )
 
                 if response.status != 200:
-                    raise KakaoMapConnectionError(f"HTTP {response.status}: {response.reason}")
+                    raise KakaoMapConnectionError(
+                        f"HTTP {response.status}: {response.reason}"
+                    )
 
                 data = await response.json()
                 return data
@@ -107,17 +123,14 @@ class KakaoMapApiClient:
                 "success": True,
                 "address": None,
                 "region": None,
-                "coordinates": None
+                "coordinates": None,
             }
 
             if "old" in data and data["old"]:
                 old_data = data["old"]
                 result["address"] = old_data.get("name", "")
                 result["region"] = data.get("region", "")
-                result["coordinates"] = {
-                    "x": data.get("x"),
-                    "y": data.get("y")
-                }
+                result["coordinates"] = {"x": data.get("x"), "y": data.get("y")}
 
             return result
 

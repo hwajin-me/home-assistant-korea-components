@@ -11,14 +11,23 @@ from ..const import DOMAIN, LOGGER
 
 
 class KepcoDevice:
-    def __init__(self, hass, entry_id: str, username: str, password: str, session: aiohttp.ClientSession|AsyncSession):
+    def __init__(
+        self,
+        hass,
+        entry_id: str,
+        username: str,
+        password: str,
+        session: aiohttp.ClientSession | AsyncSession,
+    ):
         self.hass = hass
         self.entry_id = entry_id
         self.username = username
         self.password = password
         self.session = session
         self.api_client = KepcoApiClient(self.session)
-        self.api_client.set_credentials(username, password)  # Set credentials for re-auth
+        self.api_client.set_credentials(
+            username, password
+        )  # Set credentials for re-auth
 
         self._name = f"한전 ({username})"
         self._unique_id = f"kepco_{username}"
@@ -57,7 +66,9 @@ class KepcoDevice:
             LOGGER.debug(f"KEPCO data updated successfully for {self.username}")
         except KepcoAuthError as err:
             self._available = False
-            LOGGER.error(f"Authentication error updating KEPCO data for {self.username}: {err}")
+            LOGGER.error(
+                f"Authentication error updating KEPCO data for {self.username}: {err}"
+            )
             raise UpdateFailed(f"Authentication error: {err}")
         except Exception as err:
             self._available = False
@@ -74,19 +85,32 @@ class KepcoDevice:
     def get_last_month_bill(self):
         """지난달 요금 조회"""
         try:
-            return self.data.get("usage_info", {}).get("result", {}).get("BILL_LAST_MONTH")
+            return (
+                self.data.get("usage_info", {}).get("result", {}).get("BILL_LAST_MONTH")
+            )
         except (KeyError, AttributeError):
             return None
 
     def get_predicted_bill(self):
         """예상 요금 조회"""
         try:
-            return self.data.get("usage_info", {}).get("result", {}).get("PREDICT_TOTAL_CHARGE_REV")
+            return (
+                self.data.get("usage_info", {})
+                .get("result", {})
+                .get("PREDICT_TOTAL_CHARGE_REV")
+            )
         except (KeyError, AttributeError):
             return None
 
     async def async_close_session(self):
         """Close the aiohttp session."""
-        if self.session and not self.session.closed:
+        if (
+            self.session
+            and isinstance(self.session, aiohttp.ClientSession)
+            and not self.session.closed
+        ):
+            await self.session.close()
+            self.session = None
+        elif isinstance(self.session, AsyncSession):
             await self.session.close()
             self.session = None

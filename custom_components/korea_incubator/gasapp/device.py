@@ -1,6 +1,8 @@
 """GasApp device for Home Assistant integration."""
+
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Optional
+
 import aiohttp
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import UpdateFailed
@@ -13,8 +15,15 @@ from ..const import DOMAIN, LOGGER
 class GasAppDevice:
     """GasApp device representation."""
 
-    def __init__(self, hass, entry_id: str, token: str, member_id: str, use_contract_num: str,
-                 session: aiohttp.ClientSession):
+    def __init__(
+        self,
+        hass,
+        entry_id: str,
+        token: str,
+        member_id: str,
+        use_contract_num: str,
+        session: aiohttp.ClientSession,
+    ):
         self.hass = hass
         self.entry_id = entry_id
         self.token = token
@@ -69,21 +78,29 @@ class GasAppDevice:
 
             self._available = True
             self._last_update_success = datetime.now()
-            LOGGER.debug(f"GasApp data updated successfully for {self.use_contract_num}")
+            LOGGER.debug(
+                f"GasApp data updated successfully for {self.use_contract_num}"
+            )
 
         except GasAppAuthError as err:
             self._available = False
-            LOGGER.error(f"Authentication error for GasApp {self.use_contract_num}: {err}")
+            LOGGER.error(
+                f"Authentication error for GasApp {self.use_contract_num}: {err}"
+            )
             raise UpdateFailed(f"Authentication failed: {err}")
 
         except (GasAppConnectionError, GasAppDataError) as err:
             self._available = False
-            LOGGER.error(f"Error updating GasApp data for {self.use_contract_num}: {err}")
+            LOGGER.error(
+                f"Error updating GasApp data for {self.use_contract_num}: {err}"
+            )
             raise UpdateFailed(f"Error communicating with GasApp API: {err}")
 
         except Exception as err:
             self._available = False
-            LOGGER.error(f"Unexpected error updating GasApp data for {self.use_contract_num}: {err}")
+            LOGGER.error(
+                f"Unexpected error updating GasApp data for {self.use_contract_num}: {err}"
+            )
             raise UpdateFailed(f"Unexpected error: {err}")
 
     def get_current_month_usage(self) -> Optional[str]:

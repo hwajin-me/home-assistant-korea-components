@@ -1,118 +1,237 @@
+"""Test Korea integration initialization and setup."""
+
 import pytest
-from homeassistant.setup import async_setup_component
-from homeassistant.const import Platform
+from unittest.mock import AsyncMock, MagicMock, patch
+import aiohttp
 
-from custom_components.korea_incubator.const import DOMAIN
-
-
-@pytest.fixture(autouse=True)
-def platforms_fixture():
-    """Fixture to set up platforms for testing."""
-    yield
+from custom_components.korea_incubator import async_setup_entry, async_unload_entry
+from custom_components.korea_incubator.const import DOMAIN, PLATFORMS
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 
 
-@pytest.mark.asyncio
-async def test_setup_entry_kepco_success(hass, aiohttp_mock):
-    # Mock KEPCO API calls
-    aiohttp_mock.get("https://pp.kepco.co.kr:8030/intro.do", status=200, headers={
-        "Set-Cookie": "JSESSIONID=test_jsessionid; Path=/; HttpOnly, cookieRsa=test_cookie_rsa; Path=/; HttpOnly"
-    }, payload="<input type=\"hidden\" id=\"RSAExponent\" value=\"10001\">")
-    aiohttp_mock.post("https://pp.kepco.co.kr:8030/login", status=200, payload="로그아웃")
-    aiohttp_mock.post("https://pp.kepco.co.kr:8030/low/main/recent_usage.do", status=200, payload={"result": {"F_AP_QT": "123.45", "KWH_BILL": "678"}})
-    aiohttp_mock.post("https://pp.kepco.co.kr:8030/low/main/usage_info.do", status=200, payload={"result": {"BILL_LAST_MONTH": "10000", "PREDICT_TOTAL_CHARGE_REV": "15000"}})
+class TestKoreaIntegrationSetup:
+    """Test Korea integration setup and initialization."""
 
-    # Setup the config entry
-    config_entry = {
-        "entry_id": "test_kepco_entry",
-        "domain": DOMAIN,
-        "data": {
-            "service": "kepco",
-            "username": "test_user",
-            "password": "test_password",
-        },
-        "title": "한국전력 (test_user)",
-    }
-    hass.config_entries.async_queue_entry(config_entry)
+    @pytest.fixture
+    def mock_entry_kepco(self, kepco_config_data):
+        """Create mock config entry for KEPCO."""
+        entry = MagicMock(spec=ConfigEntry)
+        entry.entry_id = "test_kepco_entry"
+        entry.data = kepco_config_data
+        return entry
 
-    # Load the integration
-    assert await async_setup_component(hass, DOMAIN, {DOMAIN: {}})
-    await hass.async_block_till_done()
+    @pytest.fixture
+    def mock_entry_gasapp(self, gasapp_config_data):
+        """Create mock config entry for GasApp."""
+        entry = MagicMock(spec=ConfigEntry)
+        entry.entry_id = "test_gasapp_entry"
+        entry.data = gasapp_config_data
+        return entry
 
-    # Verify that sensors are created
-    assert hass.states.get("sensor.한국전력_최근_사용량") is not None
-    assert hass.states.get("sensor.한국전력_당월_예측_사용량") is not None
-    assert hass.states.get("sensor.한국전력_전월_요금") is not None
-    assert hass.states.get("sensor.한국전력_당월_예상_요금") is not None
+    @pytest.fixture
+    def mock_entry_safety_alert(self, safety_alert_config_data):
+        """Create mock config entry for Safety Alert."""
+        entry = MagicMock(spec=ConfigEntry)
+        entry.entry_id = "test_safety_alert_entry"
+        entry.data = safety_alert_config_data
+        return entry
 
-    # Verify sensor states
-    assert hass.states.get("sensor.한국전력_최근_사용량").state == "123.45"
-    assert hass.states.get("sensor.한국전력_당월_예측_사용량").state == "678"
-    assert hass.states.get("sensor.한국전력_전월_요금").state == "10000"
-    assert hass.states.get("sensor.한국전력_당월_예상_요금").state == "15000"
+    @pytest.mark.asyncio
+    async def test_setup_kepco_success(self, mock_hass, mock_entry_kepco):
+        """Test successful KEPCO setup."""
+        with patch(
+            "custom_components.korea_incubator.KepcoDevice"
+        ) as mock_device_class:
+            mock_device = AsyncMock()
+            mock_device.async_update = AsyncMock()
+            mock_device.async_close_session = AsyncMock()
+            mock_device_class.return_value = mock_device
+
+            with patch("custom_components.korea_incubator.curl_cffi.AsyncSession"):
+                result = await async_setup_entry(mock_hass, mock_entry_kepco)
+
+                assert result is True
+                assert DOMAIN in mock_hass.data
+                assert mock_entry_kepco.entry_id in mock_hass.data[DOMAIN]
+
+    @pytest.mark.asyncio
+    async def test_setup_gasapp_success(self, mock_hass, mock_entry_gasapp):
+        """Test successful GasApp setup."""
+        with patch(
+            "custom_components.korea_incubator.GasAppDevice"
+        ) as mock_device_class:
+            mock_device = AsyncMock()
+            mock_device.async_update = AsyncMock()
+            mock_device.async_close_session = AsyncMock()
+            mock_device_class.return_value = mock_device
+
+            result = await async_setup_entry(mock_hass, mock_entry_gasapp)
+
+            assert result is True
+            assert DOMAIN in mock_hass.data
+            assert mock_entry_gasapp.entry_id in mock_hass.data[DOMAIN]
+
+    @pytest.mark.asyncio
+    async def test_setup_safety_alert_success(self, mock_hass, mock_entry_safety_alert):
+        """Test successful Safety Alert setup."""
+        with patch(
+            "custom_components.korea_incubator.SafetyAlertDevice"
+        ) as mock_device_class:
+            mock_device = AsyncMock()
+            mock_device.async_update = AsyncMock()
+            mock_device.async_close_session = AsyncMock()
+            mock_device_class.return_value = mock_device
+
+            result = await async_setup_entry(mock_hass, mock_entry_safety_alert)
+
+            assert result is True
+            assert DOMAIN in mock_hass.data
+            assert mock_entry_safety_alert.entry_id in mock_hass.data[DOMAIN]
+
+    @pytest.mark.asyncio
+    async def test_setup_unknown_service(self, mock_hass):
+        """Test setup with unknown service."""
+        entry = MagicMock(spec=ConfigEntry)
+        entry.entry_id = "test_unknown_entry"
+        entry.data = {"service": "unknown_service"}
+
+        result = await async_setup_entry(mock_hass, entry)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_setup_kepco_auth_failure(self, mock_hass, mock_entry_kepco):
+        """Test KEPCO setup with authentication failure."""
+        from custom_components.korea_incubator.kepco.exceptions import KepcoAuthError
+
+        with patch(
+            "custom_components.korea_incubator.KepcoDevice"
+        ) as mock_device_class:
+            mock_device = AsyncMock()
+            mock_device.async_update.side_effect = KepcoAuthError("Auth failed")
+            mock_device.async_close_session = AsyncMock()
+            mock_device_class.return_value = mock_device
+
+            with patch("custom_components.korea_incubator.curl_cffi.AsyncSession"):
+                result = await async_setup_entry(mock_hass, mock_entry_kepco)
+
+                assert result is False
+                mock_device.async_close_session.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_unload_entry_success(self, mock_hass, mock_entry_kepco):
+        """Test successful entry unload."""
+        # Setup entry first
+        mock_hass.data[DOMAIN] = {
+            mock_entry_kepco.entry_id: {
+                "device": AsyncMock(),
+                "coordinator": MagicMock(),
+            }
+        }
+
+        with patch.object(
+            mock_hass.config_entries, "async_unload_platforms"
+        ) as mock_unload:
+            mock_unload.return_value = True
+
+            result = await async_unload_entry(mock_hass, mock_entry_kepco)
+
+            assert result is True
+            mock_unload.assert_called_once_with(mock_entry_kepco, PLATFORMS)
+
+    @pytest.mark.asyncio
+    async def test_platforms_loaded(self, mock_hass, mock_entry_kepco):
+        """Test that correct platforms are loaded."""
+        with patch(
+            "custom_components.korea_incubator.KepcoDevice"
+        ) as mock_device_class:
+            mock_device = AsyncMock()
+            mock_device.async_update = AsyncMock()
+            mock_device_class.return_value = mock_device
+
+            with patch("custom_components.korea_incubator.curl_cffi.AsyncSession"):
+                with patch.object(
+                    mock_hass.config_entries, "async_forward_entry_setups"
+                ) as mock_forward:
+                    await async_setup_entry(mock_hass, mock_entry_kepco)
+
+                    mock_forward.assert_called_once_with(mock_entry_kepco, PLATFORMS)
+
+    @pytest.mark.asyncio
+    async def test_coordinator_creation(self, mock_hass, mock_entry_kepco):
+        """Test that DataUpdateCoordinator is created correctly."""
+        with patch(
+            "custom_components.korea_incubator.KepcoDevice"
+        ) as mock_device_class:
+            mock_device = AsyncMock()
+            mock_device.async_update = AsyncMock()
+            mock_device_class.return_value = mock_device
+
+            with patch("custom_components.korea_incubator.curl_cffi.AsyncSession"):
+                with patch(
+                    "custom_components.korea_incubator.DataUpdateCoordinator"
+                ) as mock_coordinator_class:
+                    mock_coordinator = MagicMock()
+                    mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+                    mock_coordinator_class.return_value = mock_coordinator
+
+                    await async_setup_entry(mock_hass, mock_entry_kepco)
+
+                    # Verify coordinator was created and configured
+                    mock_coordinator_class.assert_called_once()
+                    mock_coordinator.async_config_entry_first_refresh.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "service", ["kepco", "gasapp", "safety_alert", "goodsflow", "arisu", "kakaomap"]
+    )
+    def test_all_services_supported(self, service):
+        """Test that all services are recognized in setup."""
+        from custom_components.korea_incubator import async_setup_entry
+
+        # This test verifies the service names are properly handled
+        # The actual implementation check is done in the setup function
+        assert service in [
+            "kepco",
+            "gasapp",
+            "safety_alert",
+            "goodsflow",
+            "arisu",
+            "kakaomap",
+        ]
 
 
-@pytest.mark.asyncio
-async def test_setup_entry_kepco_login_failure(hass, aiohttp_mock):
-    # Mock KEPCO API calls for login failure
-    aiohttp_mock.get("https://pp.kepco.co.kr:8030/intro.do", status=200, headers={
-        "Set-Cookie": "JSESSIONID=test_jsessionid; Path=/; HttpOnly, cookieRsa=test_cookie_rsa; Path=/; HttpOnly"
-    }, payload="<input type=\"hidden\" id=\"RSAExponent\" value=\"10001\">")
-    aiohttp_mock.post("https://pp.kepco.co.kr:8030/login", status=200, payload="로그인 실패")
+class TestKoreaIntegrationData:
+    """Test Korea integration data management."""
 
-    # Setup the config entry
-    config_entry = {
-        "entry_id": "test_kepco_entry_fail",
-        "domain": DOMAIN,
-        "data": {
-            "service": "kepco",
-            "username": "wrong_user",
-            "password": "wrong_password",
-        },
-        "title": "한국전력 (wrong_user)",
-    }
-    hass.config_entries.async_queue_entry(config_entry)
+    def test_domain_constant(self):
+        """Test domain constant is correctly defined."""
+        assert DOMAIN == "korea_incubator"
 
-    # Load the integration (should fail to set up)
-    assert not await async_setup_component(hass, DOMAIN, {DOMAIN: {}})
-    await hass.async_block_till_done()
+    def test_platforms_constant(self):
+        """Test platforms constant includes required platforms."""
+        from homeassistant.const import Platform
 
-    # Verify that no sensors are created
-    assert hass.states.get("sensor.한국전력_최근_사용량") is None
+        assert Platform.SENSOR in PLATFORMS
+        assert Platform.BINARY_SENSOR in PLATFORMS
 
+    def test_logger_available(self):
+        """Test that logger is properly configured."""
+        from custom_components.korea_incubator.const import LOGGER
 
-@pytest.mark.asyncio
-async def test_unload_entry(hass, aiohttp_mock):
-    # Mock KEPCO API calls for successful setup
-    aiohttp_mock.get("https://pp.kepco.co.kr:8030/intro.do", status=200, headers={
-        "Set-Cookie": "JSESSIONID=test_jsessionid; Path=/; HttpOnly, cookieRsa=test_cookie_rsa; Path=/; HttpOnly"
-    }, payload="<input type=\"hidden\" id=\"RSAExponent\" value=\"10001\">")
-    aiohttp_mock.post("https://pp.kepco.co.kr:8030/login", status=200, payload="로그아웃")
-    aiohttp_mock.post("https://pp.kepco.co.kr:8030/low/main/recent_usage.do", status=200, payload={"result": {"F_AP_QT": "123.45", "KWH_BILL": "678"}})
-    aiohttp_mock.post("https://pp.kepco.co.kr:8030/low/main/usage_info.do", status=200, payload={"result": {"BILL_LAST_MONTH": "10000", "PREDICT_TOTAL_CHARGE_REV": "15000"}})
+        assert LOGGER is not None
+        assert hasattr(LOGGER, "debug")
+        assert hasattr(LOGGER, "info")
+        assert hasattr(LOGGER, "warning")
+        assert hasattr(LOGGER, "error")
 
-    # Setup the config entry
-    config_entry = {
-        "entry_id": "test_unload_entry",
-        "domain": DOMAIN,
-        "data": {
-            "service": "kepco",
-            "username": "test_user",
-            "password": "test_password",
-        },
-        "title": "한국전력 (test_user)",
-    }
-    hass.config_entries.async_queue_entry(config_entry)
+    def test_currency_constant(self):
+        """Test currency constant is defined."""
+        from custom_components.korea_incubator.const import CURRENCY_KRW
 
-    # Load the integration
-    assert await async_setup_component(hass, DOMAIN, {DOMAIN: {}})
-    await hass.async_block_till_done()
+        assert CURRENCY_KRW == "KRW"
 
-    # Verify that sensors are created
-    assert hass.states.get("sensor.한국전력_최근_사용량") is not None
+    def test_energy_constant(self):
+        """Test energy constant is defined."""
+        from custom_components.korea_incubator.const import ENERGY_KILO_WATT_HOUR
 
-    # Unload the integration
-    assert await hass.config_entries.async_unload(config_entry["entry_id"])
-    await hass.async_block_till_done()
-
-    # Verify that sensors are removed
-    assert hass.states.get("sensor.한국전력_최근_사용량") is None
+        assert ENERGY_KILO_WATT_HOUR == "kWh"

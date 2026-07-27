@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, AsyncMock
 from custom_components.korea_incubator.sensor import (
     get_value_from_path,
     parse_date_value,
-    KoreaSensor
+    KoreaSensor,
 )
 from custom_components.korea_incubator.kepco.device import KepcoDevice
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
@@ -19,17 +19,14 @@ def mock_coordinator():
             "result": {
                 "BILL_LAST_MONTH": "25,000",
                 "PREDICT_KWH": "150.5",
-                "F_AP_QT": "123.45"
+                "F_AP_QT": "123.45",
             },
             "SESS_MR_ST_DT": "2025-01-01",
-            "SESS_CUSTNO": "123456789"
+            "SESS_CUSTNO": "123456789",
         },
         "recent_usage": {
-            "result": {
-                "F_AP_QT": "123.45",
-                "ST_TIME": "2025-01-15 14:30:00"
-            }
-        }
+            "result": {"F_AP_QT": "123.45", "ST_TIME": "2025-01-15 14:30:00"}
+        },
     }
     coordinator.last_update_success = True
     return coordinator
@@ -43,7 +40,7 @@ def mock_device():
     device.device_info = {
         "identifiers": {("korea_incubator", "kepco_test")},
         "name": "한전 (test)",
-        "manufacturer": "한국전력공사"
+        "manufacturer": "한국전력공사",
     }
     return device
 
@@ -133,7 +130,7 @@ class TestKoreaSensor:
             "전월 요금",
             SensorDeviceClass.MONETARY,
             "KRW",
-            SensorStateClass.TOTAL
+            SensorStateClass.TOTAL,
         )
 
         assert sensor._attr_name == "전월 요금"
@@ -151,7 +148,7 @@ class TestKoreaSensor:
             "전월 요금",
             SensorDeviceClass.MONETARY,
             "KRW",
-            SensorStateClass.TOTAL
+            SensorStateClass.TOTAL,
         )
 
         # "25,000" should be converted to 25000
@@ -166,7 +163,7 @@ class TestKoreaSensor:
             "사용량",
             SensorDeviceClass.ENERGY,
             "kWh",
-            SensorStateClass.TOTAL
+            SensorStateClass.TOTAL,
         )
 
         # Should return the string value as-is for energy
@@ -181,7 +178,7 @@ class TestKoreaSensor:
             "검침시작일",
             SensorDeviceClass.DATE,
             None,
-            None
+            None,
         )
 
         result = sensor.native_value
@@ -198,7 +195,7 @@ class TestKoreaSensor:
             "최근 사용량 시간",
             SensorDeviceClass.TIMESTAMP,
             None,
-            None
+            None,
         )
 
         result = sensor.native_value
@@ -218,7 +215,7 @@ class TestKoreaSensor:
             "전월 요금",
             SensorDeviceClass.MONETARY,
             "KRW",
-            SensorStateClass.TOTAL
+            SensorStateClass.TOTAL,
         )
 
         assert sensor.native_value is None
@@ -232,7 +229,7 @@ class TestKoreaSensor:
             "전월 요금",
             SensorDeviceClass.MONETARY,
             "KRW",
-            SensorStateClass.TOTAL
+            SensorStateClass.TOTAL,
         )
 
         assert sensor.available is True
@@ -250,16 +247,14 @@ class TestKoreaSensor:
             "전월 요금",
             SensorDeviceClass.MONETARY,
             "KRW",
-            SensorStateClass.TOTAL
+            SensorStateClass.TOTAL,
         )
 
         assert sensor.device_info == mock_device.device_info
 
     def test_native_value_duration(self, mock_coordinator, mock_device):
         # Add duration test data to coordinator
-        mock_coordinator.data["transport_route"] = {
-            "routes": [{"time": "28분"}]
-        }
+        mock_coordinator.data["transport_route"] = {"routes": [{"time": "28분"}]}
 
         sensor = KoreaSensor(
             mock_coordinator,
@@ -269,7 +264,7 @@ class TestKoreaSensor:
             "소요시간",
             SensorDeviceClass.DURATION,
             "min",
-            None
+            None,
         )
 
         # "28분" should be converted to 28
@@ -277,9 +272,7 @@ class TestKoreaSensor:
 
     def test_native_value_distance(self, mock_coordinator, mock_device):
         # Add distance test data to coordinator
-        mock_coordinator.data["transport_route"] = {
-            "routes": [{"distance": "1,500m"}]
-        }
+        mock_coordinator.data["transport_route"] = {"routes": [{"distance": "1,500m"}]}
 
         sensor = KoreaSensor(
             mock_coordinator,
@@ -289,7 +282,7 @@ class TestKoreaSensor:
             "거리",
             SensorDeviceClass.DISTANCE,
             "m",
-            None
+            None,
         )
 
         # "1,500m" should be converted to 1500

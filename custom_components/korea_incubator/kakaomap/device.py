@@ -1,9 +1,12 @@
 """KakaoMap device for Home Assistant integration."""
+
 from datetime import datetime
 from typing import Dict, Any, Optional
+
 import aiohttp
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import UpdateFailed
+
 from .api import KakaoMapApiClient
 from .exceptions import KakaoMapConnectionError, KakaoMapDataError
 from ..const import DOMAIN, LOGGER
@@ -12,8 +15,15 @@ from ..const import DOMAIN, LOGGER
 class KakaoMapDevice:
     """KakaoMap device representation."""
 
-    def __init__(self, hass, entry_id: str, name: str, start_coords: Dict[str, float], end_coords: Dict[str, float],
-                 session: aiohttp.ClientSession):
+    def __init__(
+        self,
+        hass,
+        entry_id: str,
+        name: str,
+        start_coords: Dict[str, float],
+        end_coords: Dict[str, float],
+        session: aiohttp.ClientSession,
+    ):
         self.hass = hass
         self.entry_id = entry_id
         self.name = name
@@ -51,21 +61,21 @@ class KakaoMapDevice:
         try:
             # Get address information for start and end coordinates
             start_address = await self.api_client.async_coordinate_to_address(
-                self.start_coords["x"],
-                self.start_coords["y"]
+                self.start_coords["x"], self.start_coords["y"]
             )
 
             end_address = await self.api_client.async_coordinate_to_address(
-                self.end_coords["x"],
-                self.end_coords["y"]
+                self.end_coords["x"], self.end_coords["y"]
             )
 
             # Get public transport route
-            transport_route_raw = await self.api_client.async_get_public_transport_route(
-                self.start_coords["x"],
-                self.start_coords["y"],
-                self.end_coords["x"],
-                self.end_coords["y"]
+            transport_route_raw = (
+                await self.api_client.async_get_public_transport_route(
+                    self.start_coords["x"],
+                    self.start_coords["y"],
+                    self.end_coords["x"],
+                    self.end_coords["y"],
+                )
             )
 
             # Parse and enhance the transport route data
@@ -90,7 +100,9 @@ class KakaoMapDevice:
 
         except Exception as err:
             self._available = False
-            LOGGER.error(f"Unexpected error updating KakaoMap data for {self.name}: {err}")
+            LOGGER.error(
+                f"Unexpected error updating KakaoMap data for {self.name}: {err}"
+            )
             raise UpdateFailed(f"Unexpected error: {err}")
 
     def _parse_transport_route(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -111,8 +123,12 @@ class KakaoMapDevice:
                 "distance": self._extract_distance_km(route.get("distance", {})),
                 "type": route.get("type", ""),
                 "transfers": route.get("transfers", 0),
-                "walking_distance": self._extract_distance_m(route.get("walkingDistance", {})),
-                "walking_time": self._extract_minutes_from_time(route.get("walkingTime", {})),
+                "walking_distance": self._extract_distance_m(
+                    route.get("walkingDistance", {})
+                ),
+                "walking_time": self._extract_minutes_from_time(
+                    route.get("walkingTime", {})
+                ),
                 "recommended": route.get("recommended", False),
                 "shortest_time": route.get("shortestTime", False),
                 "least_transfer": route.get("leastTransfer", False),
@@ -127,14 +143,18 @@ class KakaoMapDevice:
         # Find special routes
         recommended_route = next((r for r in enhanced_routes if r["recommended"]), None)
         fastest_route = next((r for r in enhanced_routes if r["shortest_time"]), None)
-        least_transfer_route = next((r for r in enhanced_routes if r["least_transfer"]), None)
+        least_transfer_route = next(
+            (r for r in enhanced_routes if r["least_transfer"]), None
+        )
 
         # If no explicitly marked routes, use the first ones and analyze
         if not recommended_route and enhanced_routes:
             recommended_route = enhanced_routes[0]  # First route is usually recommended
         if not fastest_route and enhanced_routes:
             # Find route with minimum time
-            fastest_route = min(enhanced_routes, key=lambda x: x["time"] if x["time"] else 999)
+            fastest_route = min(
+                enhanced_routes, key=lambda x: x["time"] if x["time"] else 999
+            )
         if not least_transfer_route and enhanced_routes:
             # Find route with minimum transfers
             least_transfer_route = min(enhanced_routes, key=lambda x: x["transfers"])
@@ -220,7 +240,9 @@ class KakaoMapDevice:
         summaries = route.get("summaries", [])
         if summaries:
             for summary in summaries:
-                arrivals = summary.get("subwayArrivals", []) or summary.get("busArrivals", [])
+                arrivals = summary.get("subwayArrivals", []) or summary.get(
+                    "busArrivals", []
+                )
                 if arrivals and len(arrivals) > 0:
                     next_arrival = arrivals[0]
                     arrival_msg = next_arrival.get("arrivalMsg", "")
@@ -260,10 +282,15 @@ class KakaoMapDevice:
                 # Extract subway arrival info
                 subway_arrivals = summary.get("subwayArrivals", [])
                 for arrival in subway_arrivals:
-                    if arrival.get("vehicleArrivalState") in ["RUNNING", "PREV_STN_DEPARTURE"]:
+                    if arrival.get("vehicleArrivalState") in [
+                        "RUNNING",
+                        "PREV_STN_DEPARTURE",
+                    ]:
                         arrival_time = arrival.get("arrivalTime", 0)
                         if arrival_time > 0:
-                            subway_delays.append(f"{arrival.get('direction', '')}: {arrival.get('arrivalMsg', '')}")
+                            subway_delays.append(
+                                f"{arrival.get('direction', '')}: {arrival.get('arrivalMsg', '')}"
+                            )
 
                 # Extract bus arrival info
                 bus_arrivals_data = summary.get("busArrivals", [])
@@ -273,11 +300,15 @@ class KakaoMapDevice:
                         bus_arrivals.append(arrival_time // 60)  # Convert to minutes
 
         return {
-            "subway_delay": "; ".join(subway_delays[:3]) if subway_delays else None,  # Limit to first 3
+            "subway_delay": "; ".join(subway_delays[:3])
+            if subway_delays
+            else None,  # Limit to first 3
             "bus_arrival_time": min(bus_arrivals) if bus_arrivals else None,
         }
 
-    async def async_get_address_from_coordinates(self, x: float, y: float) -> Optional[str]:
+    async def async_get_address_from_coordinates(
+        self, x: float, y: float
+    ) -> Optional[str]:
         """Get address from coordinates (can be called externally)."""
         try:
             address_data = await self.api_client.async_coordinate_to_address(x, y)
@@ -287,11 +318,7 @@ class KakaoMapDevice:
             return None
 
     async def async_get_route_between_coordinates(
-            self,
-            start_x: float,
-            start_y: float,
-            end_x: float,
-            end_y: float
+        self, start_x: float, start_y: float, end_x: float, end_y: float
     ) -> Optional[Dict[str, Any]]:
         """Get route between coordinates (can be called externally)."""
         try:

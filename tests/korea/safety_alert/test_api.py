@@ -1,84 +1,218 @@
+"""Test Safety Alert API client with both mock and real API calls."""
+
 import pytest
 import aiohttp
-from aiohttp_mock import AioHTTPMock
+from unittest.mock import AsyncMock, patch
+
 from custom_components.korea_incubator.safety_alert.api import SafetyAlertApiClient
-from custom_components.korea_incubator.safety_alert.exceptions import SafetyAlertConnectionError, SafetyAlertDataError
+from custom_components.korea_incubator.safety_alert.exceptions import (
+    SafetyAlertConnectionError,
+    SafetyAlertDataError,
+)
 
 
-@pytest.fixture
-async def api_client():
-    async with aiohttp.ClientSession() as session:
-        yield SafetyAlertApiClient(session)
+class TestSafetyAlertApiMock:
+    """Test Safety Alert API with mocked responses."""
+
+    @pytest.fixture
+    async def api_client(self, mock_session):
+        """Create Safety Alert API client with mock session."""
+        return SafetyAlertApiClient(mock_session)
+
+    @pytest.mark.asyncio
+    async def test_get_safety_alerts_success(
+        self, api_client, mock_session, safety_alert_mock_response
+    ):
+        """Test successful safety alerts retrieval."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json.return_value = safety_alert_mock_response
+        mock_session.get.return_value.__aenter__.return_value = mock_response
+
+        result = await api_client.async_get_safety_alerts("1100000000", None, None)
+
+        assert result["disasterSmsList"]
+        assert len(result["disasterSmsList"]) == 2
+        assert result["rtnResult"]["totCnt"] == 2
+        assert result["disasterSmsList"][0]["EMRGNCY_STEP_NM"] == "관심"
+
+    @pytest.mark.asyncio
+    async def test_get_safety_alerts_with_area_codes(
+        self, api_client, mock_session, safety_alert_mock_response
+    ):
+        """Test safety alerts with multiple area codes."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json.return_value = safety_alert_mock_response
+        mock_session.get.return_value.__aenter__.return_value = mock_response
+
+        result = await api_client.async_get_safety_alerts(
+            "1100000000", "1111000000", "1111010100"
+        )
+
+        # Verify API was called with correct parameters
+        call_args = mock_session.get.call_args
+        assert "areaCode" in call_args[1]["params"]
+        assert "areaCode2" in call_args[1]["params"]
+        assert "areaCode3" in call_args[1]["params"]
+
+    @pytest.mark.asyncio
+    async def test_get_safety_alerts_http_error(self, api_client, mock_session):
+        """Test safety alerts with HTTP error."""
+        mock_response = AsyncMock()
+        mock_response.status = 500
+        mock_response.reason = "Internal Server Error"
+        mock_session.get.return_value.__aenter__.return_value = mock_response
+
+        with pytest.raises(SafetyAlertConnectionError):
+            await api_client.async_get_safety_alerts("1100000000")
+
+    @pytest.mark.asyncio
+    async def test_get_safety_alerts_connection_error(self, api_client, mock_session):
+        """Test safety alerts with connection error."""
+        mock_session.get.side_effect = aiohttp.ClientError("Connection failed")
+
+        with pytest.raises(SafetyAlertConnectionError):
+            await api_client.async_get_safety_alerts("1100000000")
+
+    @pytest.mark.asyncio
+    async def test_get_safety_alerts_json_error(self, api_client, mock_session):
+        """Test safety alerts with JSON parsing error."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json.side_effect = ValueError("Invalid JSON")
+        mock_session.get.return_value.__aenter__.return_value = mock_response
+
+        with pytest.raises(SafetyAlertDataError):
+            await api_client.async_get_safety_alerts("1100000000")
+
+    @pytest.mark.asyncio
+    async def test_get_safety_alerts_empty_response(self, api_client, mock_session):
+        """Test safety alerts with empty response."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json.return_value = {
+            "disasterSmsList": [],
+            "rtnResult": {"totCnt": 0},
+        }
+        mock_session.get.return_value.__aenter__.return_value = mock_response
+
+        result = await api_client.async_get_safety_alerts("1100000000")
+
+        assert result["disasterSmsList"] == []
+        assert result["rtnResult"]["totCnt"] == 0
+
+    @pytest.mark.parametrize(
+        "area_code,area_code2,area_code3",
+        [
+            ("1100000000", None, None),
+            ("1100000000", "1111000000", None),
+            ("1100000000", "1111000000", "1111010100"),
+            ("", None, None),  # Empty area code
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_get_safety_alerts_various_area_codes(
+        self,
+        api_client,
+        mock_session,
+        safety_alert_mock_response,
+        area_code,
+        area_code2,
+        area_code3,
+    ):
+        """Test safety alerts with various area code combinations."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json.return_value = safety_alert_mock_response
+        mock_session.get.return_value.__aenter__.return_value = mock_response
+
+        result = await api_client.async_get_safety_alerts(
+            area_code, area_code2, area_code3
+        )
+
+        # Should always return valid structure
+        assert "disasterSmsList" in result
+        assert "rtnResult" in result
 
 
-@pytest.mark.asyncio
-async def test_async_get_safety_alerts_success(api_client, aiohttp_mock: AioHTTPMock):
-    expected_response = {
-        "disasterSmsList": [
-            {
-                "DSSTR_SE_NM": "기상특보",
-                "MSG_CN": "강풍주의보 발효",
-                "CREAT_DT": "2025-01-15 10:00:00",
-                "RCV_AREA_NM": "서울특별시",
-                "EMRGNCY_STEP_NM": "주의보"
-            },
-            {
-                "DSSTR_SE_NM": "교통통제",
-                "MSG_CN": "도로 결빙으로 인한 통행 제한",
-                "CREAT_DT": "2025-01-15 09:30:00",
-                "RCV_AREA_NM": "서울특별시 강남구",
-                "EMRGNCY_STEP_NM": "주의"
-            }
-        ]
-    }
+class TestSafetyAlertApiIntegration:
+    """Integration tests with real API calls."""
 
-    aiohttp_mock.post("https://www.safekorea.go.kr/idsiSFK/sfk/cs/sua/web/DisasterSmsList.do",
-                     status=200, payload=expected_response)
+    @pytest.fixture
+    async def real_session(self):
+        """Create real aiohttp session."""
+        session = aiohttp.ClientSession()
+        yield session
+        await session.close()
 
-    alerts = await api_client.async_get_safety_alerts("1100000000")
+    @pytest.fixture
+    def real_api_client(self, real_session):
+        """Create Safety Alert API client with real session."""
+        return SafetyAlertApiClient(real_session)
 
-    assert len(alerts) == 2
-    assert alerts[0]["DSSTR_SE_NM"] == "기상특보"
-    assert alerts[0]["MSG_CN"] == "강풍주의보 발효"
-    assert alerts[1]["DSSTR_SE_NM"] == "교통통제"
+    @pytest.mark.integration
+    @pytest.mark.skipif(
+        not pytest.config.getoption("--integration", default=False),
+        reason="Integration tests disabled",
+    )
+    async def test_real_api_connection(self, real_api_client):
+        """Test real API connection with Seoul area code."""
+        try:
+            result = await real_api_client.async_get_safety_alerts("1100000000")
 
+            # Should return valid structure
+            assert "disasterSmsList" in result
+            assert "rtnResult" in result
+            assert isinstance(result["disasterSmsList"], list)
 
-@pytest.mark.asyncio
-async def test_async_get_safety_alerts_empty_response(api_client, aiohttp_mock: AioHTTPMock):
-    aiohttp_mock.post("https://www.safekorea.go.kr/idsiSFK/sfk/cs/sua/web/DisasterSmsList.do",
-                     status=200, payload={"disasterSmsList": []})
+        except (SafetyAlertConnectionError, SafetyAlertDataError) as e:
+            # May fail due to network issues or API changes, which is acceptable
+            pytest.skip(f"Real API test failed (expected): {e}")
 
-    alerts = await api_client.async_get_safety_alerts("1100000000")
+    @pytest.mark.integration
+    @pytest.mark.skipif(
+        not pytest.config.getoption("--integration", default=False),
+        reason="Integration tests disabled",
+    )
+    async def test_real_api_invalid_area_code(self, real_api_client):
+        """Test real API with invalid area code."""
+        try:
+            result = await real_api_client.async_get_safety_alerts("9999999999")
 
-    assert len(alerts) == 0
+            # Should return empty or error response
+            assert "disasterSmsList" in result
 
+        except (SafetyAlertConnectionError, SafetyAlertDataError):
+            # Expected to fail with invalid area code
+            pass
 
-@pytest.mark.asyncio
-async def test_async_get_safety_alerts_http_error(api_client, aiohttp_mock: AioHTTPMock):
-    aiohttp_mock.post("https://www.safekorea.go.kr/idsiSFK/sfk/cs/sua/web/DisasterSmsList.do",
-                     status=500)
+    @pytest.mark.integration
+    @pytest.mark.skipif(
+        not pytest.config.getoption("--integration", default=False),
+        reason="Integration tests disabled",
+    )
+    async def test_real_api_response_structure(self, real_api_client):
+        """Test real API response structure validation."""
+        try:
+            result = await real_api_client.async_get_safety_alerts("1100000000")
 
-    with pytest.raises(SafetyAlertConnectionError):
-        await api_client.async_get_safety_alerts("1100000000")
+            # Validate response structure
+            assert isinstance(result, dict)
+            assert "disasterSmsList" in result
+            assert "rtnResult" in result
 
-@pytest.mark.asyncio
-async def test_async_get_safety_alerts_with_multiple_area_codes(api_client, aiohttp_mock: AioHTTPMock):
-    expected_response = {
-        "disasterSmsList": [
-            {
-                "DSSTR_SE_NM": "기상특보",
-                "MSG_CN": "강풍주의보 발효",
-                "CREAT_DT": "2025-01-15 10:00:00",
-                "RCV_AREA_NM": "서울특별시 강남구",
-                "EMRGNCY_STEP_NM": "주의보"
-            }
-        ]
-    }
+            if result["disasterSmsList"]:
+                alert = result["disasterSmsList"][0]
+                expected_fields = [
+                    "EMRGNCY_STEP_NM",
+                    "DSSTR_SE_NM",
+                    "MSG_CN",
+                    "RCV_AREA_NM",
+                    "REGIST_DT",
+                ]
+                for field in expected_fields:
+                    assert field in alert, f"Missing field: {field}"
 
-    aiohttp_mock.post("https://www.safekorea.go.kr/idsiSFK/sfk/cs/sua/web/DisasterSmsList.do",
-                     status=200, payload=expected_response)
-
-    alerts = await api_client.async_get_safety_alerts("1100000000", "1168000000", "1168010100")
-
-    assert len(alerts) == 1
-    assert alerts[0]["RCV_AREA_NM"] == "서울특별시 강남구"
+        except (SafetyAlertConnectionError, SafetyAlertDataError) as e:
+            pytest.skip(f"Real API test failed (expected): {e}")

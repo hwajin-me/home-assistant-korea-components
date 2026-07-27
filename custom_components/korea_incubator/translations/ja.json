@@ -19,7 +19,7 @@
           "password": "パスワード"
         }
       },
-      "gasapp": {ㅏ
+      "gasapp": {
         "title": "ガスアプリ設定",
         "data": {
           "token": "トークン",
@@ -110,14 +110,5 @@
       "no_options_arisu": "アリスに対する設定オプションはありません。",
       "no_options_kakaomap": "カカオマップに対する設定オプションはありません。"
     }
-  },
-  "selector": {
-    "coord_system": {
-      "options": {
-        "WCONGNAMUL": "WCONGNAMUL（カカオマップ基本）",
-        "WGS84": "WGS84（GPS座標）"
-      }
-    }
   }
 }
-

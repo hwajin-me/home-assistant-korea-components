@@ -1,12 +1,14 @@
 """Arisu device for Home Assistant integration."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Dict, Any, Optional
+
 import aiohttp
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import UpdateFailed
-from homeassistant.core import HomeAssistant
 
 from .api import ArisuApiClient
 from .exceptions import ArisuAuthError, ArisuConnectionError, ArisuDataError
@@ -17,12 +19,12 @@ class ArisuDevice:
     """Arisu device representation with type safety."""
 
     def __init__(
-            self,
-            hass: HomeAssistant,
-            entry_id: str,
-            customer_number: str,
-            customer_name: str,
-            session: aiohttp.ClientSession
+        self,
+        hass: HomeAssistant,
+        entry_id: str,
+        customer_number: str,
+        customer_name: str,
+        session: aiohttp.ClientSession,
     ) -> None:
         """Initialize Arisu device."""
         self.hass: HomeAssistant = hass
@@ -81,7 +83,9 @@ class ArisuDevice:
 
         except ArisuAuthError as err:
             self._available = False
-            LOGGER.error(f"Authentication error for Arisu {self.customer_number}: {err}")
+            LOGGER.error(
+                f"Authentication error for Arisu {self.customer_number}: {err}"
+            )
             raise UpdateFailed(f"Authentication failed: {err}")
 
         except (ArisuConnectionError, ArisuDataError) as err:
@@ -91,7 +95,9 @@ class ArisuDevice:
 
         except Exception as err:
             self._available = False
-            LOGGER.error(f"Unexpected error updating Arisu data for {self.customer_number}: {err}")
+            LOGGER.error(
+                f"Unexpected error updating Arisu data for {self.customer_number}: {err}"
+            )
             raise UpdateFailed(f"Unexpected error: {err}")
 
     def get_total_amount(self) -> int:
