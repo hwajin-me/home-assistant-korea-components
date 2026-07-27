@@ -9,7 +9,16 @@
           "safety_alert": "안전알림 (행정안전부)",
           "goodsflow": "굿스플로우 (택배조회)",
           "arisu": "아리수 (서울시 상수도)",
-          "kakaomap": "카카오맵 (교통정보)"
+          "kakaomap": "카카오맵 (교통정보)",
+          "weather_warning": "기상특보 (KMA)",
+          "transit": "대중교통 (버스/지하철)",
+          "fuel": "유가정보 (Opinet)",
+          "school": "학교정보 (급식/학사일정)",
+          "disaster": "재난정보 (국민재난안전포털)",
+          "pharmacy": "약국정보 (공공데이터)",
+          "airkorea": "에어코리아 (대기질)",
+          "kma_weather": "기상청 날씨예보",
+          "earthquake": "지진정보"
         }
       },
       "kepco": {
@@ -76,6 +85,117 @@
           "end_x": "도착지 X좌표/경도",
           "end_y": "도착지 Y좌표/위도"
         }
+      },
+      "weather_warning": {
+        "title": "기상특보 설정",
+        "data": {
+          "api_key": "공공데이터 API 인증키",
+          "area_codes": "알림을 받을 지역 선택"
+        }
+      },
+      "transit": {
+        "title": "대중교통 설정",
+        "menu_options": {
+          "transit_subway": "지하철 도착 정보",
+          "transit_bus": "버스 도착 정보"
+        }
+      },
+      "transit_subway": {
+        "title": "지하철 설정",
+        "data": {
+          "station_name": "역 이름 (예: 강남)",
+          "line_num": "노선 선택 (비워두면 전체)",
+          "direction": "방향 선택"
+        }
+      },
+      "transit_bus_search": {
+        "title": "버스 정류소 검색",
+        "data": {
+          "kakao_stop_id": "카카오맵 정류소 ID (예: BS12345)"
+        }
+      },
+      "transit_bus_select": {
+        "title": "버스 노선 선택",
+        "data": {
+          "buses": "모니터링할 노선 선택"
+        }
+      },
+      "fuel": {
+        "title": "유가 정보 설정",
+        "data": {
+          "api_key": "Opinet API 인증키",
+          "latitude": "기준 위도",
+          "longitude": "기준 경도",
+          "radius": "검색 반경 (km)",
+          "sort": "정렬 기준"
+        }
+      },
+      "school": {
+        "title": "학교 정보 검색",
+        "data": {
+          "school_name": "학교 이름 (예: 서울초등학교)"
+        }
+      },
+      "school_select": {
+        "title": "학교 선택",
+        "data": {
+          "school_code": "학교 선택",
+          "grade": "학년",
+          "class_num": "반"
+        }
+      },
+      "disaster": {
+        "title": "재난 정보 설정",
+        "data": {
+          "api_key": "공공데이터 API 인증키"
+        }
+      },
+      "pharmacy": {
+        "title": "약국 정보 설정",
+        "data": {
+          "api_key": "공공데이터 API 인증키",
+          "latitude": "기준 위도",
+          "longitude": "기준 경도",
+          "radius": "검색 반경 (m)"
+        }
+      },
+      "airkorea": {
+        "title": "에어코리아 설정",
+        "data": {
+          "api_key": "공공데이터 API 인증키",
+          "sido": "시도 선택",
+          "living_api_key": "생활기상지수용 API 키 (비워두면 동일)"
+        }
+      },
+      "airkorea_select": {
+        "title": "측정소 선택",
+        "data": {
+          "stations": "모니터링할 측정소 목록"
+        }
+      },
+      "kma_weather": {
+        "title": "기상청 날씨 설정",
+        "data": {
+          "api_key": "공공데이터 API 인증키",
+          "sido": "시도 선택"
+        }
+      },
+      "kma_weather_sgg": {
+        "title": "상세 지역 선택",
+        "data": {
+          "regions": "날씨를 조회할 지역(시군구) 선택",
+          "air_station": "대기질 측정소 (O₃/UV 정보용)"
+        }
+      },
+      "earthquake": {
+        "title": "지진 정보 설정",
+        "data": {
+          "api_key": "공공데이터 API 인증키",
+          "latitude": "기준 위도",
+          "longitude": "기준 경도",
+          "radius_km": "감시 반경 (km)",
+          "min_magnitude": "최소 감시 규모"
+        }
       }
     },
     "error": {
@@ -88,7 +208,12 @@
       "invalid_wcongnamul_coordinates": "유효하지 않은 WCONGNAMUL 좌표입니다.",
       "no_regions_available": "사용 가능한 지역이 없습니다.",
       "no_sgg_available": "선택한 시도에 사용 가능한 시군구가 없습니다.",
-      "no_emd_available": "선택한 시군구에 사용 가능한 읍면동이 없습니다."
+      "no_emd_available": "선택한 시군구에 사용 가능한 읍면동이 없습니다.",
+      "invalid_api_key": "잘못된 API 인증키입니다.",
+      "no_schools_found": "검색 결과에 해당하는 학교가 없습니다.",
+      "no_selection": "최소 하나 이상의 항목을 선택해야 합니다.",
+      "no_stops_found": "정류소 정보를 찾을 수 없습니다.",
+      "no_stations_found": "측정소 정보를 찾을 수 없습니다."
     },
     "abort": {
       "already_configured": "이 계정은 이미 설정되어 있습니다."

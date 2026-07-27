@@ -2,117 +2,131 @@
 
 from __future__ import annotations
 
-import ssl
+import re
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 
-import aiohttp
+import curl_cffi
+from bs4 import BeautifulSoup
 
 from .exceptions import SafetyAlertConnectionError
-from ..const import LOGGER, SSL_CONTEXT
+from ..const import LOGGER, TZ_ASIA_SEOUL
+
+_BASE_URL = "https://www.safekorea.go.kr/safekorea-kor/ctim/cmsg/calamitySms.do"
+_HEADERS = {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Referer": "https://www.safekorea.go.kr/safekorea-kor/ctim/cmsg/calamitySms.do",
+}
 
 
 class SafetyAlertApiClient:
     """API client for Safety Alert integration."""
 
-    def __init__(self, session: aiohttp.ClientSession) -> None:
-        """Initialize the Safety Alert API client."""
-        self._session: aiohttp.ClientSession = session
-        self._base_url: str = (
-            "https://www.safekorea.go.kr/idsiSFK/sfk/cs/sua/web/DisasterSmsList.do"
-        )
-        self._ssl_context = None  # 지연 로딩을 위해 None으로 초기화
-
-    def _get_ssl_context(self) -> ssl.SSLContext:
-        """Get SSL context with lazy loading to avoid blocking calls in event loop."""
-        if self._ssl_context is None:
-            # SSL 컨텍스트 설정 - DH_KEY_TOO_SMALL 에러 해결
-            self._ssl_context = SSL_CONTEXT
-            self._ssl_context.check_hostname = False
-            self._ssl_context.verify_mode = ssl.CERT_NONE
-
-            # DH 키 크기 문제 해결을 위한 설정
-            self._ssl_context.set_ciphers(
-                "ECDHE+AESGCM:ECDHE+CHACHA20:ECDHE+AES256:ECDHE+AES128:!DH:!aNULL:!eNULL:!EXPORT:!MD5:!DSS:!RC4"
-            )
-
-            # 최소 TLS 버전을 1.2로 설정하되, 연결 실패시 1.0까지 허용
-            try:
-                self._ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
-            except Exception:
-                self._ssl_context.minimum_version = ssl.TLSVersion.TLSv1
-
-            # 안전하지 않은 프로토콜 비활성화
-            self._ssl_context.options |= ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3
-
-            # DH 관련 옵션 설정
-            if hasattr(ssl, "OP_SINGLE_DH_USE"):
-                self._ssl_context.options |= ssl.OP_SINGLE_DH_USE
-            if hasattr(ssl, "OP_SINGLE_ECDH_USE"):
-                self._ssl_context.options |= ssl.OP_SINGLE_ECDH_USE
-
-        return self._ssl_context
+    def __init__(self, session=None) -> None:
+        pass
 
     async def async_get_safety_alerts(
         self,
-        area_code: str = "1156000000",
+        area_code: str = "1100000000",
         area_code2: Optional[str] = None,
         area_code3: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Get safety alerts for the specified areas."""
-        # Calculate date range (last 7 days)
-        end_date = datetime.now()
+        """Get safety alerts by scraping calamitySms.do HTML response."""
+        end_date = datetime.now(TZ_ASIA_SEOUL)
         start_date = end_date - timedelta(days=7)
 
-        # Prepare request payload with all area codes
-        payload = {
-            "searchInfo": {
-                "firstIndex": "1",
-                "rcv_Area_Id": "",
-                "pageIndex": "1",
-                "sbLawArea1": area_code,  # 첫 번째 지역 코드
-                "dstr_se_Id": "",
-                "lastIndex": "1",
-                "searchBgnDe": start_date.strftime("%Y-%m-%d"),
-                "searchEndDe": end_date.strftime("%Y-%m-%d"),
-                "sbLawArea3": area_code3 if area_code3 else "",  # 세 번째 지역 코드
-                "recordCountPerPage": "50",
-                "searchWrd": "",
-                "searchGb": "1",
-                "c_ocrc_type": "",
-                "sbLawArea2": area_code2 if area_code2 else "",  # 두 번째 지역 코드
-                "pageUnit": "50",
-                "pageSize": 50,
-            }
-        }
-
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "User-Agent": "HomeAssistant-Korea-Components/1.0",
+        params = {
+            "menuSn": "34",
+            "currentPage": "1",
+            "readYn": "Y",
+            "firstYn": "N",
+            "sbLawArea1": area_code,
+            "sbLawArea2": area_code2 or "",
+            "sbLawArea3": area_code3 or "",
+            "startDate": start_date.strftime("%Y-%m-%d"),
+            "endDate": end_date.strftime("%Y-%m-%d"),
         }
 
         try:
-            async with self._session.post(
-                self._base_url,
-                json=payload,
-                headers=headers,
-                ssl=self._get_ssl_context(),  # SSL 컨텍스트 적용
-            ) as response:
-                LOGGER.debug(f"Safety Alert API response status: {response.status}")
+            async with curl_cffi.AsyncSession(impersonate="chrome120") as session:
+                response = await session.get(
+                    _BASE_URL,
+                    params=params,
+                    headers=_HEADERS,
+                    verify=False,
+                    timeout=15,
+                )
 
-                if response.status != 200:
-                    LOGGER.warning(f"Failed to get alerts: HTTP {response.status}")
-                    raise SafetyAlertConnectionError(f"HTTP {response.status}")
+                if response.status_code != 200:
+                    raise SafetyAlertConnectionError(f"HTTP {response.status_code}")
 
-                data = await response.json()
-                LOGGER.debug(f"Safety Alert API response: {data}")
+                html = response.text
+                LOGGER.debug("Safety Alert HTML length: %d", len(html))
+                return self._parse_html(html)
 
-                return data
-
-        except aiohttp.ClientError as e:
-            LOGGER.error(f"Safety Alert API request failed: {e}")
-            return {}
+        except SafetyAlertConnectionError:
+            raise
         except Exception as e:
-            LOGGER.error(f"Unexpected error in Safety Alert API request: {e}")
-            return {}
+            LOGGER.error("Safety Alert API request failed: %s", e)
+            raise SafetyAlertConnectionError(f"Request failed: {e}")
+
+    def _parse_html(self, html: str) -> Dict[str, Any]:
+        """Parse disaster SMS data from HTML response."""
+        soup = BeautifulSoup(html, "html.parser")
+        alerts: List[Dict[str, Any]] = []
+
+        # 전체 건수
+        count_span = soup.select_one("div.board-count span")
+        total_count = int(count_span.get_text(strip=True)) if count_span else 0
+
+        # 웹용 테이블 파싱 (board-listarea)
+        rows = soup.select("div.board-listarea table tbody tr")
+        for row in rows:
+            cells = row.find_all("td")
+            if len(cells) < 2:
+                continue
+            if cells[0].get("colspan"):
+                continue
+
+            disaster_type = cells[0].get_text(strip=True)
+            msg_cell = cells[1]
+
+            # 메시지 내용 (a 태그)
+            msg_link = msg_cell.find("a")
+            msg_content = msg_link.get_text(strip=True) if msg_link else ""
+
+            # 발송일시 / 긴급단계 / 송출지역 (p 태그)
+            info_p = msg_cell.find("p")
+            info_text = info_p.get_text(" ", strip=True) if info_p else ""
+
+            regist_dt = ""
+            emrgncy_step = ""
+            rcv_area = ""
+
+            dt_match = re.search(r"발송일시\s*:\s*([\d/\s:]+)", info_text)
+            if dt_match:
+                regist_dt = dt_match.group(1).strip()
+
+            step_match = re.search(r"긴급단계\s*:\s*([^\ㆍ]+)", info_text)
+            if step_match:
+                emrgncy_step = step_match.group(1).strip()
+
+            area_match = re.search(r"송출지역\s*:\s*(.+?)$", info_text)
+            if area_match:
+                rcv_area = area_match.group(1).strip()
+
+            alerts.append({
+                "DSSTR_SE_NM": disaster_type,
+                "EMRGNCY_STEP_NM": emrgncy_step,
+                "MSG_CN": msg_content,
+                "RCV_AREA_NM": rcv_area,
+                "REGIST_DT": regist_dt,
+            })
+
+        LOGGER.debug("Parsed %d alerts (total: %d)", len(alerts), total_count)
+
+        return {
+            "disasterSmsList": alerts,
+            "rtnResult": {"totCnt": total_count},
+        }
