@@ -17,5 +17,5 @@ curl-cffi>=0.7.4
 voluptuous>=0.15.2
 
 # Additional testing utilities
-responses>=0.24.0
+responses>=0.26.2
 freezegun>=1.2.0
