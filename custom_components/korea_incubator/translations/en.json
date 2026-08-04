@@ -9,7 +9,16 @@
           "safety_alert": "Safety Alert (Ministry of the Interior and Safety)",
           "goodsflow": "GoodsFlow (Package Tracking)",
           "arisu": "Arisu (Seoul Water Works)",
-          "kakaomap": "KakaoMap (Traffic Information)"
+          "kakaomap": "KakaoMap (Traffic Information)",
+          "weather_warning": "Weather Warnings (KMA)",
+          "transit": "Public Transit (Bus/Subway)",
+          "fuel": "Fuel Prices (Opinet)",
+          "school": "School Information (Meals/Academic Schedule)",
+          "disaster": "Disaster Information (National Disaster and Safety Portal)",
+          "pharmacy": "Pharmacy Information (Public Data)",
+          "airkorea": "AirKorea (Air Quality)",
+          "kma_weather": "KMA Weather Forecast",
+          "earthquake": "Earthquake Information"
         }
       },
       "kepco": {
@@ -76,6 +85,117 @@
           "end_x": "End X Coordinate/Longitude",
           "end_y": "End Y Coordinate/Latitude"
         }
+      },
+      "weather_warning": {
+        "title": "Weather Warning Configuration",
+        "data": {
+          "api_key": "Public Data API Key",
+          "area_codes": "Select regions to receive alerts for"
+        }
+      },
+      "transit": {
+        "title": "Public Transit Configuration",
+        "menu_options": {
+          "transit_subway": "Subway Arrival Information",
+          "transit_bus": "Bus Arrival Information"
+        }
+      },
+      "transit_subway": {
+        "title": "Subway Configuration",
+        "data": {
+          "station_name": "Station Name (e.g., Gangnam)",
+          "line_num": "Select Line (leave empty for all)",
+          "direction": "Select Direction"
+        }
+      },
+      "transit_bus_search": {
+        "title": "Bus Stop Search",
+        "data": {
+          "kakao_stop_id": "KakaoMap Bus Stop ID (e.g., BS12345)"
+        }
+      },
+      "transit_bus_select": {
+        "title": "Select Bus Routes",
+        "data": {
+          "buses": "Select routes to monitor"
+        }
+      },
+      "fuel": {
+        "title": "Fuel Price Configuration",
+        "data": {
+          "api_key": "Opinet API Key",
+          "latitude": "Reference Latitude",
+          "longitude": "Reference Longitude",
+          "radius": "Search Radius (km)",
+          "sort": "Sort By"
+        }
+      },
+      "school": {
+        "title": "School Information Search",
+        "data": {
+          "school_name": "School Name (e.g., Seoul Elementary School)"
+        }
+      },
+      "school_select": {
+        "title": "Select School",
+        "data": {
+          "school_code": "Select School",
+          "grade": "Grade",
+          "class_num": "Class"
+        }
+      },
+      "disaster": {
+        "title": "Disaster Information Configuration",
+        "data": {
+          "api_key": "Public Data API Key"
+        }
+      },
+      "pharmacy": {
+        "title": "Pharmacy Information Configuration",
+        "data": {
+          "api_key": "Public Data API Key",
+          "latitude": "Reference Latitude",
+          "longitude": "Reference Longitude",
+          "radius": "Search Radius (m)"
+        }
+      },
+      "airkorea": {
+        "title": "AirKorea Configuration",
+        "data": {
+          "api_key": "Public Data API Key",
+          "sido": "Select Province/City",
+          "living_api_key": "API Key for Living Weather Index (leave empty to use the same key)"
+        }
+      },
+      "airkorea_select": {
+        "title": "Select Monitoring Stations",
+        "data": {
+          "stations": "Stations to monitor"
+        }
+      },
+      "kma_weather": {
+        "title": "KMA Weather Configuration",
+        "data": {
+          "api_key": "Public Data API Key",
+          "sido": "Select Province/City"
+        }
+      },
+      "kma_weather_sgg": {
+        "title": "Select Detailed Regions",
+        "data": {
+          "regions": "Select regions (districts) to get weather for",
+          "air_station": "Air Quality Monitoring Station (for O3/UV information)"
+        }
+      },
+      "earthquake": {
+        "title": "Earthquake Information Configuration",
+        "data": {
+          "api_key": "Public Data API Key",
+          "latitude": "Reference Latitude",
+          "longitude": "Reference Longitude",
+          "radius_km": "Monitoring Radius (km)",
+          "min_magnitude": "Minimum Magnitude to Monitor"
+        }
       }
     },
     "error": {
@@ -88,7 +208,12 @@
       "invalid_wcongnamul_coordinates": "Invalid WCONGNAMUL coordinates.",
       "no_regions_available": "No regions available.",
       "no_sgg_available": "No districts available for the selected province/city.",
-      "no_emd_available": "No sub-districts available for the selected district."
+      "no_emd_available": "No sub-districts available for the selected district.",
+      "invalid_api_key": "Invalid API key.",
+      "no_schools_found": "No schools found for the search.",
+      "no_selection": "Select at least one item.",
+      "no_stops_found": "Could not find bus stop information.",
+      "no_stations_found": "Could not find monitoring station information."
     },
     "abort": {
       "already_configured": "This account is already configured."

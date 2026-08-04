@@ -9,7 +9,16 @@
           "safety_alert": "安全アラート (行政安全部)",
           "goodsflow": "グッズフロー (宅配便追跡)",
           "arisu": "アリス (ソウル市上水道)",
-          "kakaomap": "カカオマップ (交通情報)"
+          "kakaomap": "カカオマップ (交通情報)",
+          "weather_warning": "気象特報 (KMA)",
+          "transit": "公共交通 (バス/地下鉄)",
+          "fuel": "燃料価格情報 (Opinet)",
+          "school": "学校情報 (給食/学事日程)",
+          "disaster": "災害情報 (国民災難安全ポータル)",
+          "pharmacy": "薬局情報 (公共データ)",
+          "airkorea": "エアコリア (大気質)",
+          "kma_weather": "気象庁天気予報",
+          "earthquake": "地震情報"
         }
       },
       "kepco": {
@@ -76,6 +85,117 @@
           "end_x": "目的地X座標/経度",
           "end_y": "目的地Y座標/緯度"
         }
+      },
+      "weather_warning": {
+        "title": "気象特報設定",
+        "data": {
+          "api_key": "公共データAPI認証キー",
+          "area_codes": "通知を受け取る地域を選択"
+        }
+      },
+      "transit": {
+        "title": "公共交通設定",
+        "menu_options": {
+          "transit_subway": "地下鉄到着情報",
+          "transit_bus": "バス到着情報"
+        }
+      },
+      "transit_subway": {
+        "title": "地下鉄設定",
+        "data": {
+          "station_name": "駅名 (例: 江南)",
+          "line_num": "路線を選択 (空欄の場合はすべて)",
+          "direction": "方向を選択"
+        }
+      },
+      "transit_bus_search": {
+        "title": "バス停検索",
+        "data": {
+          "kakao_stop_id": "カカオマップ停留所ID (例: BS12345)"
+        }
+      },
+      "transit_bus_select": {
+        "title": "バス路線選択",
+        "data": {
+          "buses": "監視する路線を選択"
+        }
+      },
+      "fuel": {
+        "title": "燃料価格情報設定",
+        "data": {
+          "api_key": "Opinet API認証キー",
+          "latitude": "基準緯度",
+          "longitude": "基準経度",
+          "radius": "検索半径 (km)",
+          "sort": "並び替え基準"
+        }
+      },
+      "school": {
+        "title": "学校情報検索",
+        "data": {
+          "school_name": "学校名 (例: ソウル小学校)"
+        }
+      },
+      "school_select": {
+        "title": "学校選択",
+        "data": {
+          "school_code": "学校を選択",
+          "grade": "学年",
+          "class_num": "クラス"
+        }
+      },
+      "disaster": {
+        "title": "災害情報設定",
+        "data": {
+          "api_key": "公共データAPI認証キー"
+        }
+      },
+      "pharmacy": {
+        "title": "薬局情報設定",
+        "data": {
+          "api_key": "公共データAPI認証キー",
+          "latitude": "基準緯度",
+          "longitude": "基準経度",
+          "radius": "検索半径 (m)"
+        }
+      },
+      "airkorea": {
+        "title": "エアコリア設定",
+        "data": {
+          "api_key": "公共データAPI認証キー",
+          "sido": "市道を選択",
+          "living_api_key": "生活気象指数用APIキー (空欄の場合は同じキーを使用)"
+        }
+      },
+      "airkorea_select": {
+        "title": "測定所選択",
+        "data": {
+          "stations": "監視する測定所一覧"
+        }
+      },
+      "kma_weather": {
+        "title": "気象庁天気設定",
+        "data": {
+          "api_key": "公共データAPI認証キー",
+          "sido": "市道を選択"
+        }
+      },
+      "kma_weather_sgg": {
+        "title": "詳細地域選択",
+        "data": {
+          "regions": "天気を照会する地域 (市郡区) を選択",
+          "air_station": "大気質測定所 (O3/UV情報用)"
+        }
+      },
+      "earthquake": {
+        "title": "地震情報設定",
+        "data": {
+          "api_key": "公共データAPI認証キー",
+          "latitude": "基準緯度",
+          "longitude": "基準経度",
+          "radius_km": "監視半径 (km)",
+          "min_magnitude": "最小監視マグニチュード"
+        }
       }
     },
     "error": {
@@ -88,7 +208,12 @@
       "invalid_wcongnamul_coordinates": "無効なWCONGNAMUL座標です。",
       "no_regions_available": "利用可能な地域がありません。",
       "no_sgg_available": "選択した道に利用可能な市郡区がありません。",
-      "no_emd_available": "選択した市郡区に利用可能な邑面洞がありません。"
+      "no_emd_available": "選択した市郡区に利用可能な邑面洞がありません。",
+      "invalid_api_key": "無効なAPI認証キーです。",
+      "no_schools_found": "検索結果に該当する学校がありません。",
+      "no_selection": "少なくとも1つ以上の項目を選択してください。",
+      "no_stops_found": "停留所情報が見つかりません。",
+      "no_stations_found": "測定所情報が見つかりません。"
     },
     "abort": {
       "already_configured": "このアカウントは既に設定されています。"
