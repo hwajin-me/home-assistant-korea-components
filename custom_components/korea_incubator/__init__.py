@@ -8,15 +8,31 @@ import curl_cffi
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .arisu.device import ArisuDevice
 from .arisu.exceptions import ArisuAuthError
 from .const import (
-    DOMAIN, LOGGER, PLATFORMS,
-    ENTRY_WEATHER, ENTRY_TRANSIT, ENTRY_FUEL, ENTRY_SCHOOL, ENTRY_DISASTER,
-    ENTRY_SAFETY_ALERT, ENTRY_KEPCO, ENTRY_GASAPP, ENTRY_ARISU, ENTRY_PHARMACY,
-    ENTRY_AIRKOREA, ENTRY_KMA_WEATHER, ENTRY_EARTHQUAKE, ENTRY_GOODSFLOW, ENTRY_KAKAOMAP
+    DOMAIN,
+    LOGGER,
+    PLATFORMS,
+    ENTRY_WEATHER,
+    ENTRY_TRANSIT,
+    ENTRY_FUEL,
+    ENTRY_SCHOOL,
+    ENTRY_DISASTER,
+    ENTRY_SAFETY_ALERT,
+    ENTRY_KEPCO,
+    ENTRY_GASAPP,
+    ENTRY_ARISU,
+    ENTRY_PHARMACY,
+    ENTRY_AIRKOREA,
+    ENTRY_KMA_WEATHER,
+    ENTRY_EARTHQUAKE,
+    ENTRY_GOODSFLOW,
+    ENTRY_KAKAOMAP,
+    ENTRY_CJ_ONE_DELIVERY,
 )
 from .llm_api import async_cleanup_llm_api, async_setup_llm_api
 from .gasapp.device import GasAppDevice
@@ -52,11 +68,17 @@ PLATFORM_MAP = {
     ENTRY_GASAPP: [Platform.SENSOR],
     ENTRY_ARISU: [Platform.SENSOR],
     ENTRY_PHARMACY: [Platform.SENSOR],
-    ENTRY_AIRKOREA: [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.EVENT, Platform.CALENDAR],
+    ENTRY_AIRKOREA: [
+        Platform.SENSOR,
+        Platform.BINARY_SENSOR,
+        Platform.EVENT,
+        Platform.CALENDAR,
+    ],
     ENTRY_KMA_WEATHER: [Platform.WEATHER],
     ENTRY_EARTHQUAKE: [Platform.EVENT],
     ENTRY_GOODSFLOW: [Platform.SENSOR],
     ENTRY_KAKAOMAP: [Platform.SENSOR],
+    ENTRY_CJ_ONE_DELIVERY: [Platform.SENSOR],
 }
 
 
@@ -96,7 +118,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except KepcoAuthError as err:
                 raise UpdateFailed(f"Authentication failed for KEPCO: {err}") from err
             except Exception as err:
-                raise UpdateFailed(f"Error communicating with KEPCO API: {err}") from err
+                raise UpdateFailed(
+                    f"Error communicating with KEPCO API: {err}"
+                ) from err
 
     elif service == "gasapp":
         update_interval = timedelta(hours=1)
@@ -126,7 +150,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except GasAppAuthError as err:
                 raise UpdateFailed(f"Authentication failed for GasApp: {err}") from err
             except Exception as err:
-                raise UpdateFailed(f"Error communicating with GasApp API: {err}") from err
+                raise UpdateFailed(
+                    f"Error communicating with GasApp API: {err}"
+                ) from err
 
     elif service == "safety_alert":
         update_interval = timedelta(minutes=5)
@@ -155,9 +181,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await device.async_update()
                 return device.data
             except (SafetyAlertConnectionError, SafetyAlertDataError) as err:
-                raise UpdateFailed(f"Error communicating with SafetyAlert API: {err}") from err
+                raise UpdateFailed(
+                    f"Error communicating with SafetyAlert API: {err}"
+                ) from err
             except Exception as err:
-                raise UpdateFailed(f"Error communicating with SafetyAlert API: {err}") from err
+                raise UpdateFailed(
+                    f"Error communicating with SafetyAlert API: {err}"
+                ) from err
 
     elif service == "goodsflow":
         update_interval = timedelta(minutes=15)
@@ -180,9 +210,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await device.async_update()
                 return device.data
             except GoodsFlowAuthError as err:
-                raise UpdateFailed(f"Authentication failed for GoodsFlow: {err}") from err
+                raise UpdateFailed(
+                    f"Authentication failed for GoodsFlow: {err}"
+                ) from err
             except Exception as err:
-                raise UpdateFailed(f"Error communicating with GoodsFlow API: {err}") from err
+                raise UpdateFailed(
+                    f"Error communicating with GoodsFlow API: {err}"
+                ) from err
 
     elif service == "arisu":
         update_interval = timedelta(minutes=30)
@@ -211,7 +245,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except ArisuAuthError as err:
                 raise UpdateFailed(f"Authentication failed for Arisu: {err}") from err
             except Exception as err:
-                raise UpdateFailed(f"Error communicating with Arisu API: {err}") from err
+                raise UpdateFailed(
+                    f"Error communicating with Arisu API: {err}"
+                ) from err
 
     elif service == "kakaomap":
         update_interval = timedelta(minutes=1)
@@ -239,19 +275,67 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await device.async_update()
                 return device.data
             except (KakaoMapConnectionError, KakaoMapDataError) as err:
-                raise UpdateFailed(f"Error communicating with KakaoMap API: {err}") from err
+                raise UpdateFailed(
+                    f"Error communicating with KakaoMap API: {err}"
+                ) from err
             except Exception as err:
-                raise UpdateFailed(f"Error communicating with KakaoMap API: {err}") from err
+                raise UpdateFailed(
+                    f"Error communicating with KakaoMap API: {err}"
+                ) from err
+
+    elif service == ENTRY_CJ_ONE_DELIVERY:
+        from .cj_one_delivery.api import AuthSession, CJOneDeliveryClient
+        from .cj_one_delivery.const import (
+            CONF_ACCESS_TOKEN,
+            CONF_PHONE_NUMBER,
+            CONF_REFRESH_TOKEN,
+            CONF_USER_ID,
+        )
+        from .cj_one_delivery.coordinator import CJOneDeliveryCoordinator
+
+        async def async_update_tokens(auth_session: AuthSession) -> None:
+            hass.config_entries.async_update_entry(
+                entry,
+                data={
+                    **entry.data,
+                    CONF_USER_ID: auth_session.user_id,
+                    CONF_ACCESS_TOKEN: auth_session.access_token,
+                    CONF_REFRESH_TOKEN: auth_session.refresh_token,
+                },
+            )
+
+        client = CJOneDeliveryClient(
+            session=async_get_clientsession(hass),
+            phone_number=entry.data[CONF_PHONE_NUMBER],
+            user_id=entry.data[CONF_USER_ID],
+            access_token=entry.data[CONF_ACCESS_TOKEN],
+            refresh_token=entry.data[CONF_REFRESH_TOKEN],
+            token_update_callback=async_update_tokens,
+        )
+        coordinator = CJOneDeliveryCoordinator(hass, entry, client)
+        await coordinator.async_config_entry_first_refresh()
+        store = {"coordinator": coordinator}
+        hass.data.setdefault(DOMAIN, {})
+        hass.data[DOMAIN][entry.entry_id] = store
+        entry.async_on_unload(entry.add_update_listener(_async_cj_options_updated))
+        await hass.config_entries.async_forward_entry_setups(
+            entry, PLATFORM_MAP[service]
+        )
+        store["unregister_llm"] = await async_setup_llm_api(hass, entry, service)
+        return True
 
     elif service == "weather_warning":
         from .weather.coordinator import WeatherWarningCoordinator
+
         api_key = entry.data["api_key"]
         c = WeatherWarningCoordinator(hass, api_key, entry.data.get("area_codes", []))
         await c.async_config_entry_first_refresh()
         store = {"coordinator": c, "area_codes": entry.data.get("area_codes", [])}
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = store
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORM_MAP.get(service, []))
+        await hass.config_entries.async_forward_entry_setups(
+            entry, PLATFORM_MAP.get(service, [])
+        )
         store["unregister_llm"] = await async_setup_llm_api(hass, entry, service)
         return True
 
@@ -259,6 +343,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         from .transit.subway_coordinator import SubwayCoordinator
         from .transit.bus_coordinator import BusCoordinator
         from .transit.services import async_register_services
+
         seoul_key = entry.data.get("seoul_api_key", "")
         bus_key = entry.data.get("bus_api_key", "")
         sg: dict[str, list] = {}
@@ -274,19 +359,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             bc = BusCoordinator(hass, stop["stop_id"], stop["stop_name"])
             await bc.async_config_entry_first_refresh()
             bus_coords[stop["stop_id"]] = bc
-        store = {"subway_coords": sc, "bus_coords": bus_coords,
-                 "subway_items": entry.data.get("subway_items", []),
-                 "bus_stops": entry.data.get("bus_stops", [])}
+        store = {
+            "subway_coords": sc,
+            "bus_coords": bus_coords,
+            "subway_items": entry.data.get("subway_items", []),
+            "bus_stops": entry.data.get("bus_stops", []),
+        }
         if bus_key:
             async_register_services(hass, bus_key)
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = store
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORM_MAP.get(service, []))
+        await hass.config_entries.async_forward_entry_setups(
+            entry, PLATFORM_MAP.get(service, [])
+        )
         store["unregister_llm"] = await async_setup_llm_api(hass, entry, service)
         return True
 
     elif service == "fuel":
         from .fuel.coordinator import FuelCoordinator
+
         api_key = entry.data["api_key"]
         configs = entry.data.get("configs", [])
         c = FuelCoordinator(hass, api_key, configs)
@@ -294,23 +385,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         store = {"coordinator": c, "configs": configs}
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = store
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORM_MAP.get(service, []))
+        await hass.config_entries.async_forward_entry_setups(
+            entry, PLATFORM_MAP.get(service, [])
+        )
         store["unregister_llm"] = await async_setup_llm_api(hass, entry, service)
         return True
 
     elif service == "school":
         from .school.coordinator import SchoolCoordinator
+
         c = SchoolCoordinator(hass, entry)
         await c.async_config_entry_first_refresh()
         store = {"coordinator": c}
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = store
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORM_MAP.get(service, []))
+        await hass.config_entries.async_forward_entry_setups(
+            entry, PLATFORM_MAP.get(service, [])
+        )
         store["unregister_llm"] = await async_setup_llm_api(hass, entry, service)
         return True
 
     elif service == "disaster":
         from .disaster.coordinator import DisasterCoordinator
+
         api_key = entry.data["api_key"]
         region = entry.data.get("region_filter", "")
         c = DisasterCoordinator(hass, api_key, region)
@@ -318,49 +415,63 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         store = {"coordinator": c, "region": region}
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = store
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORM_MAP.get(service, []))
+        await hass.config_entries.async_forward_entry_setups(
+            entry, PLATFORM_MAP.get(service, [])
+        )
         store["unregister_llm"] = await async_setup_llm_api(hass, entry, service)
         return True
 
     elif service == "pharmacy":
         from .pharmacy.coordinator import PharmacyCoordinator
         from .pharmacy.services import async_register_pharmacy_service
+
         api_key = entry.data["api_key"]
-        c = PharmacyCoordinator(hass, api_key,
-                                 entry.data["q0"], entry.data.get("q1", ""))
+        c = PharmacyCoordinator(
+            hass, api_key, entry.data["q0"], entry.data.get("q1", "")
+        )
         await c.async_config_entry_first_refresh()
         store = {"coordinator": c}
         async_register_pharmacy_service(hass, api_key)
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = store
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORM_MAP.get(service, []))
+        await hass.config_entries.async_forward_entry_setups(
+            entry, PLATFORM_MAP.get(service, [])
+        )
         store["unregister_llm"] = await async_setup_llm_api(hass, entry, service)
         return True
 
     elif service == "airkorea":
         from .airkorea.coordinator import AirKoreaCoordinator
+
         api_key = entry.data["api_key"]
         living_key = entry.data.get("living_api_key", "") or api_key
         stations = entry.data.get("stations", [])
         sido = entry.data.get("sido", "서울")
-        c = AirKoreaCoordinator(hass, api_key, stations,
-                                 living_api_key=living_key, sido=sido)
+        c = AirKoreaCoordinator(
+            hass, api_key, stations, living_api_key=living_key, sido=sido
+        )
         await c.async_config_entry_first_refresh()
         store = {"coordinator": c, "stations": stations}
         from .airkorea.services import async_register_airkorea_services
+
         async_register_airkorea_services(hass, api_key, living_key, sido)
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = store
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORM_MAP.get(service, []))
+        await hass.config_entries.async_forward_entry_setups(
+            entry, PLATFORM_MAP.get(service, [])
+        )
         store["unregister_llm"] = await async_setup_llm_api(hass, entry, service)
         return True
 
     elif service == "kma_weather":
         from .kma_weather.coordinator import KMAWeatherCoordinator
+
         api_key = entry.data["api_key"]
         regions = entry.data.get("regions", [])
         c = KMAWeatherCoordinator(
-            hass, api_key, regions,
+            hass,
+            api_key,
+            regions,
             air_api_key=api_key,
             air_station=entry.data.get("air_station", ""),
             living_api_key=api_key,
@@ -370,19 +481,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         store = {"coordinator": c, "regions": regions}
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = store
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORM_MAP.get(service, []))
+        await hass.config_entries.async_forward_entry_setups(
+            entry, PLATFORM_MAP.get(service, [])
+        )
         store["unregister_llm"] = await async_setup_llm_api(hass, entry, service)
         return True
 
     elif service == "earthquake":
         from .earthquake.coordinator import EarthquakeCoordinator
+
         api_key = entry.data["api_key"]
         c = EarthquakeCoordinator(hass, api_key)
         await c.async_config_entry_first_refresh()
         store = {"coordinator": c}
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = store
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORM_MAP.get(service, []))
+        await hass.config_entries.async_forward_entry_setups(
+            entry, PLATFORM_MAP.get(service, [])
+        )
         store["unregister_llm"] = await async_setup_llm_api(hass, entry, service)
         return True
 
@@ -410,7 +526,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
 
     # Setup platforms
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORM_MAP.get(service, [Platform.SENSOR, Platform.BINARY_SENSOR]))
+    await hass.config_entries.async_forward_entry_setups(
+        entry, PLATFORM_MAP.get(service, [Platform.SENSOR, Platform.BINARY_SENSOR])
+    )
 
     # Setup LLM API
     unregister_llm = await async_setup_llm_api(hass, entry, service)
@@ -424,11 +542,22 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     service = entry.data.get("service")
     store = hass.data.get(DOMAIN, {}).get(entry.entry_id, {}) or {}
     async_cleanup_llm_api(store.get("unregister_llm"))
-    
-    if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORM_MAP.get(service, PLATFORMS)):
+
+    if unload_ok := await hass.config_entries.async_unload_platforms(
+        entry, PLATFORM_MAP.get(service, PLATFORMS)
+    ):
         data: Dict[str, Any] = hass.data[DOMAIN].pop(entry.entry_id)
         # Close the device session
         if device := data.get("device"):
             await device.async_close_session()
 
     return unload_ok
+
+
+async def _async_cj_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Apply CJ O-NE polling options without unloading its entities."""
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    if dict(entry.options) == coordinator.loaded_options:
+        return
+    coordinator.apply_options()
+    await coordinator.async_request_refresh()

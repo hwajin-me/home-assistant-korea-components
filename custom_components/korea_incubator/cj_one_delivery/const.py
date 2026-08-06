@@ -1,0 +1,16 @@
+"""Constants for CJ O-NE delivery tracking."""
+
+from ..const import DOMAIN as DOMAIN
+
+CONF_AUTH_CODE = "auth_code"
+CONF_ACCESS_TOKEN = "access_token"
+CONF_PHONE_NUMBER = "phone_number"
+CONF_REFRESH_TOKEN = "refresh_token"
+CONF_USER_ID = "user_id"
+CONF_SCAN_INTERVAL_MINUTES = "scan_interval_minutes"
+
+COMPLETED_SENSOR_RETENTION_DAYS = 2
+COMPLETED_COUNT_RETENTION_DAYS = 5
+DEFAULT_SCAN_INTERVAL_MINUTES = 30
+MIN_SCAN_INTERVAL_MINUTES = 3
+MAX_SCAN_INTERVAL_MINUTES = 30

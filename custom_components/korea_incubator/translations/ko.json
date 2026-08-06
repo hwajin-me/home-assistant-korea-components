@@ -8,6 +8,7 @@
           "gasapp": "가스앱 (한국가스공사)",
           "safety_alert": "안전알림 (행정안전부)",
           "goodsflow": "굿스플로우 (택배조회)",
+          "cj_one_delivery": "CJ대한통운 (배송조회)",
           "arisu": "아리수 (서울시 상수도)",
           "kakaomap": "카카오맵 (교통정보)",
           "weather_warning": "기상특보 (KMA)",
@@ -65,6 +66,27 @@
         "title": "굿스플로우 설정",
         "data": {
           "token": "인증토큰"
+        }
+      },
+      "cj_one_delivery": {
+        "title": "CJ대한통운 배송조회",
+        "description": "휴대폰 번호를 입력하면 CJ O-NE 앱 인증용 문자 인증번호를 발송합니다.",
+        "data": {
+          "phone_number": "휴대폰 번호"
+        }
+      },
+      "cj_one_delivery_code": {
+        "title": "CJ대한통운 휴대폰 인증",
+        "description": "문자로 받은 인증번호를 입력하세요.",
+        "data": {
+          "auth_code": "인증번호"
+        }
+      },
+      "cj_one_delivery_options": {
+        "title": "CJ대한통운 배송조회 옵션",
+        "description": "배송대기/배송중과 최근 2일 배송완료 택배는 건별 센서로 생성되고, 배송완료 건수는 최근 5일간 집계합니다. 조회 주기는 3~30분으로 설정할 수 있습니다.",
+        "data": {
+          "scan_interval_minutes": "조회 주기(분)"
         }
       },
       "arisu": {
@@ -213,17 +235,23 @@
       "no_schools_found": "검색 결과에 해당하는 학교가 없습니다.",
       "no_selection": "최소 하나 이상의 항목을 선택해야 합니다.",
       "no_stops_found": "정류소 정보를 찾을 수 없습니다.",
-      "no_stations_found": "측정소 정보를 찾을 수 없습니다."
+      "no_stations_found": "측정소 정보를 찾을 수 없습니다.",
+      "invalid_phone_number": "10자리 또는 11자리의 올바른 휴대폰 번호를 입력하세요.",
+      "invalid_verification_code": "인증번호가 올바르지 않거나 만료되었습니다. ({error})"
     },
     "abort": {
-      "already_configured": "이 계정은 이미 설정되어 있습니다."
+      "already_configured": "이 계정은 이미 설정되어 있습니다.",
+      "invalid_auth": "인증 세션이 만료되었습니다. 설정을 다시 시작하세요."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "옵션",
-        "description": "구성 옵션이 없습니다."
+        "description": "CJ대한통운 배송조회 주기를 변경할 수 있습니다.",
+        "data": {
+          "scan_interval_minutes": "조회 주기(분)"
+        }
       }
     },
     "abort": {

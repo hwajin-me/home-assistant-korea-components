@@ -13,6 +13,7 @@
           "kepco": "KEPCO",
           "gasapp": "GasApp",
           "goodsflow": "GoodsFlow",
+          "cj_one_delivery": "CJ O-NE Delivery Tracking",
           "arisu": "Arisu Water",
           "kakaomap": "KakaoMap",
           "pharmacy": "Pharmacy",
@@ -26,6 +27,27 @@
         "data": {
           "api_key": "API Key",
           "area_codes": "Areas"
+        }
+      },
+      "cj_one_delivery": {
+        "title": "CJ O-NE Delivery Tracking",
+        "description": "Enter a mobile phone number to receive an SMS verification code.",
+        "data": {
+          "phone_number": "Mobile phone number"
+        }
+      },
+      "cj_one_delivery_code": {
+        "title": "CJ O-NE Phone Verification",
+        "description": "Enter the verification code sent by SMS.",
+        "data": {
+          "auth_code": "Verification code"
+        }
+      },
+      "cj_one_delivery_options": {
+        "title": "CJ O-NE Delivery Options",
+        "description": "Every scheduled, in-transit, and recently completed parcel gets its own sensor for two days. Completed deliveries are counted for a rolling five-day window. The polling interval can be set from 3 to 30 minutes.",
+        "data": {
+          "scan_interval_minutes": "Polling interval (minutes)"
         }
       },
       "transit": {
@@ -196,17 +218,23 @@
       "no_schools_found": "No schools.",
       "no_selection": "Select one.",
       "no_stops_found": "No stops.",
-      "no_stations_found": "No stations found."
+      "no_stations_found": "No stations found.",
+      "invalid_phone_number": "Enter a valid 10- or 11-digit mobile phone number.",
+      "invalid_verification_code": "The verification code is invalid or expired. ({error})"
     },
     "abort": {
       "already_configured": "Already configured.",
+      "invalid_auth": "The verification session expired. Start setup again.",
       "no_options": "No options available."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Edit Settings"
+        "title": "Edit Settings",
+        "data": {
+          "scan_interval_minutes": "Polling interval (minutes)"
+        }
       }
     }
   },

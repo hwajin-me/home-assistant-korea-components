@@ -3,7 +3,8 @@
   "name": "한국 복합 컴포넌트",
   "codeowners": [
     "@hwajin-me",
-    "@plplaaa2"
+    "@plplaaa2",
+    "@jhkwon19"
   ],
   "config_flow": true,
   "documentation": "https://github.com/hwajin-me/home-assistant-korea-components/blob/main/README.md",
@@ -19,5 +20,5 @@
     "pycryptodome==3.20.0",
     "voluptuous>=0.15.2"
   ],
-  "version": "1.2.1"
+  "version": "1.2.2"
 }

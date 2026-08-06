@@ -14,7 +14,9 @@ from .arisu.api import ArisuApiClient
 from .arisu.exceptions import ArisuAuthError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
-    SelectSelector, SelectSelectorConfig, SelectSelectorMode,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
 )
 from .const import *
 
@@ -22,6 +24,16 @@ from .gasapp.api import GasAppApiClient
 from .gasapp.exceptions import GasAppAuthError
 from .goodsflow.api import GoodsFlowApiClient
 from .goodsflow.exceptions import GoodsFlowAuthError
+from .cj_one_delivery.api import AuthSession, CJOneDeliveryClient
+from .cj_one_delivery.const import (
+    CONF_AUTH_CODE,
+    CONF_PHONE_NUMBER,
+    CONF_SCAN_INTERVAL_MINUTES,
+    DEFAULT_SCAN_INTERVAL_MINUTES,
+    MAX_SCAN_INTERVAL_MINUTES,
+    MIN_SCAN_INTERVAL_MINUTES,
+)
+from .cj_one_delivery.exceptions import CannotConnect, InvalidAuth
 from .kakaomap.api import KakaoMapApiClient
 from .kakaomap.coordinates import convert_coordinates, validate_coordinates
 from .kakaomap.exceptions import KakaoMapConnectionError
@@ -40,6 +52,8 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self):
         """Initialize the config flow."""
         self._safety_alert_data = {}
+        self._cj_phone_number = ""
+        self._cj_auth_session: AuthSession | None = None
 
     async def async_step_user(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle the initial step."""
@@ -50,6 +64,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "gasapp",
                 "safety_alert",
                 "goodsflow",
+                "cj_one_delivery",
                 "arisu",
                 "kakaomap",
                 "weather_warning",
@@ -62,6 +77,105 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "kma_weather",
                 "earthquake",
             ],
+        )
+
+    async def async_step_cj_one_delivery(
+        self, user_input: Optional[Dict[str, Any]] = None
+    ):
+        """Send the CJ O-NE SMS verification code."""
+        errors: Dict[str, str] = {}
+        error_info: Dict[str, str] = {}
+        if user_input is not None:
+            self._cj_phone_number = user_input[CONF_PHONE_NUMBER]
+            phone_number = "".join(
+                char for char in self._cj_phone_number if char.isdigit()
+            )
+            if len(phone_number) not in (10, 11):
+                errors[CONF_PHONE_NUMBER] = "invalid_phone_number"
+                return self.async_show_form(
+                    step_id="cj_one_delivery",
+                    data_schema=vol.Schema({vol.Required(CONF_PHONE_NUMBER): str}),
+                    errors=errors,
+                    description_placeholders=error_info,
+                )
+            client = CJOneDeliveryClient(
+                async_get_clientsession(self.hass), self._cj_phone_number
+            )
+            try:
+                await client.async_send_verification_code()
+            except CannotConnect as err:
+                LOGGER.error("CJ O-NE verification request failed: %s", err)
+                errors["base"] = "cannot_connect"
+                error_info["error"] = str(err)
+            else:
+                return await self.async_step_cj_one_delivery_code()
+
+        return self.async_show_form(
+            step_id="cj_one_delivery",
+            data_schema=vol.Schema({vol.Required(CONF_PHONE_NUMBER): str}),
+            errors=errors,
+            description_placeholders=error_info,
+        )
+
+    async def async_step_cj_one_delivery_code(
+        self, user_input: Optional[Dict[str, Any]] = None
+    ):
+        """Verify the CJ O-NE SMS code."""
+        errors: Dict[str, str] = {}
+        error_info: Dict[str, str] = {}
+        if user_input is not None:
+            client = CJOneDeliveryClient(
+                async_get_clientsession(self.hass), self._cj_phone_number
+            )
+            try:
+                self._cj_auth_session = await client.async_verify_code(
+                    user_input[CONF_AUTH_CODE]
+                )
+            except InvalidAuth as err:
+                errors["base"] = "invalid_verification_code"
+                error_info["error"] = str(err)
+            except CannotConnect as err:
+                LOGGER.error("CJ O-NE verification failed: %s", err)
+                errors["base"] = "cannot_connect"
+                error_info["error"] = str(err)
+            else:
+                phone_number = "".join(
+                    char for char in self._cj_phone_number if char.isdigit()
+                )
+                await self.async_set_unique_id(f"cj_one_delivery_{phone_number}")
+                self._abort_if_unique_id_configured()
+                return await self.async_step_cj_one_delivery_options()
+
+        return self.async_show_form(
+            step_id="cj_one_delivery_code",
+            data_schema=vol.Schema({vol.Required(CONF_AUTH_CODE): str}),
+            errors=errors,
+            description_placeholders=error_info,
+        )
+
+    async def async_step_cj_one_delivery_options(
+        self, user_input: Optional[Dict[str, Any]] = None
+    ):
+        """Configure the polling interval."""
+        if user_input is not None:
+            auth_session = self._cj_auth_session
+            if auth_session is None:
+                return self.async_abort(reason="invalid_auth")
+            return self.async_create_entry(
+                title=f"CJ대한통운 ({self._cj_phone_number})",
+                data={
+                    "service": ENTRY_CJ_ONE_DELIVERY,
+                    CONF_PHONE_NUMBER: self._cj_phone_number,
+                    "user_id": auth_session.user_id,
+                    "access_token": auth_session.access_token,
+                    "refresh_token": auth_session.refresh_token,
+                },
+                options=user_input,
+            )
+
+        return self.async_show_form(
+            step_id="cj_one_delivery_options",
+            data_schema=_cj_one_delivery_options_schema(),
         )
 
     async def async_step_kepco(self, user_input: Optional[Dict[str, Any]] = None):
@@ -169,7 +283,9 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             sido_code = user_input["sido_code"]
-            sido_name = self._safety_alert_data.get("sido_options", {}).get(sido_code, sido_code)
+            sido_name = self._safety_alert_data.get("sido_options", {}).get(
+                sido_code, sido_code
+            )
             self._safety_alert_data["sido_code"] = sido_code
             self._safety_alert_data["sido_name"] = sido_name
             return await self.async_step_safety_alert_sgg()
@@ -231,7 +347,9 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             sgg_code = user_input.get("sgg_code") or user_input.get("sgg_name", "")
-            sgg_name = self._safety_alert_data.get("sgg_options", {}).get(sgg_code, sgg_code)
+            sgg_name = self._safety_alert_data.get("sgg_options", {}).get(
+                sgg_code, sgg_code
+            )
             self._safety_alert_data["sgg_code"] = sgg_code
             self._safety_alert_data["sgg_name"] = sgg_name
             return await self.async_step_safety_alert_emd()
@@ -277,7 +395,9 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             emd_code = user_input.get("emd_code") or user_input.get("emd_name", "")
-            emd_name = self._safety_alert_data.get("emd_options", {}).get(emd_code, emd_code)
+            emd_name = self._safety_alert_data.get("emd_options", {}).get(
+                emd_code, emd_code
+            )
             self._safety_alert_data["emd_code"] = emd_code
             self._safety_alert_data["emd_name"] = emd_name
             return await self._create_safety_alert_entry()
@@ -550,70 +670,143 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_weather_warning(self, user_input=None) -> FlowResult:
         from .weather import AREA_CODES
         from .weather.api import validate_kma_api
+
         errors: dict[str, str] = {}
-        area_options = [{"value": code, "label": f"{name}"} for code, name in AREA_CODES.items()]
+        area_options = [
+            {"value": code, "label": f"{name}"} for code, name in AREA_CODES.items()
+        ]
         if user_input is not None:
             api_key = user_input["api_key"]
             areas = user_input.get("area_codes", [])
-            if not isinstance(areas, list): areas = [areas]
-            if not areas: errors["area_codes"] = "no_selection"
+            if not isinstance(areas, list):
+                areas = [areas]
+            if not areas:
+                errors["area_codes"] = "no_selection"
             elif await validate_kma_api(api_key, areas[0]):
-                return self.async_create_entry(title="기상특보", data={CONF_ENTRY_TYPE: ENTRY_WEATHER, "api_key": api_key, "area_codes": areas})
-            else: errors["base"] = "cannot_connect"
-        return self.async_show_form(step_id="weather_warning", data_schema=vol.Schema({
-            vol.Required("api_key"): str,
-            vol.Required("area_codes"): SelectSelector(SelectSelectorConfig(options=area_options, multiple=True, mode=SelectSelectorMode.DROPDOWN)),
-        }), errors=errors)
+                return self.async_create_entry(
+                    title="기상특보",
+                    data={
+                        CONF_ENTRY_TYPE: ENTRY_WEATHER,
+                        "api_key": api_key,
+                        "area_codes": areas,
+                    },
+                )
+            else:
+                errors["base"] = "cannot_connect"
+        return self.async_show_form(
+            step_id="weather_warning",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("api_key"): str,
+                    vol.Required("area_codes"): SelectSelector(
+                        SelectSelectorConfig(
+                            options=area_options,
+                            multiple=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                }
+            ),
+            errors=errors,
+        )
 
     # ══════════ 대중교통 ══════════
     async def async_step_transit(self, user_input=None) -> FlowResult:
         if user_input is not None:
-            self._data = {CONF_ENTRY_TYPE: ENTRY_TRANSIT, "seoul_api_key": user_input.get("seoul_api_key", ""),
-                         "bus_api_key": user_input.get("bus_api_key", ""), "subway_items": [], "bus_stops": []}
+            self._data = {
+                CONF_ENTRY_TYPE: ENTRY_TRANSIT,
+                "seoul_api_key": user_input.get("seoul_api_key", ""),
+                "bus_api_key": user_input.get("bus_api_key", ""),
+                "subway_items": [],
+                "bus_stops": [],
+            }
             return await self.async_step_transit_add()
-        return self.async_show_form(step_id="transit", data_schema=vol.Schema({
-            vol.Optional("seoul_api_key"): str,
-            vol.Optional("bus_api_key"): str,
-        }))
+        return self.async_show_form(
+            step_id="transit",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional("seoul_api_key"): str,
+                    vol.Optional("bus_api_key"): str,
+                }
+            ),
+        )
 
     async def async_step_transit_add(self, user_input=None) -> FlowResult:
-        return self.async_show_menu(step_id="transit_add", menu_options=["transit_subway", "transit_bus_search", "transit_done"])
+        return self.async_show_menu(
+            step_id="transit_add",
+            menu_options=["transit_subway", "transit_bus_search", "transit_done"],
+        )
 
     async def async_step_transit_subway(self, user_input=None) -> FlowResult:
         from .transit import DIRECTIONS, SUBWAY_LINES
+
         if user_input is not None:
-            self._data["subway_items"].append({"station": user_input["station"].strip(), "direction": user_input["direction"], "line_id": user_input.get("line_id", "")})
+            self._data["subway_items"].append(
+                {
+                    "station": user_input["station"].strip(),
+                    "direction": user_input["direction"],
+                    "line_id": user_input.get("line_id", ""),
+                }
+            )
             return await self.async_step_transit_add()
         dir_opts = {d: d for d in DIRECTIONS}
         line_opts = {"": "전체", **SUBWAY_LINES}
-        return self.async_show_form(step_id="transit_subway", data_schema=vol.Schema({
-            vol.Required("station"): str,
-            vol.Required("direction", default="상행"): vol.In(dir_opts),
-            vol.Optional("line_id", default=""): vol.In(line_opts),
-        }))
+        return self.async_show_form(
+            step_id="transit_subway",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("station"): str,
+                    vol.Required("direction", default="상행"): vol.In(dir_opts),
+                    vol.Optional("line_id", default=""): vol.In(line_opts),
+                }
+            ),
+        )
 
     async def async_step_transit_bus_search(self, user_input=None) -> FlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             stop_id = user_input["kakao_stop_id"].strip()
             from .transit.bus_api import fetch_stop_data, build_bus_labels
+
             try:
                 session = async_get_clientsession(self.hass)
                 data = await fetch_stop_data(session, stop_id)
-                if not data.get("name"): errors["kakao_stop_id"] = "no_stops_found"
+                if not data.get("name"):
+                    errors["kakao_stop_id"] = "no_stops_found"
                 else:
                     self._bus_stop_id, self._bus_stop_name = stop_id, data["name"]
                     self._bus_labels = build_bus_labels(data)
                     return await self.async_step_transit_bus_select()
-            except Exception: errors["kakao_stop_id"] = "cannot_connect"
-        return self.async_show_form(step_id="transit_bus_search", data_schema=vol.Schema({vol.Required("kakao_stop_id"): str}), errors=errors)
+            except Exception:
+                errors["kakao_stop_id"] = "cannot_connect"
+        return self.async_show_form(
+            step_id="transit_bus_search",
+            data_schema=vol.Schema({vol.Required("kakao_stop_id"): str}),
+            errors=errors,
+        )
 
     async def async_step_transit_bus_select(self, user_input=None) -> FlowResult:
         import homeassistant.helpers.config_validation as cv
+
         if user_input is not None:
-            self._data.setdefault("bus_stops", []).append({"stop_id": self._bus_stop_id, "stop_name": self._bus_stop_name, "buses": user_input.get("buses", [])})
+            self._data.setdefault("bus_stops", []).append(
+                {
+                    "stop_id": self._bus_stop_id,
+                    "stop_name": self._bus_stop_name,
+                    "buses": user_input.get("buses", []),
+                }
+            )
             return await self.async_step_transit_add()
-        return self.async_show_form(step_id="transit_bus_select", data_schema=vol.Schema({vol.Required("buses", default=list(self._bus_labels.keys())): cv.multi_select(self._bus_labels)}))
+        return self.async_show_form(
+            step_id="transit_bus_select",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "buses", default=list(self._bus_labels.keys())
+                    ): cv.multi_select(self._bus_labels)
+                }
+            ),
+        )
 
     async def async_step_transit_done(self, user_input=None) -> FlowResult:
         return self.async_create_entry(title="대중교통", data=self._data)
@@ -622,150 +815,415 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_fuel(self, user_input=None) -> FlowResult:
         from .fuel import SIDO_CODES, FUEL_TYPES
         from .fuel.api import validate_opinet
+
         errors: dict[str, str] = {}
         sido_opts = [{"value": k, "label": v} for k, v in SIDO_CODES.items()]
         fuel_opts = [{"value": k, "label": v} for k, v in FUEL_TYPES.items()]
         if user_input is not None:
             api_key = user_input["api_key"]
-            sidos, fuels = user_input.get("sido_codes", []), user_input.get("fuel_codes", [])
-            if not sidos or not fuels: errors["base"] = "no_selection"
+            sidos, fuels = (
+                user_input.get("sido_codes", []),
+                user_input.get("fuel_codes", []),
+            )
+            if not sidos or not fuels:
+                errors["base"] = "no_selection"
             elif await validate_opinet(api_key):
-                configs = [{"sido_code": s, "fuel_code": f} for s in sidos for f in fuels]
-                return self.async_create_entry(title="유가정보", data={CONF_ENTRY_TYPE: ENTRY_FUEL, "api_key": api_key, "configs": configs})
-            else: errors["base"] = "cannot_connect"
-        return self.async_show_form(step_id="fuel", data_schema=vol.Schema({
-            vol.Required("api_key"): str,
-            vol.Required("sido_codes"): SelectSelector(SelectSelectorConfig(options=sido_opts, multiple=True, mode=SelectSelectorMode.DROPDOWN)),
-            vol.Required("fuel_codes"): SelectSelector(SelectSelectorConfig(options=fuel_opts, multiple=True, mode=SelectSelectorMode.DROPDOWN)),
-        }), errors=errors)
+                configs = [
+                    {"sido_code": s, "fuel_code": f} for s in sidos for f in fuels
+                ]
+                return self.async_create_entry(
+                    title="유가정보",
+                    data={
+                        CONF_ENTRY_TYPE: ENTRY_FUEL,
+                        "api_key": api_key,
+                        "configs": configs,
+                    },
+                )
+            else:
+                errors["base"] = "cannot_connect"
+        return self.async_show_form(
+            step_id="fuel",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("api_key"): str,
+                    vol.Required("sido_codes"): SelectSelector(
+                        SelectSelectorConfig(
+                            options=sido_opts,
+                            multiple=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Required("fuel_codes"): SelectSelector(
+                        SelectSelectorConfig(
+                            options=fuel_opts,
+                            multiple=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                }
+            ),
+            errors=errors,
+        )
 
     # ══════════ 학교정보 ══════════
     async def async_step_school(self, user_input=None) -> FlowResult:
         from .school import SCHOOL_LEVELS
+
         errors: dict[str, str] = {}
         if user_input is not None:
-            self._data = {CONF_ENTRY_TYPE: ENTRY_SCHOOL, "api_key": user_input["api_key"], "school_level": user_input["school_level"]}
+            self._data = {
+                CONF_ENTRY_TYPE: ENTRY_SCHOOL,
+                "api_key": user_input["api_key"],
+                "school_level": user_input["school_level"],
+            }
             return await self.async_step_school_search()
-        return self.async_show_form(step_id="school", data_schema=vol.Schema({vol.Required("api_key"): str, vol.Required("school_level", default="elementary"): vol.In(SCHOOL_LEVELS)}), errors=errors)
+        return self.async_show_form(
+            step_id="school",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("api_key"): str,
+                    vol.Required("school_level", default="elementary"): vol.In(
+                        SCHOOL_LEVELS
+                    ),
+                }
+            ),
+            errors=errors,
+        )
 
     async def async_step_school_search(self, user_input=None) -> FlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             session = async_get_clientsession(self.hass)
             from .school.api import NeisApiClient
+
             c = NeisApiClient(session, self._data["api_key"])
             if "school_search" in user_input:
                 schools = await c.search_school(user_input["school_search"])
-                if not schools: errors["school_search"] = "no_schools_found"
+                if not schools:
+                    errors["school_search"] = "no_schools_found"
                 else:
-                    opts = {f"{s['ATPT_OFCDC_SC_CODE']}_{s['SD_SCHUL_CODE']}": f"{s['SCHUL_NM']} ({s.get('ORG_RDNMA', '')})" for s in schools[:10]}
-                    return self.async_show_form(step_id="school_search", data_schema=vol.Schema({vol.Required("selected_school"): vol.In(opts)}))
+                    opts = {
+                        f"{s['ATPT_OFCDC_SC_CODE']}_{s['SD_SCHUL_CODE']}": f"{s['SCHUL_NM']} ({s.get('ORG_RDNMA', '')})"
+                        for s in schools[:10]
+                    }
+                    return self.async_show_form(
+                        step_id="school_search",
+                        data_schema=vol.Schema(
+                            {vol.Required("selected_school"): vol.In(opts)}
+                        ),
+                    )
             elif "selected_school" in user_input:
                 rc, sc = user_input["selected_school"].split("_")
                 info = await c.get_school_info(rc, sc)
                 if info:
                     from .school.parser import parse_school_info
+
                     self._data.update(parse_school_info(info))
                     return await self.async_step_school_class()
                 errors["base"] = "cannot_connect"
-        return self.async_show_form(step_id="school_search", data_schema=vol.Schema({vol.Required("school_search"): str}), errors=errors)
+        return self.async_show_form(
+            step_id="school_search",
+            data_schema=vol.Schema({vol.Required("school_search"): str}),
+            errors=errors,
+        )
 
     async def async_step_school_class(self, user_input=None) -> FlowResult:
         import homeassistant.helpers.config_validation as cv
+
         if user_input is not None:
             selected = user_input.get("grade_classes", [])
             self._data["grade_classes"] = selected
             if selected:
                 g, cl = selected[0].split("-")
-                self._data.update({"grade": int(g), "classes": [s.split("-")[1] for s in selected], "class": selected[0].split("-")[1]})
+                self._data.update(
+                    {
+                        "grade": int(g),
+                        "classes": [s.split("-")[1] for s in selected],
+                        "class": selected[0].split("-")[1],
+                    }
+                )
             return await self.async_step_school_periods()
         max_g = 6 if self._data["school_level"] == "elementary" else 3
-        opts = {f"{g}-{cl}": f"{g}학년 {cl}반" for g in range(1, max_g + 1) for cl in range(1, 21)}
-        return self.async_show_form(step_id="school_class", data_schema=vol.Schema({vol.Required("grade_classes"): cv.multi_select(opts)}))
+        opts = {
+            f"{g}-{cl}": f"{g}학년 {cl}반"
+            for g in range(1, max_g + 1)
+            for cl in range(1, 21)
+        }
+        return self.async_show_form(
+            step_id="school_class",
+            data_schema=vol.Schema(
+                {vol.Required("grade_classes"): cv.multi_select(opts)}
+            ),
+        )
 
     async def async_step_school_periods(self, user_input=None) -> FlowResult:
         if user_input is not None:
             self._data.update(user_input)
             return self.async_create_entry(title="학교정보", data=self._data)
-        defaults = {1:"09:00-09:50",2:"10:00-10:50",3:"11:00-11:50",4:"12:00-12:50",5:"13:40-14:30",6:"14:40-15:30",7:"15:40-16:30"}
+        defaults = {
+            1: "09:00-09:50",
+            2: "10:00-10:50",
+            3: "11:00-11:50",
+            4: "12:00-12:50",
+            5: "13:40-14:30",
+            6: "14:40-15:30",
+            7: "15:40-16:30",
+        }
         schema = {vol.Required(f"period_1", default=defaults[1]): str}
-        for i in range(2, 8): schema[vol.Optional(f"period_{i}", default=defaults.get(i, ""))] = str
-        schema.update({vol.Optional("lunch_start", default="12:50"): str, vol.Optional("lunch_end", default="13:40"): str})
-        return self.async_show_form(step_id="school_periods", data_schema=vol.Schema(schema))
+        for i in range(2, 8):
+            schema[vol.Optional(f"period_{i}", default=defaults.get(i, ""))] = str
+        schema.update(
+            {
+                vol.Optional("lunch_start", default="12:50"): str,
+                vol.Optional("lunch_end", default="13:40"): str,
+            }
+        )
+        return self.async_show_form(
+            step_id="school_periods", data_schema=vol.Schema(schema)
+        )
 
     # ══════════ 재난정보 ══════════
     async def async_step_disaster(self, user_input=None) -> FlowResult:
         from .disaster.api import validate_disaster_api
+
         errors, region_opts = {}, [{"value": "", "label": "전체"}]
-        for n in ["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"]:
+        for n in [
+            "서울",
+            "부산",
+            "대구",
+            "인천",
+            "광주",
+            "대전",
+            "울산",
+            "세종",
+            "경기",
+            "강원",
+            "충북",
+            "충남",
+            "전북",
+            "전남",
+            "경북",
+            "경남",
+            "제주",
+        ]:
             region_opts.append({"value": n, "label": n})
         if user_input is not None:
             if await validate_disaster_api(user_input["api_key"]):
-                region = user_input.get("sub_region", "").strip() or user_input.get("region_filter", "")
-                return self.async_create_entry(title=f"재난정보 {region}", data={CONF_ENTRY_TYPE: ENTRY_DISASTER, "api_key": user_input["api_key"], "region_filter": region})
-            else: errors["base"] = "cannot_connect"
-        return self.async_show_form(step_id="disaster", data_schema=vol.Schema({
-            vol.Required("api_key"): str,
-            vol.Optional("region_filter", default=""): SelectSelector(SelectSelectorConfig(options=region_opts, mode=SelectSelectorMode.DROPDOWN)),
-            vol.Optional("sub_region", default=""): str,
-        }), errors=errors)
+                region = user_input.get("sub_region", "").strip() or user_input.get(
+                    "region_filter", ""
+                )
+                return self.async_create_entry(
+                    title=f"재난정보 {region}",
+                    data={
+                        CONF_ENTRY_TYPE: ENTRY_DISASTER,
+                        "api_key": user_input["api_key"],
+                        "region_filter": region,
+                    },
+                )
+            else:
+                errors["base"] = "cannot_connect"
+        return self.async_show_form(
+            step_id="disaster",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("api_key"): str,
+                    vol.Optional("region_filter", default=""): SelectSelector(
+                        SelectSelectorConfig(
+                            options=region_opts, mode=SelectSelectorMode.DROPDOWN
+                        )
+                    ),
+                    vol.Optional("sub_region", default=""): str,
+                }
+            ),
+            errors=errors,
+        )
 
     # ══════════ 약국 ══════════
     async def async_step_pharmacy(self, user_input=None) -> FlowResult:
-        sido_opts = ["서울특별시", "부산광역시", "대구광역시", "인천광역시", "광주광역시", "대전광역시", "울산광역시", "세종특별자치시", "경기도", "강원특별자치도", "충청북도", "충청남도", "전북특별자치도", "전라남도", "경상북도", "경상남도", "제주특별자치도"]
+        sido_opts = [
+            "서울특별시",
+            "부산광역시",
+            "대구광역시",
+            "인천광역시",
+            "광주광역시",
+            "대전광역시",
+            "울산광역시",
+            "세종특별자치시",
+            "경기도",
+            "강원특별자치도",
+            "충청북도",
+            "충청남도",
+            "전북특별자치도",
+            "전라남도",
+            "경상북도",
+            "경상남도",
+            "제주특별자치도",
+        ]
         if user_input is not None:
-            return self.async_create_entry(title="약국 정보", data={CONF_ENTRY_TYPE: ENTRY_PHARMACY, "api_key": user_input["api_key"], "q0": user_input["q0"], "q1": user_input.get("q1", "")})
-        return self.async_show_form(step_id="pharmacy", data_schema=vol.Schema({vol.Required("api_key"): str, vol.Required("q0", default="서울특별시"): vol.In(sido_opts), vol.Optional("q1", default=""): str}))
+            return self.async_create_entry(
+                title="약국 정보",
+                data={
+                    CONF_ENTRY_TYPE: ENTRY_PHARMACY,
+                    "api_key": user_input["api_key"],
+                    "q0": user_input["q0"],
+                    "q1": user_input.get("q1", ""),
+                },
+            )
+        return self.async_show_form(
+            step_id="pharmacy",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("api_key"): str,
+                    vol.Required("q0", default="서울특별시"): vol.In(sido_opts),
+                    vol.Optional("q1", default=""): str,
+                }
+            ),
+        )
 
     # ══════════ 에어코리아 ══════════
     async def async_step_airkorea(self, user_input=None) -> FlowResult:
         from .airkorea import STATIONS_BY_SIDO
+
         if user_input is not None:
-            self._data = {CONF_ENTRY_TYPE: ENTRY_AIRKOREA, "api_key": user_input["api_key"], "living_api_key": user_input.get("living_api_key", "")}
+            self._data = {
+                CONF_ENTRY_TYPE: ENTRY_AIRKOREA,
+                "api_key": user_input["api_key"],
+                "living_api_key": user_input.get("living_api_key", ""),
+            }
             self._air_sido = user_input["sido"]
             return await self.async_step_airkorea_select()
         sido_opts = [{"value": k, "label": k} for k in STATIONS_BY_SIDO.keys()]
-        return self.async_show_form(step_id="airkorea", data_schema=vol.Schema({
-            vol.Required("api_key"): str, vol.Optional("living_api_key", default=""): str,
-            vol.Required("sido", default="서울"): SelectSelector(SelectSelectorConfig(options=sido_opts, mode=SelectSelectorMode.DROPDOWN)),
-        }))
+        return self.async_show_form(
+            step_id="airkorea",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("api_key"): str,
+                    vol.Optional("living_api_key", default=""): str,
+                    vol.Required("sido", default="서울"): SelectSelector(
+                        SelectSelectorConfig(
+                            options=sido_opts, mode=SelectSelectorMode.DROPDOWN
+                        )
+                    ),
+                }
+            ),
+        )
 
     async def async_step_airkorea_select(self, user_input=None) -> FlowResult:
         import homeassistant.helpers.config_validation as cv
         from .airkorea import STATIONS_BY_SIDO
+
         if user_input is not None:
-            self._data.update({"stations": [{"stationName": s} for s in user_input.get("stations", [])], "sido": self._air_sido})
+            self._data.update(
+                {
+                    "stations": [
+                        {"stationName": s} for s in user_input.get("stations", [])
+                    ],
+                    "sido": self._air_sido,
+                }
+            )
             return self.async_create_entry(title="에어코리아", data=self._data)
         station_list = STATIONS_BY_SIDO.get(self._air_sido, [])
-        return self.async_show_form(step_id="airkorea_select", data_schema=vol.Schema({vol.Required("stations", default=station_list[:3]): cv.multi_select({s: s for s in station_list})}))
+        return self.async_show_form(
+            step_id="airkorea_select",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("stations", default=station_list[:3]): cv.multi_select(
+                        {s: s for s in station_list}
+                    )
+                }
+            ),
+        )
 
     # ══════════ 기상청 날씨예보 ══════════
     async def async_step_kma_weather(self, user_input=None) -> FlowResult:
         from .kma_weather import SIDO_LIST
+
         if user_input is not None:
-            self._data, self._kma_sido = {CONF_ENTRY_TYPE: ENTRY_KMA_WEATHER, "api_key": user_input["api_key"]}, user_input["sido"]
+            self._data, self._kma_sido = (
+                {CONF_ENTRY_TYPE: ENTRY_KMA_WEATHER, "api_key": user_input["api_key"]},
+                user_input["sido"],
+            )
             return await self.async_step_kma_weather_sgg()
         sido_opts = [{"value": k, "label": k} for k in SIDO_LIST.keys()]
-        return self.async_show_form(step_id="kma_weather", data_schema=vol.Schema({vol.Required("api_key"): str, vol.Required("sido"): SelectSelector(SelectSelectorConfig(options=sido_opts, mode=SelectSelectorMode.DROPDOWN))}))
+        return self.async_show_form(
+            step_id="kma_weather",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("api_key"): str,
+                    vol.Required("sido"): SelectSelector(
+                        SelectSelectorConfig(
+                            options=sido_opts, mode=SelectSelectorMode.DROPDOWN
+                        )
+                    ),
+                }
+            ),
+        )
 
     async def async_step_kma_weather_sgg(self, user_input=None) -> FlowResult:
         import homeassistant.helpers.config_validation as cv
         from .kma_weather import SIDO_LIST
         from .airkorea import STATIONS_BY_SIDO, SIDO_AREA_CODE
+
         sgg_map = SIDO_LIST.get(self._kma_sido, {})
         if user_input is not None:
             selected = user_input.get("regions", [])
-            self._data.update({"regions": [{"name": r, "nx": sgg_map[r][0], "ny": sgg_map[r][1]} for r in selected if r in sgg_map],
-                               "air_station": user_input.get("air_station", ""), "area_no": SIDO_AREA_CODE.get(self._kma_sido, ""), "sido": self._kma_sido})
+            self._data.update(
+                {
+                    "regions": [
+                        {"name": r, "nx": sgg_map[r][0], "ny": sgg_map[r][1]}
+                        for r in selected
+                        if r in sgg_map
+                    ],
+                    "air_station": user_input.get("air_station", ""),
+                    "area_no": SIDO_AREA_CODE.get(self._kma_sido, ""),
+                    "sido": self._kma_sido,
+                }
+            )
             return self.async_create_entry(title="기상청 날씨예보", data=self._data)
-        air_opts = {"": "사용 안 함", **{s: f"{s} (O₃/UV)" for s in STATIONS_BY_SIDO.get(self._kma_sido, [])[:30]}}
-        return self.async_show_form(step_id="kma_weather_sgg", data_schema=vol.Schema({vol.Required("regions"): cv.multi_select({k: k for k in sgg_map.keys()}), vol.Optional("air_station", default=""): vol.In(air_opts)}))
+        air_opts = {
+            "": "사용 안 함",
+            **{
+                s: f"{s} (O₃/UV)" for s in STATIONS_BY_SIDO.get(self._kma_sido, [])[:30]
+            },
+        }
+        return self.async_show_form(
+            step_id="kma_weather_sgg",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("regions"): cv.multi_select(
+                        {k: k for k in sgg_map.keys()}
+                    ),
+                    vol.Optional("air_station", default=""): vol.In(air_opts),
+                }
+            ),
+        )
 
     # ══════════ 지진 정보 ══════════
     async def async_step_earthquake(self, user_input=None) -> FlowResult:
         if user_input is not None:
-            return self.async_create_entry(title="지진 정보", data={CONF_ENTRY_TYPE: ENTRY_EARTHQUAKE, "api_key": user_input["api_key"], "home_latitude": user_input.get("latitude", 37.5665), "home_longitude": user_input.get("longitude", 126.978), "radius_km": user_input.get("radius_km", 200), "min_magnitude": user_input.get("min_magnitude", 3.0)})
-        return self.async_show_form(step_id="earthquake", data_schema=vol.Schema({vol.Required("api_key"): str, vol.Optional("latitude", default=37.5665): vol.Coerce(float), vol.Optional("longitude", default=126.978): vol.Coerce(float), vol.Optional("radius_km", default=200): vol.Coerce(int), vol.Optional("min_magnitude", default=3.0): vol.Coerce(float)}))
+            return self.async_create_entry(
+                title="지진 정보",
+                data={
+                    CONF_ENTRY_TYPE: ENTRY_EARTHQUAKE,
+                    "api_key": user_input["api_key"],
+                    "home_latitude": user_input.get("latitude", 37.5665),
+                    "home_longitude": user_input.get("longitude", 126.978),
+                    "radius_km": user_input.get("radius_km", 200),
+                    "min_magnitude": user_input.get("min_magnitude", 3.0),
+                },
+            )
+        return self.async_show_form(
+            step_id="earthquake",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("api_key"): str,
+                    vol.Optional("latitude", default=37.5665): vol.Coerce(float),
+                    vol.Optional("longitude", default=126.978): vol.Coerce(float),
+                    vol.Optional("radius_km", default=200): vol.Coerce(int),
+                    vol.Optional("min_magnitude", default=3.0): vol.Coerce(float),
+                }
+            ),
+        )
 
     @staticmethod
     @callback
@@ -784,25 +1242,100 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input: Optional[Dict[str, Any]] = None):
         """Manage the options."""
         service = self._config_entry.data.get("service")
-        if service in [ENTRY_WEATHER, ENTRY_TRANSIT, ENTRY_FUEL, ENTRY_SCHOOL, ENTRY_DISASTER, ENTRY_SAFETY_ALERT, ENTRY_KEPCO, ENTRY_GASAPP, ENTRY_ARISU, ENTRY_PHARMACY, ENTRY_AIRKOREA, ENTRY_KMA_WEATHER, ENTRY_EARTHQUAKE, ENTRY_GOODSFLOW, ENTRY_KAKAOMAP]:
+        if service == ENTRY_CJ_ONE_DELIVERY:
+            if user_input is not None:
+                return self.async_create_entry(title="", data=user_input)
+            return self.async_show_form(
+                step_id="init",
+                data_schema=_cj_one_delivery_options_schema(
+                    dict(self._config_entry.options)
+                ),
+            )
+        if service in [
+            ENTRY_WEATHER,
+            ENTRY_TRANSIT,
+            ENTRY_FUEL,
+            ENTRY_SCHOOL,
+            ENTRY_DISASTER,
+            ENTRY_SAFETY_ALERT,
+            ENTRY_KEPCO,
+            ENTRY_GASAPP,
+            ENTRY_ARISU,
+            ENTRY_PHARMACY,
+            ENTRY_AIRKOREA,
+            ENTRY_KMA_WEATHER,
+            ENTRY_EARTHQUAKE,
+            ENTRY_GOODSFLOW,
+            ENTRY_KAKAOMAP,
+        ]:
             # 새 서비스들은 옵션 플로우에서 기본 스키마 제공 가능 (필요시 상세 구현)
             if service == ENTRY_WEATHER:
                 from .weather import AREA_CODES
+
                 area_options = [{"value": c, "label": n} for c, n in AREA_CODES.items()]
-                return self.async_show_form(step_id="init", data_schema=vol.Schema({
-                    vol.Required("api_key", default=self._config_entry.data.get("api_key", "")): str,
-                    vol.Required("area_codes", default=self._config_entry.data.get("area_codes", [])): SelectSelector(SelectSelectorConfig(options=area_options, multiple=True, mode=SelectSelectorMode.DROPDOWN)),
-                }))
+                return self.async_show_form(
+                    step_id="init",
+                    data_schema=vol.Schema(
+                        {
+                            vol.Required(
+                                "api_key",
+                                default=self._config_entry.data.get("api_key", ""),
+                            ): str,
+                            vol.Required(
+                                "area_codes",
+                                default=self._config_entry.data.get("area_codes", []),
+                            ): SelectSelector(
+                                SelectSelectorConfig(
+                                    options=area_options,
+                                    multiple=True,
+                                    mode=SelectSelectorMode.DROPDOWN,
+                                )
+                            ),
+                        }
+                    ),
+                )
             return self.async_abort(reason=f"no_options_{service}")
+
+
+def _cj_one_delivery_options_schema(
+    options: Optional[Dict[str, Any]] = None,
+) -> vol.Schema:
+    """Return the CJ O-NE options schema."""
+    options = options or {}
+    configured_interval = int(
+        options.get(CONF_SCAN_INTERVAL_MINUTES, DEFAULT_SCAN_INTERVAL_MINUTES)
+    )
+    default_interval = min(
+        MAX_SCAN_INTERVAL_MINUTES,
+        max(MIN_SCAN_INTERVAL_MINUTES, configured_interval),
+    )
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_SCAN_INTERVAL_MINUTES,
+                default=default_interval,
+            ): vol.All(
+                vol.Coerce(int),
+                vol.Range(
+                    min=MIN_SCAN_INTERVAL_MINUTES,
+                    max=MAX_SCAN_INTERVAL_MINUTES,
+                ),
+            ),
+        }
+    )
+
 
 async def fetch_stop_data(session: aiohttp.ClientSession, stop_id: str) -> dict:
     """Fetch bus stop data from KakaoMap."""
     url = f"https://map.kakao.com/bus/stop.json?busstopid={stop_id}"
     try:
         async with session.get(url, timeout=10) as response:
-            if response.status != 200: return {}
+            if response.status != 200:
+                return {}
             return await response.json()
-    except Exception: return {}
+    except Exception:
+        return {}
+
 
 def build_bus_labels(data: dict) -> dict:
     """Build bus labels from KakaoMap data."""

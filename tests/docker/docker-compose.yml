@@ -1,0 +1,16 @@
+name: korea_incubator-homeassistant
+
+services:
+  homeassistant_kr:
+    container_name: korea_incubator-homeassistant
+    image: ghcr.io/home-assistant/home-assistant:stable
+    volumes:
+      - ./homeassistant/config:/config
+      - ../../custom_components/korea_incubator:/config/custom_components/korea_incubator:ro
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      TZ: Asia/Seoul
+    restart: unless-stopped
+    network_mode: bridge
+    ports:
+      - "8124:8123"

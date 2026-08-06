@@ -42,9 +42,16 @@ async def async_setup_entry(
 ) -> None:
     """Set up Korea sensors from a config entry."""
     data: Dict[str, Any] = hass.data[DOMAIN][entry.entry_id]
+    service: str = entry.data.get("service")
+
+    if service == "cj_one_delivery":
+        from .cj_one_delivery.sensor import async_setup_entry as async_setup_cj_sensors
+
+        await async_setup_cj_sensors(hass, entry, async_add_entities)
+        return
+
     coordinator: DataUpdateCoordinator = data["coordinator"]
     device: DeviceType = data["device"]
-    service: str = entry.data.get("service")
 
     if service == "kepco":
         entities = [

@@ -8,6 +8,7 @@
           "gasapp": "GasApp (Korea Gas Corporation)",
           "safety_alert": "Safety Alert (Ministry of the Interior and Safety)",
           "goodsflow": "GoodsFlow (Package Tracking)",
+          "cj_one_delivery": "CJ O-NE (Delivery Tracking)",
           "arisu": "Arisu (Seoul Water Works)",
           "kakaomap": "KakaoMap (Traffic Information)",
           "weather_warning": "Weather Warnings (KMA)",
@@ -65,6 +66,27 @@
         "title": "GoodsFlow Configuration",
         "data": {
           "token": "Authentication Token"
+        }
+      },
+      "cj_one_delivery": {
+        "title": "CJ O-NE Delivery Tracking",
+        "description": "Enter a mobile phone number to receive a CJ O-NE SMS verification code.",
+        "data": {
+          "phone_number": "Mobile phone number"
+        }
+      },
+      "cj_one_delivery_code": {
+        "title": "CJ O-NE Phone Verification",
+        "description": "Enter the verification code sent by SMS.",
+        "data": {
+          "auth_code": "Verification code"
+        }
+      },
+      "cj_one_delivery_options": {
+        "title": "CJ O-NE Delivery Options",
+        "description": "Every scheduled, in-transit, and recently completed parcel gets its own sensor for two days. Completed deliveries are counted for a rolling five-day window. The polling interval can be set from 3 to 30 minutes.",
+        "data": {
+          "scan_interval_minutes": "Polling interval (minutes)"
         }
       },
       "arisu": {
@@ -213,17 +235,23 @@
       "no_schools_found": "No schools found for the search.",
       "no_selection": "Select at least one item.",
       "no_stops_found": "Could not find bus stop information.",
-      "no_stations_found": "Could not find monitoring station information."
+      "no_stations_found": "Could not find monitoring station information.",
+      "invalid_phone_number": "Enter a valid 10- or 11-digit mobile phone number.",
+      "invalid_verification_code": "The verification code is invalid or expired. ({error})"
     },
     "abort": {
-      "already_configured": "This account is already configured."
+      "already_configured": "This account is already configured.",
+      "invalid_auth": "The verification session expired. Start setup again."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Options",
-        "description": "There are no options to configure."
+        "description": "Configure the CJ O-NE polling interval.",
+        "data": {
+          "scan_interval_minutes": "Polling interval (minutes)"
+        }
       }
     },
     "abort": {
