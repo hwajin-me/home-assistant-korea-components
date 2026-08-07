@@ -1,14 +1,20 @@
 """Tests for CJ O-NE per-parcel sensors and completed counter."""
 
 from dataclasses import dataclass
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from custom_components.korea_incubator.cj_one_delivery.sensor import (
     CJOneDeliveryCompletedCounterSensor,
+    CJOneDeliveryLastEventSensor,
     CJOneDeliveryParcelSensor,
+    _async_remove_parcel_entity,
+    _remove_stale_parcel_entries,
     async_setup_entry,
+)
+from custom_components.korea_incubator.cj_one_delivery.coordinator import (
+    _event_from_status_change,
 )
 
 
@@ -171,3 +177,92 @@ def test_recent_completed_parcel_sensor_remains_available() -> None:
 
     coordinator.completed_sensor_statuses = []
     assert sensor.available is False
+
+
+@pytest.mark.asyncio
+async def test_expired_parcel_entity_is_removed_instead_of_unavailable() -> None:
+    hass = MagicMock()
+    entity = MagicMock(spec=CJOneDeliveryParcelSensor)
+    entity.entity_id = "sensor.expired_parcel"
+    entity.async_remove = AsyncMock()
+    registry = MagicMock()
+
+    with patch(
+        "custom_components.korea_incubator.cj_one_delivery.sensor.er.async_get",
+        return_value=registry,
+    ):
+        await _async_remove_parcel_entity(hass, entity)
+
+    entity.async_remove.assert_awaited_once_with(force_remove=True)
+    registry.async_remove.assert_called_once_with("sensor.expired_parcel")
+
+
+def test_stale_parcel_registry_entry_is_removed_during_setup() -> None:
+    hass = MagicMock()
+    entry = MagicMock(entry_id="entry")
+    registry = MagicMock()
+    current = MagicMock(
+        domain="sensor",
+        platform="korea_incubator",
+        unique_id="entry_parcel_current",
+        entity_id="sensor.current_parcel",
+    )
+    expired = MagicMock(
+        domain="sensor",
+        platform="korea_incubator",
+        unique_id="entry_parcel_expired",
+        entity_id="sensor.expired_parcel",
+    )
+
+    with (
+        patch(
+            "custom_components.korea_incubator.cj_one_delivery.sensor.er.async_get",
+            return_value=registry,
+        ),
+        patch(
+            "custom_components.korea_incubator.cj_one_delivery.sensor.er.async_entries_for_config_entry",
+            return_value=[current, expired],
+        ),
+    ):
+        _remove_stale_parcel_entries(hass, entry, {"current"})
+
+    hass.states.async_remove.assert_called_once_with("sensor.expired_parcel")
+    registry.async_remove.assert_called_once_with("sensor.expired_parcel")
+
+
+def test_last_event_sensor_uses_normalized_enum_state_and_attributes() -> None:
+    previous = _Status(
+        "123456789012",
+        status="상품이동중",
+        status_code="42",
+        last_location="곤지암Hub",
+        last_event_time="2026-08-07 10:00:00",
+    )
+    current = _Status(
+        "123456789012",
+        status="배달출발",
+        status_code="82",
+        status_message="배송 출발하였습니다.",
+        last_location="서울용산랜드마크",
+        last_event_time="2026-08-07 12:00:00",
+    )
+    event = _event_from_status_change(
+        current.tracking_number,
+        previous=previous,
+        current=current,
+    )
+    coordinator = MagicMock()
+    coordinator.config_entry.entry_id = "entry"
+    coordinator.last_event = event
+
+    sensor = CJOneDeliveryLastEventSensor(coordinator)
+    attributes = sensor.extra_state_attributes
+
+    assert sensor.native_value == "status_changed"
+    assert attributes["event_label"] == "배송 상태 변경"
+    assert attributes["status_key"] == "out_for_delivery"
+    assert attributes["status_label"] == "배송출발"
+    assert attributes["status_code"] == "82"
+    assert attributes["previous_status_key"] == "in_transit"
+    assert attributes["tracking_number_display"] == "1234-5678-9012"
+    assert attributes["announcement"]

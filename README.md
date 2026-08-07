@@ -141,7 +141,8 @@ sensor.goodsflow_packages        # 택배 현황
 - 배송 요약, 배송대기/배송중 전체 목록, 최근 5일 배송완료 Counter
 - 택배 건별 Sensor의 상태값은 현재 배송상태이며 Attribute에 상품명·운송장·상태 코드/내용·송수하인·위치·일시·기사·점소·배송예정시간·운임·반품 여부·상세 타임라인·원본 응답을 포함
 - 배송완료 Counter의 `deliveries`에는 수령인 관계, 완료 안내, 서버가 제공한 경우 배송사진 상대 경로도 포함
-- 최근 배송 이벤트 센서 (`announcement` 속성을 자동화/TTS에 사용 가능)
+- 최근 배송 이벤트 센서의 상태값은 `none`, `new_delivery`, `status_changed`, `tracking_updated`로 정규화되며 `status_key`, `status_code`, `previous_status_key`를 자동화에 사용 가능
+- 사람이 읽거나 TTS로 방송할 문장은 `announcement` 속성으로 제공
 
 ### 🏠 가스앱 센서
 ```

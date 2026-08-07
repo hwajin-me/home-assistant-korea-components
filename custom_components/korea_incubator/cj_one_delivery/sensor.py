@@ -5,7 +5,11 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity, SensorStateClass
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
@@ -22,6 +26,13 @@ from .const import (
 from .coordinator import CJOneDeliveryCoordinator, DeliveryEvent
 
 _LEGACY_SLOT_UNIQUE_ID = re.compile(r"_(?:active|completed)_\d+_")
+_EVENT_TYPES = ["none", "new_delivery", "status_changed", "tracking_updated"]
+_EVENT_LABELS = {
+    "none": "이벤트 없음",
+    "new_delivery": "새 배송",
+    "status_changed": "배송 상태 변경",
+    "tracking_updated": "배송 정보 갱신",
+}
 
 
 async def async_setup_entry(
@@ -33,38 +44,50 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     _remove_legacy_slot_entries(hass, entry)
 
-    created_tracking_numbers = {
-        status.tracking_number for status in _parcel_statuses(coordinator)
+    initial_statuses = _parcel_statuses(coordinator)
+    desired_tracking_numbers = {status.tracking_number for status in initial_statuses}
+    _remove_stale_parcel_entries(hass, entry, desired_tracking_numbers)
+    parcel_entities = {
+        status.tracking_number: CJOneDeliveryParcelSensor(coordinator, status)
+        for status in initial_statuses
     }
     async_add_entities(
         [
             CJOneDeliverySummarySensor(coordinator),
             CJOneDeliveryDeliveryListSensor(coordinator),
             CJOneDeliveryCompletedCounterSensor(coordinator),
-            *[
-                CJOneDeliveryParcelSensor(coordinator, status)
-                for status in _parcel_statuses(coordinator)
-            ],
+            *parcel_entities.values(),
             CJOneDeliveryLastEventSensor(coordinator),
         ]
     )
 
-    def _add_new_parcel_sensors() -> None:
+    def _sync_parcel_sensors() -> None:
+        desired_statuses = {
+            status.tracking_number: status for status in _parcel_statuses(coordinator)
+        }
+        for tracking_number in parcel_entities.keys() - desired_statuses.keys():
+            entity = parcel_entities.pop(tracking_number)
+            hass.async_create_task(
+                _async_remove_parcel_entity(hass, entity),
+                f"Remove expired CJ parcel sensor {tracking_number}",
+            )
+
         new_statuses = [
             status
-            for status in _parcel_statuses(coordinator)
-            if status.tracking_number not in created_tracking_numbers
+            for tracking_number, status in desired_statuses.items()
+            if tracking_number not in parcel_entities
         ]
         if not new_statuses:
             return
-        created_tracking_numbers.update(
-            status.tracking_number for status in new_statuses
+        new_entities = [
+            CJOneDeliveryParcelSensor(coordinator, status) for status in new_statuses
+        ]
+        parcel_entities.update(
+            {entity.tracking_number: entity for entity in new_entities}
         )
-        async_add_entities(
-            [CJOneDeliveryParcelSensor(coordinator, status) for status in new_statuses]
-        )
+        async_add_entities(new_entities)
 
-    entry.async_on_unload(coordinator.async_add_listener(_add_new_parcel_sensors))
+    entry.async_on_unload(coordinator.async_add_listener(_sync_parcel_sensors))
 
 
 class CJOneDeliverySummarySensor(
@@ -202,6 +225,11 @@ class CJOneDeliveryParcelSensor(
         return status.status if status is not None else None
 
     @property
+    def tracking_number(self) -> str:
+        """Return the parcel tracking number used by the lifecycle manager."""
+        return self._tracking_number
+
+    @property
     def extra_state_attributes(self) -> dict[str, Any]:
         status = self._status
         if status is None:
@@ -222,6 +250,8 @@ class CJOneDeliveryLastEventSensor(
 
     _attr_has_entity_name = True
     _attr_name = "최근 배송 이벤트"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = _EVENT_TYPES
 
     def __init__(self, coordinator: CJOneDeliveryCoordinator) -> None:
         super().__init__(coordinator)
@@ -231,20 +261,33 @@ class CJOneDeliveryLastEventSensor(
     @property
     def native_value(self) -> str:
         event = self.coordinator.last_event
-        return event.announcement if event else "배송 변경 이벤트 없음"
+        return event.event_type if event else "none"
 
     @property
-    def extra_state_attributes(self) -> dict[str, str]:
+    def extra_state_attributes(self) -> dict[str, Any]:
         event = self.coordinator.last_event
         if event is None:
             return {
-                "event_type": "",
+                "event_type": "none",
+                "event_label": _EVENT_LABELS["none"],
                 "tracking_number": "",
+                "tracking_number_display": "",
                 "product_name": "",
                 "status": "",
+                "status_key": "unknown",
+                "status_label": "",
+                "status_code": "",
                 "previous_status": "",
+                "previous_status_key": "",
+                "previous_status_label": "",
+                "previous_status_code": "",
+                "status_message": "",
+                "display_group": "",
                 "location": "",
                 "event_time": "",
+                "courier_name": "",
+                "estimated_delivery_time": "",
+                "is_return": False,
                 "announcement": "",
             }
         return _event_payload(event)
@@ -324,15 +367,28 @@ def _delivery_summary_payload(status: DeliveryStatus) -> dict[str, Any]:
     }
 
 
-def _event_payload(event: DeliveryEvent) -> dict[str, str]:
+def _event_payload(event: DeliveryEvent) -> dict[str, Any]:
     return {
         "event_type": event.event_type,
+        "event_label": _EVENT_LABELS[event.event_type],
         "tracking_number": event.tracking_number,
+        "tracking_number_display": _format_tracking_number(event.tracking_number),
         "product_name": event.product_name or "",
         "status": event.status,
+        "status_key": event.status_key,
+        "status_label": event.status_label,
+        "status_code": event.status_code or "",
         "previous_status": event.previous_status or "",
+        "previous_status_key": event.previous_status_key or "",
+        "previous_status_label": event.previous_status_label or "",
+        "previous_status_code": event.previous_status_code or "",
+        "status_message": event.status_message or "",
+        "display_group": event.display_group,
         "location": event.location or "",
         "event_time": event.event_time or "",
+        "courier_name": event.courier_name or "",
+        "estimated_delivery_time": event.estimated_delivery_time or "",
+        "is_return": event.is_return,
         "announcement": event.announcement,
     }
 
@@ -368,6 +424,41 @@ def _remove_legacy_slot_entries(hass: HomeAssistant, entry: ConfigEntry) -> None
             for identifier_domain, identifier in device_entry.identifiers
         ):
             device_registry.async_remove_device(device_entry.id)
+
+
+def _remove_stale_parcel_entries(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    desired_tracking_numbers: set[str],
+) -> None:
+    """Remove parcel registry entries that are outside the two-day display window."""
+    entity_registry = er.async_get(hass)
+    unique_id_prefix = f"{entry.entry_id}_parcel_"
+    for entity_entry in er.async_entries_for_config_entry(
+        entity_registry, entry.entry_id
+    ):
+        if (
+            entity_entry.domain != "sensor"
+            or entity_entry.platform != DOMAIN
+            or not entity_entry.unique_id.startswith(unique_id_prefix)
+        ):
+            continue
+        tracking_number = entity_entry.unique_id.removeprefix(unique_id_prefix)
+        if tracking_number in desired_tracking_numbers:
+            continue
+        hass.states.async_remove(entity_entry.entity_id)
+        entity_registry.async_remove(entity_entry.entity_id)
+
+
+async def _async_remove_parcel_entity(
+    hass: HomeAssistant,
+    entity: CJOneDeliveryParcelSensor,
+) -> None:
+    """Remove an expired parcel from both the state machine and entity registry."""
+    entity_id = entity.entity_id
+    await entity.async_remove(force_remove=True)
+    if entity_id:
+        er.async_get(hass).async_remove(entity_id)
 
 
 def _device_info(coordinator: CJOneDeliveryCoordinator) -> dict[str, Any]:

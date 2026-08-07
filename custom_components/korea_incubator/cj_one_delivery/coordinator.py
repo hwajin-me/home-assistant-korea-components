@@ -34,10 +34,21 @@ class DeliveryEvent:
     event_type: str
     tracking_number: str
     status: str
+    status_key: str
+    status_label: str
+    status_code: str | None
     previous_status: str | None
+    previous_status_key: str | None
+    previous_status_label: str | None
+    previous_status_code: str | None
+    status_message: str | None
+    display_group: str
     location: str | None
     event_time: str | None
     product_name: str | None
+    courier_name: str | None
+    estimated_delivery_time: str | None
+    is_return: bool
     announcement: str
 
 
@@ -122,39 +133,117 @@ def _event_from_status_change(
     current: DeliveryStatus,
 ) -> DeliveryEvent | None:
     """배송 상태 변경 여부를 판단하고 자동화용 이벤트를 만듭니다."""
+    status_key, status_label = _normalized_status(current)
     if previous is None:
         return DeliveryEvent(
             event_type="new_delivery",
             tracking_number=tracking_number,
             status=current.status,
+            status_key=status_key,
+            status_label=status_label,
+            status_code=current.status_code,
             previous_status=None,
+            previous_status_key=None,
+            previous_status_label=None,
+            previous_status_code=None,
+            status_message=current.status_message,
+            display_group=current.display_group,
             location=current.last_location,
             event_time=current.last_event_time,
             product_name=current.status_detail,
+            courier_name=current.courier_name,
+            estimated_delivery_time=current.estimated_delivery_time,
+            is_return=current.is_return,
             announcement=_announcement("new_delivery", current),
         )
 
     if _status_signature(previous) == _status_signature(current):
         return None
 
+    previous_status_key, previous_status_label = _normalized_status(previous)
     event_type = (
-        "status_changed" if previous.status != current.status else "tracking_updated"
+        "status_changed"
+        if previous.status != current.status
+        or previous.status_code != current.status_code
+        else "tracking_updated"
     )
     return DeliveryEvent(
         event_type=event_type,
         tracking_number=tracking_number,
         status=current.status,
+        status_key=status_key,
+        status_label=status_label,
+        status_code=current.status_code,
         previous_status=previous.status,
+        previous_status_key=previous_status_key,
+        previous_status_label=previous_status_label,
+        previous_status_code=previous.status_code,
+        status_message=current.status_message,
+        display_group=current.display_group,
         location=current.last_location,
         event_time=current.last_event_time,
         product_name=current.status_detail,
+        courier_name=current.courier_name,
+        estimated_delivery_time=current.estimated_delivery_time,
+        is_return=current.is_return,
         announcement=_announcement(event_type, current),
     )
 
 
-def _status_signature(status: DeliveryStatus) -> tuple[str, str | None, str | None]:
+def _status_signature(
+    status: DeliveryStatus,
+) -> tuple[str, str | None, str | None, str | None]:
     """배송 변경 감지에 사용할 안정적인 비교값을 반환합니다."""
-    return status.status, status.last_location, status.last_event_time
+    return (
+        status.status,
+        status.status_code,
+        status.last_location,
+        status.last_event_time,
+    )
+
+
+def _normalized_status(status: DeliveryStatus) -> tuple[str, str]:
+    """Convert CJ status codes and labels to stable automation values."""
+    code = status.status_code or ""
+    if code in {"01", "12", "13"}:
+        return "scheduled", "배송대기"
+    if code in {
+        "11",
+        "30",
+        "41",
+        "42",
+        "43",
+        "9927",
+        "9928",
+        "9929",
+        "9933",
+        "9936",
+    }:
+        return "in_transit", "배송중"
+    if code in {"82", "83", "84"}:
+        return "out_for_delivery", "배송출발"
+    if code == "91":
+        return "delivered", "배송완료"
+
+    raw_status = status.status.replace(" ", "")
+    if raw_status in {"상품준비", "배송예약", "배송대기"}:
+        return "scheduled", "배송대기"
+    if raw_status in {
+        "집화출발",
+        "집화처리",
+        "간선상차",
+        "간선하차",
+        "상품이동중",
+        "배송중",
+        "국제택배항공",
+        "국제택배세관",
+    }:
+        return "in_transit", "배송중"
+    if raw_status in {"배달출발", "배송출발"}:
+        return "out_for_delivery", "배송출발"
+    if raw_status in {"배달완료", "배송완료"}:
+        return "delivered", "배송완료"
+    return "unknown", status.status or "상태 확인"
 
 
 def _announcement(event_type: str, status: DeliveryStatus) -> str:
