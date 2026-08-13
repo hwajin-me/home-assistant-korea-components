@@ -8,6 +8,17 @@ from .exceptions import GoodsFlowAuthError, GoodsFlowConnectionError, GoodsFlowD
 from ..const import LOGGER
 
 
+async def _response_error(response: aiohttp.ClientResponse, fallback: str) -> str:
+    """Include a concise response body when the API provides one."""
+    try:
+        body = await response.text()
+    except Exception:
+        body = ""
+    if not isinstance(body, str) or not body.strip():
+        return fallback
+    return f"{fallback}: {' '.join(body.split())[:500]}"
+
+
 class GoodsFlowApiClient:
     """API client for GoodsFlow integration."""
 
@@ -38,7 +49,7 @@ class GoodsFlowApiClient:
     async def async_validate_token(self) -> bool:
         """Validate the provided token by making a test API call."""
         try:
-            data = await self.async_get_tracking_list()
+            await self.async_get_tracking_list()
             return True
         except Exception as e:
             LOGGER.error(f"Token validation failed: {e}")
@@ -58,17 +69,25 @@ class GoodsFlowApiClient:
                 )
 
                 if response.status == 401:
-                    raise GoodsFlowAuthError("Authentication failed")
+                    raise GoodsFlowAuthError(
+                        await _response_error(response, "Authentication failed")
+                    )
                 elif response.status == 403:
-                    raise GoodsFlowAuthError("Access denied")
+                    raise GoodsFlowAuthError(
+                        await _response_error(response, "Access denied")
+                    )
                 elif response.status >= 400:
                     raise GoodsFlowConnectionError(
-                        f"HTTP {response.status}: {response.reason}"
+                        await _response_error(
+                            response, f"HTTP {response.status}: {response.reason}"
+                        )
                     )
 
                 response.raise_for_status()
                 return await response.json()
 
+        except (GoodsFlowAuthError, GoodsFlowConnectionError, GoodsFlowDataError):
+            raise
         except aiohttp.ClientError as e:
             LOGGER.error(f"GoodsFlow API request failed: {e}")
             raise GoodsFlowConnectionError(f"Request failed: {e}")

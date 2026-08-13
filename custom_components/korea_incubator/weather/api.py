@@ -1,6 +1,7 @@
 """KMA Weather Warning API client."""
 from __future__ import annotations
 import logging
+import json
 from datetime import datetime
 from typing import Any
 import aiohttp
@@ -32,15 +33,28 @@ def _determine_type(item: dict[str, Any]) -> str:
 async def validate_kma_api(api_key: str, area_code: str) -> bool:
     params = {"serviceKey": api_key, "numOfRows": "1", "pageNo": "1",
               "areaCode": area_code, "warningType": "1", "dataType": "json"}
-    try:
-        async with aiohttp.ClientSession() as s:
-            async with s.get(KMA_API_BASE, params=params, timeout=aiohttp.ClientTimeout(total=15)) as r:
-                if r.status != 200:
-                    return False
-                d = await r.json(content_type=None)
-                return d.get("response", {}).get("header", {}).get("resultCode") in ("00", "03")
-    except Exception:
-        return False
+    async with aiohttp.ClientSession() as s:
+        async with s.get(
+            KMA_API_BASE,
+            params=params,
+            timeout=aiohttp.ClientTimeout(total=15),
+        ) as r:
+            text = await r.text()
+            if r.status != 200:
+                detail = " ".join(text.split())[:500]
+                raise RuntimeError(f"KMA API HTTP {r.status}: {detail}")
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError as err:
+                detail = " ".join(text.split())[:500]
+                raise RuntimeError(f"KMA API returned invalid JSON: {detail}") from err
+
+    header = data.get("response", {}).get("header", {})
+    result_code = str(header.get("resultCode", ""))
+    if result_code not in ("00", "03"):
+        result_message = header.get("resultMsg", "Unknown API error")
+        raise ValueError(f"KMA API {result_code}: {result_message}")
+    return True
 
 async def fetch_warning(session: aiohttp.ClientSession, api_key: str,
                         area_code: str, warning_type: int) -> dict[str, Any]:

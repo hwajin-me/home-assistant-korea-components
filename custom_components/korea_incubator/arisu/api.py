@@ -161,6 +161,8 @@ class ArisuApiClient:
                     )
                     return {"success": False, "error": "No bill data structure found"}
 
+        except (ArisuConnectionError, ArisuDataError):
+            raise
         except aiohttp.ClientError as e:
             LOGGER.error(f"Arisu API request failed: {e}")
             raise ArisuConnectionError(f"Request failed: {e}")

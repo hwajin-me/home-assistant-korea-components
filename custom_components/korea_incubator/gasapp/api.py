@@ -8,6 +8,17 @@ from .exceptions import GasAppAuthError, GasAppConnectionError, GasAppDataError
 from ..const import LOGGER
 
 
+async def _response_error(response: aiohttp.ClientResponse, fallback: str) -> str:
+    """Include a concise response body when the API provides one."""
+    try:
+        body = await response.text()
+    except Exception:
+        body = ""
+    if not isinstance(body, str) or not body.strip():
+        return fallback
+    return f"{fallback}: {' '.join(body.split())[:500]}"
+
+
 class GasAppApiClient:
     """API client for GasApp integration."""
 
@@ -59,17 +70,25 @@ class GasAppApiClient:
                 LOGGER.debug(f"GasApp API request to {url} status: {response.status}")
 
                 if response.status == 401:
-                    raise GasAppAuthError("Authentication failed")
+                    raise GasAppAuthError(
+                        await _response_error(response, "Authentication failed")
+                    )
                 elif response.status == 403:
-                    raise GasAppAuthError("Access denied")
+                    raise GasAppAuthError(
+                        await _response_error(response, "Access denied")
+                    )
                 elif response.status >= 400:
                     raise GasAppConnectionError(
-                        f"HTTP {response.status}: {response.reason}"
+                        await _response_error(
+                            response, f"HTTP {response.status}: {response.reason}"
+                        )
                     )
 
                 response.raise_for_status()
                 return await response.json()
 
+        except (GasAppAuthError, GasAppConnectionError, GasAppDataError):
+            raise
         except aiohttp.ClientError as e:
             LOGGER.error(f"GasApp API request failed: {e}")
             raise GasAppConnectionError(f"Request failed: {e}")

@@ -2,24 +2,157 @@
   "config": {
     "step": {
       "user": {
-        "title": "Service Selection",
+        "title": "Select Service",
         "menu_options": {
-          "weather_warning": "Weather Warning",
-          "transit": "Transit",
-          "fuel": "Fuel Prices",
-          "school": "School Info",
-          "disaster": "Disaster Alerts",
-          "safety_alert": "Safety Alert",
-          "kepco": "KEPCO",
-          "gasapp": "GasApp",
-          "goodsflow": "GoodsFlow",
-          "cj_one_delivery": "CJ O-NE Delivery Tracking",
-          "arisu": "Arisu Water",
-          "kakaomap": "KakaoMap",
-          "pharmacy": "Pharmacy",
-          "airkorea": "AirKorea",
-          "kma_weather": "KMA Weather",
-          "earthquake": "Earthquake"
+          "kepco": "KEPCO (Korea Electric Power Corporation)",
+          "gasapp": "GasApp (Korea Gas Corporation)",
+          "safety_alert": "Safety Alert (Ministry of the Interior and Safety)",
+          "goodsflow": "GoodsFlow (Package Tracking)",
+          "cj_one_delivery": "CJ O-NE (Delivery Tracking)",
+          "arisu": "Arisu (Seoul Water Works)",
+          "kakaomap": "KakaoMap (Traffic Information)",
+          "weather_warning": "Weather Warnings (KMA)",
+          "transit": "Public Transit (Bus/Subway)",
+          "fuel": "Fuel Prices (Opinet)",
+          "school": "School Information (Meals/Academic Schedule)",
+          "disaster": "Disaster Information (National Disaster and Safety Portal)",
+          "pharmacy": "Pharmacy Information (Public Data)",
+          "airkorea": "AirKorea (Air Quality)",
+          "kma_weather": "KMA Weather Forecast",
+          "earthquake": "Earthquake Information"
+        },
+        "description": "Choose the Korean service to add. Each service is configured independently."
+      },
+      "kepco": {
+        "title": "KEPCO Login",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        },
+        "description": "Sign in with the account used on the KEPCO Power Planner website to retrieve electricity usage and billing data.",
+        "data_description": {
+          "username": "Your KEPCO Power Planner login ID.",
+          "password": "Your KEPCO Power Planner password."
+        }
+      },
+      "gasapp": {
+        "title": "GasApp Configuration",
+        "data": {
+          "token": "Token",
+          "member_id": "Member ID",
+          "use_contract_num": "Use Contract Number"
+        },
+        "description": "Enter the account values from an authenticated GasApp session to retrieve gas usage and billing data.",
+        "data_description": {
+          "token": "The X-Token value from an authenticated GasApp API session.",
+          "member_id": "The X-Member value identifying the GasApp member.",
+          "use_contract_num": "The gas use-contract number associated with the account."
+        }
+      },
+      "safety_alert": {
+        "title": "Safety Alert Setup - Select Province/City",
+        "description": "Select the province or metropolitan city whose safety alerts you want to receive.",
+        "data": {
+          "sido_code": "Province/City Code"
+        },
+        "data_description": {
+          "sido_code": "The province or metropolitan city used to filter safety alerts."
+        }
+      },
+      "safety_alert_sgg": {
+        "title": "Safety Alert Setup - Select District",
+        "description": "Select a district in {sido_name}. If the district list cannot be loaded, enter its name manually.",
+        "data": {
+          "sgg_code": "District",
+          "sgg_name": "District Name"
+        },
+        "data_description": {
+          "sgg_code": "A district returned by the Safety Alert region service.",
+          "sgg_name": "The district name to use when the region list is unavailable."
+        }
+      },
+      "safety_alert_emd": {
+        "title": "Safety Alert Setup - Select Sub-district",
+        "description": "Select a sub-district in {sgg_name}. If the sub-district list cannot be loaded, enter its name manually.",
+        "data": {
+          "emd_code": "Sub-district",
+          "emd_name": "Sub-district Name"
+        },
+        "data_description": {
+          "emd_code": "A sub-district returned by the Safety Alert region service.",
+          "emd_name": "The sub-district name to use when the region list is unavailable."
+        }
+      },
+      "goodsflow": {
+        "title": "GoodsFlow Configuration",
+        "data": {
+          "token": "Authentication Token"
+        },
+        "description": "Enter the GoodsFlow authentication token used by the parcel-tracking website.",
+        "data_description": {
+          "token": "The PTK-TOKEN value from an authenticated GoodsFlow browser session."
+        }
+      },
+      "cj_one_delivery": {
+        "title": "CJ O-NE Delivery Tracking",
+        "description": "Enter a mobile phone number to receive a CJ O-NE SMS verification code.",
+        "data": {
+          "phone_number": "Mobile phone number"
+        },
+        "data_description": {
+          "phone_number": "A 10- or 11-digit Korean mobile number. Hyphens are allowed."
+        }
+      },
+      "cj_one_delivery_code": {
+        "title": "CJ O-NE Phone Verification",
+        "description": "Enter the verification code sent by SMS. The code may expire after a short time.",
+        "data": {
+          "auth_code": "Verification code"
+        },
+        "data_description": {
+          "auth_code": "The numeric code received in the CJ O-NE verification SMS."
+        }
+      },
+      "cj_one_delivery_options": {
+        "title": "CJ O-NE Delivery Options",
+        "description": "Choose how often CJ O-NE delivery information is refreshed. Each active or recently completed parcel is represented by a sensor.",
+        "data": {
+          "scan_interval_minutes": "Polling interval (minutes)"
+        },
+        "data_description": {
+          "scan_interval_minutes": "Refresh interval from 3 to 30 minutes."
+        }
+      },
+      "arisu": {
+        "title": "Arisu Configuration",
+        "data": {
+          "customer_number": "Customer Number",
+          "customer_name": "Customer Name"
+        },
+        "description": "Enter the customer details printed on your Seoul Arisu water bill.",
+        "data_description": {
+          "customer_number": "The customer number printed on the water bill.",
+          "customer_name": "The customer name exactly as printed on the water bill."
+        }
+      },
+      "kakaomap": {
+        "title": "KakaoMap Configuration",
+        "description": "Define a named route by entering its start and destination coordinates. Coordinates are validated before the entry is created.",
+        "data": {
+          "name": "Route Name",
+          "coord_system": "Coordinate System",
+          "start_x": "Start X Coordinate/Longitude",
+          "start_y": "Start Y Coordinate/Latitude",
+          "end_x": "End X Coordinate/Longitude",
+          "end_y": "End Y Coordinate/Latitude"
+        },
+        "data_description": {
+          "name": "A recognizable name for this route, such as Home to Work.",
+          "coord_system": "WGS84 uses longitude and latitude; WCONGNAMUL uses KakaoMap X and Y coordinates.",
+          "start_x": "Starting longitude for WGS84 or X coordinate for WCONGNAMUL.",
+          "start_y": "Starting latitude for WGS84 or Y coordinate for WCONGNAMUL.",
+          "end_x": "Destination longitude for WGS84 or X coordinate for WCONGNAMUL.",
+          "end_y": "Destination latitude for WGS84 or Y coordinate for WCONGNAMUL."
         }
       },
       "weather_warning": {
@@ -27,27 +160,11 @@
         "data": {
           "api_key": "API Key",
           "area_codes": "Areas"
-        }
-      },
-      "cj_one_delivery": {
-        "title": "CJ O-NE Delivery Tracking",
-        "description": "Enter a mobile phone number to receive an SMS verification code.",
-        "data": {
-          "phone_number": "Mobile phone number"
-        }
-      },
-      "cj_one_delivery_code": {
-        "title": "CJ O-NE Phone Verification",
-        "description": "Enter the verification code sent by SMS.",
-        "data": {
-          "auth_code": "Verification code"
-        }
-      },
-      "cj_one_delivery_options": {
-        "title": "CJ O-NE Delivery Options",
-        "description": "Every scheduled, in-transit, and recently completed parcel gets its own sensor for two days. Completed deliveries are counted for a rolling five-day window. The polling interval can be set from 3 to 30 minutes.",
-        "data": {
-          "scan_interval_minutes": "Polling interval (minutes)"
+        },
+        "description": "Configure KMA weather warnings using a Public Data Portal service key and one or more warning areas.",
+        "data_description": {
+          "api_key": "The service key issued for the KMA weather-warning API on the Public Data Portal.",
+          "area_codes": "One or more regions whose warnings should be monitored."
         }
       },
       "transit": {
@@ -55,6 +172,11 @@
         "data": {
           "seoul_api_key": "Seoul Key",
           "bus_api_key": "Bus Key"
+        },
+        "description": "Enter the API keys used by the transit sources you plan to configure. Keys for unused sources may be left empty.",
+        "data_description": {
+          "seoul_api_key": "Optional key from the Seoul Open Data Plaza for Seoul subway arrivals.",
+          "bus_api_key": "Optional public bus API key for bus arrival data."
         }
       },
       "transit_add": {
@@ -63,7 +185,8 @@
           "transit_subway": "Subway",
           "transit_bus_search": "Bus",
           "transit_done": "Done"
-        }
+        },
+        "description": "Add subway stations or bus stops to monitor. Choose Done after adding all desired transit items."
       },
       "transit_subway": {
         "title": "Subway",
@@ -71,13 +194,32 @@
           "station": "Station",
           "direction": "Direction",
           "line_id": "Line"
+        },
+        "description": "Configure a subway station, travel direction, and optional line filter.",
+        "data_description": {
+          "station": "Station name without the word “Station”, for example Gangnam.",
+          "direction": "The direction of travel to monitor.",
+          "line_id": "Optional subway line filter; leave empty to include all lines."
         }
       },
       "transit_bus_search": {
         "title": "Add Bus Stop",
-        "description": "Enter the KakaoMap bus stop ID",
+        "description": "Find a bus stop using the stop ID shown by KakaoMap.",
         "data": {
           "kakao_stop_id": "KakaoMap Stop ID"
+        },
+        "data_description": {
+          "kakao_stop_id": "The KakaoMap bus-stop identifier, such as BS12345."
+        }
+      },
+      "transit_bus_select": {
+        "title": "Select Bus Routes",
+        "data": {
+          "buses": "Bus Routes"
+        },
+        "description": "Select the bus routes to monitor at this stop.",
+        "data_description": {
+          "buses": "One or more routes serving this stop. All detected routes are selected by default."
         }
       },
       "fuel": {
@@ -86,6 +228,12 @@
           "api_key": "Key",
           "sido_codes": "Regions",
           "fuel_codes": "Types"
+        },
+        "description": "Configure nearby fuel-price monitoring by selecting regions and fuel types supported by Opinet.",
+        "data_description": {
+          "api_key": "The API key issued by Opinet.",
+          "sido_codes": "One or more provinces or metropolitan cities to monitor.",
+          "fuel_codes": "One or more fuel types to monitor in each selected region."
         }
       },
       "school": {
@@ -93,6 +241,11 @@
         "data": {
           "api_key": "Key",
           "school_level": "Level"
+        },
+        "description": "Start school setup with a NEIS API key and the school level to search.",
+        "data_description": {
+          "api_key": "The API key issued for the NEIS Open API.",
+          "school_level": "The school level determines the available grades and timetable endpoint."
         }
       },
       "school_search": {
@@ -100,12 +253,21 @@
         "data": {
           "school_search": "Name",
           "selected_school": "Select"
+        },
+        "description": "Search by school name, then select the correct school from the returned results.",
+        "data_description": {
+          "school_search": "Enter enough of the school name to distinguish it from similarly named schools.",
+          "selected_school": "Select the school that matches the desired name and address."
         }
       },
       "school_class": {
         "title": "Select Grade/Class",
         "data": {
           "grade_classes": "Grade-Class"
+        },
+        "description": "Select every grade and class whose timetable should be monitored.",
+        "data_description": {
+          "grade_classes": "Select one or more grade-class combinations."
         }
       },
       "school_periods": {
@@ -120,6 +282,18 @@
           "period_7": "P7",
           "lunch_start": "Lunch Start",
           "lunch_end": "Lunch End"
+        },
+        "description": "Set the time range for each class period and the lunch break. Use 24-hour HH:MM-HH:MM format for periods.",
+        "data_description": {
+          "period_1": "Start and end time for period 1, in HH:MM-HH:MM format.",
+          "period_2": "Start and end time for period 2, in HH:MM-HH:MM format.",
+          "period_3": "Start and end time for period 3, in HH:MM-HH:MM format.",
+          "period_4": "Start and end time for period 4, in HH:MM-HH:MM format.",
+          "period_5": "Start and end time for period 5, in HH:MM-HH:MM format.",
+          "period_6": "Start and end time for period 6, in HH:MM-HH:MM format.",
+          "period_7": "Start and end time for period 7, in HH:MM-HH:MM format.",
+          "lunch_start": "Lunch break start time in HH:MM format.",
+          "lunch_end": "Lunch break end time in HH:MM format."
         }
       },
       "disaster": {
@@ -128,35 +302,12 @@
           "api_key": "Key",
           "region_filter": "Region",
           "sub_region": "Sub-region (optional)"
-        }
-      },
-      "safety_alert": {
-        "title": "Safety Alert",
-        "data": {
-          "area_code": "Code",
-          "area_name": "Name"
-        }
-      },
-      "kepco": {
-        "title": "KEPCO",
-        "data": {
-          "username": "Username",
-          "password": "Password"
-        }
-      },
-      "gasapp": {
-        "title": "GasApp",
-        "data": {
-          "token": "Token",
-          "member_id": "ID",
-          "contract_num": "Contract"
-        }
-      },
-      "arisu": {
-        "title": "Arisu",
-        "data": {
-          "customer_number": "Number",
-          "customer_name": "Name"
+        },
+        "description": "Configure national disaster messages with an optional region filter.",
+        "data_description": {
+          "api_key": "The service key issued for the National Disaster and Safety Portal API.",
+          "region_filter": "Optional province-level filter. Select All to receive messages nationwide.",
+          "sub_region": "Optional city, district, or other text filter. This takes priority over the region selection."
         }
       },
       "pharmacy": {
@@ -165,12 +316,12 @@
           "api_key": "Key",
           "q0": "Province",
           "q1": "City"
-        }
-      },
-      "transit_bus_select": {
-        "title": "Select Bus Routes",
-        "data": {
-          "buses": "Bus Routes"
+        },
+        "description": "Configure pharmacy information for a province and an optional city or district.",
+        "data_description": {
+          "api_key": "The service key issued for the pharmacy-information API on the Public Data Portal.",
+          "q0": "Province or metropolitan city to search.",
+          "q1": "Optional city or district name used to narrow the results."
         }
       },
       "airkorea": {
@@ -179,12 +330,22 @@
           "api_key": "Key",
           "sido": "Province",
           "living_api_key": "Living Index API Key (blank = same)"
+        },
+        "description": "Configure air-quality monitoring for a province or metropolitan city.",
+        "data_description": {
+          "api_key": "The service key issued for AirKorea APIs on the Public Data Portal.",
+          "sido": "Province or metropolitan city containing the monitoring stations.",
+          "living_api_key": "Optional separate key for living-weather indices. Leave empty to reuse the AirKorea key."
         }
       },
       "airkorea_select": {
         "title": "Select Stations",
         "data": {
           "stations": "Stations"
+        },
+        "description": "Select one or more AirKorea monitoring stations to create sensors for.",
+        "data_description": {
+          "stations": "Monitoring stations whose air-quality values should be exposed as sensors."
         }
       },
       "kma_weather": {
@@ -192,6 +353,23 @@
         "data": {
           "api_key": "Key",
           "sido": "Province"
+        },
+        "description": "Choose a province or metropolitan city before selecting detailed forecast regions.",
+        "data_description": {
+          "api_key": "The service key issued for the KMA village-forecast API on the Public Data Portal.",
+          "sido": "Province or metropolitan city containing the forecast districts."
+        }
+      },
+      "kma_weather_sgg": {
+        "title": "Select Districts",
+        "data": {
+          "regions": "Districts",
+          "air_station": "Air Station (O₃/UV)"
+        },
+        "description": "Select forecast districts and, optionally, an AirKorea station for ozone and UV-related information.",
+        "data_description": {
+          "regions": "One or more districts to create weather entities for.",
+          "air_station": "Optional station used for ozone and UV-related values; select Disabled if not needed."
         }
       },
       "earthquake": {
@@ -202,40 +380,74 @@
           "longitude": "Lon",
           "radius_km": "Radius",
           "min_magnitude": "Min Magnitude"
-        }
-      },
-      "kma_weather_sgg": {
-        "title": "Select Districts",
-        "data": {
-          "regions": "Districts",
-          "air_station": "Air Station (O₃/UV)"
+        },
+        "description": "Configure earthquake monitoring around a reference location and minimum magnitude.",
+        "data_description": {
+          "api_key": "The service key issued for the KMA earthquake API on the Public Data Portal.",
+          "latitude": "Reference latitude in decimal degrees.",
+          "longitude": "Reference longitude in decimal degrees.",
+          "radius_km": "Maximum distance from the reference location, in kilometers.",
+          "min_magnitude": "Smallest earthquake magnitude to include."
         }
       }
     },
     "error": {
-      "cannot_connect": "Cannot connect.",
-      "invalid_api_key": "Invalid key.",
-      "no_schools_found": "No schools.",
-      "no_selection": "Select one.",
-      "no_stops_found": "No stops.",
-      "no_stations_found": "No stations found.",
+      "auth": "Authentication failed. ({error})",
+      "invalid_auth": "Invalid credentials. ({error})",
+      "cannot_connect": "Failed to connect to the server. ({error})",
+      "unknown": "An unknown error occurred. ({error})",
+      "invalid_coordinates": "Invalid coordinates. ({error})",
+      "invalid_wgs84_coordinates": "Invalid WGS84 coordinates (longitude: 124–132, latitude: 33–39). ({error})",
+      "invalid_wcongnamul_coordinates": "Invalid WCONGNAMUL coordinates. ({error})",
+      "no_regions_available": "No regions are available. ({error})",
+      "no_sgg_available": "No districts are available for the selected province or city.",
+      "no_emd_available": "No sub-districts are available for the selected district.",
+      "invalid_api_key": "Invalid API key. ({error})",
+      "no_schools_found": "No schools matched the search.",
+      "no_selection": "Select at least one item.",
+      "no_stops_found": "Could not find the bus stop.",
+      "no_stations_found": "Could not find monitoring station information.",
       "invalid_phone_number": "Enter a valid 10- or 11-digit mobile phone number.",
       "invalid_verification_code": "The verification code is invalid or expired. ({error})"
     },
     "abort": {
-      "already_configured": "Already configured.",
-      "invalid_auth": "The verification session expired. Start setup again.",
-      "no_options": "No options available."
+      "already_configured": "This account or service is already configured.",
+      "invalid_auth": "The verification session expired. Start setup again."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Edit Settings",
+        "title": "Options",
+        "description": "Edit the settings available for this service. Only fields supported by the selected service are shown.",
         "data": {
+          "api_key": "Public Data API Key",
+          "area_codes": "Areas",
           "scan_interval_minutes": "Polling interval (minutes)"
+        },
+        "data_description": {
+          "api_key": "Public Data Portal service key used for weather-warning requests.",
+          "area_codes": "Regions whose weather warnings should be monitored.",
+          "scan_interval_minutes": "CJ O-NE refresh interval from 3 to 30 minutes."
         }
       }
+    },
+    "abort": {
+      "no_options": "There are no options to configure.",
+      "no_options_transit": "There are no options to configure for public transit.",
+      "no_options_fuel": "There are no options to configure for fuel prices.",
+      "no_options_school": "There are no options to configure for school information.",
+      "no_options_disaster": "There are no options to configure for disaster alerts.",
+      "no_options_safety_alert": "There are no options to configure for Safety Alert.",
+      "no_options_kepco": "There are no options to configure for KEPCO.",
+      "no_options_gasapp": "There are no options to configure for GasApp.",
+      "no_options_arisu": "There are no options to configure for Arisu.",
+      "no_options_pharmacy": "There are no options to configure for pharmacy information.",
+      "no_options_airkorea": "There are no options to configure for AirKorea.",
+      "no_options_kma_weather": "There are no options to configure for KMA Weather.",
+      "no_options_earthquake": "There are no options to configure for earthquake information.",
+      "no_options_goodsflow": "There are no options to configure for GoodsFlow.",
+      "no_options_kakaomap": "There are no options to configure for KakaoMap."
     }
   },
   "entity": {

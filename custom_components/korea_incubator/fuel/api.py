@@ -10,13 +10,33 @@ _LOGGER = logging.getLogger(__name__)
 
 async def validate_opinet(api_key: str) -> bool:
     params = {"code": api_key, "out": "xml"}
+    async with aiohttp.ClientSession() as s:
+        async with s.get(OPINET_AVG_URL, params=params,
+                         timeout=aiohttp.ClientTimeout(total=15)) as r:
+            text = await r.text()
+            if r.status != 200:
+                detail = " ".join(text.split())[:500]
+                raise RuntimeError(f"Opinet API HTTP {r.status}: {detail}")
     try:
-        async with aiohttp.ClientSession() as s:
-            async with s.get(OPINET_AVG_URL, params=params,
-                             timeout=aiohttp.ClientTimeout(total=15)) as r:
-                return r.status == 200
-    except Exception:
-        return False
+        root = ET.fromstring(text)
+    except ET.ParseError as err:
+        detail = " ".join(text.split())[:500]
+        raise RuntimeError(f"Opinet API returned invalid XML: {detail}") from err
+
+    error_message = next(
+        (
+            value
+            for tag in ("ERR_MSG", "ERROR_MSG", "MESSAGE", "RESULT_MSG")
+            if (value := root.findtext(f".//{tag}"))
+        ),
+        None,
+    )
+    if error_message:
+        raise ValueError(f"Opinet API: {error_message}")
+    if not root.findall(".//OIL"):
+        detail = " ".join(text.split())[:500]
+        raise ValueError(f"Opinet API returned no fuel data: {detail}")
+    return True
 
 async def fetch_avg_price(session: aiohttp.ClientSession,
                            api_key: str) -> list[dict[str, str]]:

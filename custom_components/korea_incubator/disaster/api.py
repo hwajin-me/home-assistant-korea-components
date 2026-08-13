@@ -44,11 +44,8 @@ _working_profile: str | None = None
 
 
 async def validate_disaster_api(api_key: str) -> bool:
-    try:
-        await fetch_disaster_messages(api_key, count=1)
-        return True
-    except Exception:
-        return False
+    await fetch_disaster_messages(api_key, count=1)
+    return True
 
 
 def _parse_payload(text: str) -> list[dict[str, Any]]:

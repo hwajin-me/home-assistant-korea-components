@@ -1,6 +1,7 @@
 """NEIS Open API Client."""
 from __future__ import annotations
-import logging, xml.etree.ElementTree as ET
+import logging
+import xml.etree.ElementTree as ET
 from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -28,7 +29,7 @@ class NeisApiClient:
         if res is not None:
             code = res.findtext("CODE", "")
             if code != "INFO-000":
-                raise Exception(f"NEIS {code}: {res.findtext('MESSAGE','')}")
+                raise ValueError(f"NEIS {code}: {res.findtext('MESSAGE','')}")
         rows = []
         for row in root.findall(".//row"):
             rows.append({c.tag: c.text for c in row})

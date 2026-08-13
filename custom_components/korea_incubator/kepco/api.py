@@ -13,6 +13,7 @@ class KepcoApiClient:
         self._session = session
         self._username = None
         self._password = None
+        self.last_error: str | None = None
 
     def set_credentials(self, username, password):
         self._username = username
@@ -48,6 +49,7 @@ class KepcoApiClient:
 
     async def async_login(self, username, password):
         self.set_credentials(username, password)
+        self.last_error = None
         try:
             (
                 rsa_modulus,
@@ -56,6 +58,7 @@ class KepcoApiClient:
             ) = await self.async_get_session_and_rsa_key()
         except KepcoAuthError as e:
             LOGGER.error(f"KEPCO Login failed: {e}")
+            self.last_error = str(e)
             return False
 
         LOGGER.debug(f"KEPCO Login Request with {username} and {password}")
@@ -72,6 +75,7 @@ class KepcoApiClient:
 
         except Exception as e:
             LOGGER.error(f"RSA encryption failed: {e}")
+            self.last_error = f"RSA encryption failed: {e}"
             return False
 
         LOGGER.debug(
@@ -112,9 +116,16 @@ class KepcoApiClient:
             LOGGER.error(
                 f"KEPCO Login failed with status {response.status_code}: {text}"
             )
+            response_text = " ".join(str(text).split())[:500]
+            self.last_error = (
+                f"HTTP {response.status_code}: {response_text}"
+                if response_text
+                else f"HTTP {response.status_code}: login rejected"
+            )
             return False
         except Exception as e:
             LOGGER.error(f"Login request failed: {e}")
+            self.last_error = f"Login request failed: {e}"
             return False
 
     async def _request(self, method, url, **kwargs):

@@ -11,19 +11,43 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
 from .arisu.api import ArisuApiClient
-from .arisu.exceptions import ArisuAuthError
+from .arisu.exceptions import ArisuAuthError, ArisuConnectionError, ArisuDataError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
 )
-from .const import *
+from .const import (
+    CONF_ENTRY_TYPE,
+    DOMAIN,
+    ENTRY_AIRKOREA,
+    ENTRY_ARISU,
+    ENTRY_CJ_ONE_DELIVERY,
+    ENTRY_DISASTER,
+    ENTRY_EARTHQUAKE,
+    ENTRY_FUEL,
+    ENTRY_GASAPP,
+    ENTRY_GOODSFLOW,
+    ENTRY_KAKAOMAP,
+    ENTRY_KEPCO,
+    ENTRY_KMA_WEATHER,
+    ENTRY_PHARMACY,
+    ENTRY_SAFETY_ALERT,
+    ENTRY_SCHOOL,
+    ENTRY_TRANSIT,
+    ENTRY_WEATHER,
+    LOGGER,
+)
 
 from .gasapp.api import GasAppApiClient
-from .gasapp.exceptions import GasAppAuthError
+from .gasapp.exceptions import GasAppAuthError, GasAppConnectionError, GasAppDataError
 from .goodsflow.api import GoodsFlowApiClient
-from .goodsflow.exceptions import GoodsFlowAuthError
+from .goodsflow.exceptions import (
+    GoodsFlowAuthError,
+    GoodsFlowConnectionError,
+    GoodsFlowDataError,
+)
 from .cj_one_delivery.api import AuthSession, CJOneDeliveryClient
 from .cj_one_delivery.const import (
     CONF_AUTH_CODE,
@@ -42,6 +66,14 @@ from .kepco.exceptions import KepcoAuthError
 from .safety_alert.api import SafetyAlertApiClient
 from .safety_alert.exceptions import SafetyAlertConnectionError
 from .safety_alert.region_api import SafetyAlertRegionApiClient
+
+
+def _flow_error_message(error: Exception | str, fallback: str) -> str:
+    """Return a concise API error suitable for a config-flow placeholder."""
+    message = " ".join(str(error).split())
+    if not message:
+        message = fallback
+    return message[:500]
 
 
 class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -203,7 +235,9 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         )
                     else:
                         errors["base"] = "auth"
-                        error_info["error"] = "Login returned false"
+                        error_info["error"] = _flow_error_message(
+                            client.last_error or "", "Login returned false"
+                        )
                 except KepcoAuthError as e:
                     LOGGER.error(f"KEPCO login failed: {e}")
                     errors["base"] = "invalid_auth"
@@ -239,7 +273,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     user_input["use_contract_num"],
                 )
                 try:
-                    if await client.async_validate_credentials():
+                    if await client.async_get_home_data() is not None:
                         unique_id = f"gasapp_{user_input['use_contract_num']}"
                         await self.async_set_unique_id(unique_id)
                         self._abort_if_unique_id_configured()
@@ -255,11 +289,27 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except GasAppAuthError as e:
                     LOGGER.error(f"GasApp authentication failed: {e}")
                     errors["base"] = "invalid_auth"
-                    error_info["error"] = str(e)
+                    error_info["error"] = _flow_error_message(
+                        e, "GasApp authentication failed"
+                    )
+                except GasAppConnectionError as e:
+                    LOGGER.error(f"GasApp connection failed: {e}")
+                    errors["base"] = "cannot_connect"
+                    error_info["error"] = _flow_error_message(
+                        e, "Could not connect to GasApp"
+                    )
+                except GasAppDataError as e:
+                    LOGGER.error(f"GasApp response handling failed: {e}")
+                    errors["base"] = "unknown"
+                    error_info["error"] = _flow_error_message(
+                        e, "GasApp returned an invalid response"
+                    )
                 except Exception as e:
                     LOGGER.error(f"GasApp connection failed: {e}")
                     errors["base"] = "unknown"
-                    error_info["error"] = str(e)
+                    error_info["error"] = _flow_error_message(
+                        e, "Unexpected GasApp error"
+                    )
 
         return self.async_show_form(
             step_id="gasapp",
@@ -270,6 +320,65 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required("use_contract_num"): str,
                 }
             ),
+            errors=errors,
+            description_placeholders=error_info,
+        )
+
+    async def async_step_goodsflow(
+        self, user_input: Optional[Dict[str, Any]] = None
+    ):
+        """Handle GoodsFlow configuration."""
+        errors: Dict[str, str] = {}
+        error_info: Dict[str, str] = {}
+
+        if user_input is not None:
+            async with aiohttp.ClientSession() as session:
+                client = GoodsFlowApiClient(session)
+                client.set_token(user_input["token"])
+                try:
+                    response = await client.async_get_tracking_list(limit=1)
+                    if response.get("success", True) is False:
+                        errors["base"] = "invalid_auth"
+                        error_info["error"] = _flow_error_message(
+                            response.get("message")
+                            or response.get("error")
+                            or response,
+                            "GoodsFlow rejected the token",
+                        )
+                    else:
+                        await self.async_set_unique_id(
+                            f"goodsflow_{user_input['token'][:8]}"
+                        )
+                        self._abort_if_unique_id_configured()
+                        user_input["service"] = ENTRY_GOODSFLOW
+                        return self.async_create_entry(
+                            title="굿스플로우 택배조회", data=user_input
+                        )
+                except GoodsFlowAuthError as err:
+                    errors["base"] = "invalid_auth"
+                    error_info["error"] = _flow_error_message(
+                        err, "GoodsFlow authentication failed"
+                    )
+                except GoodsFlowConnectionError as err:
+                    errors["base"] = "cannot_connect"
+                    error_info["error"] = _flow_error_message(
+                        err, "Could not connect to GoodsFlow"
+                    )
+                except GoodsFlowDataError as err:
+                    errors["base"] = "unknown"
+                    error_info["error"] = _flow_error_message(
+                        err, "GoodsFlow returned an invalid response"
+                    )
+                except Exception as err:
+                    LOGGER.exception("Unexpected GoodsFlow setup error")
+                    errors["base"] = "unknown"
+                    error_info["error"] = _flow_error_message(
+                        err, "Unexpected GoodsFlow error"
+                    )
+
+        return self.async_show_form(
+            step_id="goodsflow",
+            data_schema=vol.Schema({vol.Required("token"): str}),
             errors=errors,
             description_placeholders=error_info,
         )
@@ -343,7 +452,6 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ):
         """Handle Safety Alert sgg (시군구) selection."""
         errors: Dict[str, str] = {}
-        error_info: Dict[str, str] = {}
 
         if user_input is not None:
             sgg_code = user_input.get("sgg_code") or user_input.get("sgg_name", "")
@@ -391,7 +499,6 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ):
         """Handle Safety Alert emd (읍면동) selection."""
         errors: Dict[str, str] = {}
-        error_info: Dict[str, str] = {}
 
         if user_input is not None:
             emd_code = user_input.get("emd_code") or user_input.get("emd_name", "")
@@ -482,10 +589,29 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         except SafetyAlertConnectionError as e:
             LOGGER.error(f"Safety Alert connection failed: {e}")
-            return self.async_abort(reason="cannot_connect")
+            return self._show_safety_alert_emd_error("cannot_connect", e)
         except Exception as e:
             LOGGER.error(f"Safety Alert setup failed: {e}")
-            return self.async_abort(reason="unknown")
+            return self._show_safety_alert_emd_error("unknown", e)
+
+    def _show_safety_alert_emd_error(
+        self, error_key: str, error: Exception
+    ) -> FlowResult:
+        """Show an API failure without discarding the safety-alert flow state."""
+        emd_options = self._safety_alert_data.get("emd_options", {})
+        if emd_options:
+            schema = vol.Schema({vol.Required("emd_code"): vol.In(emd_options)})
+        else:
+            schema = vol.Schema({vol.Required("emd_name"): str})
+        return self.async_show_form(
+            step_id="safety_alert_emd",
+            data_schema=schema,
+            errors={"base": error_key},
+            description_placeholders={
+                "sgg_name": self._safety_alert_data.get("sgg_name", ""),
+                "error": _flow_error_message(error, "Safety Alert API failed"),
+            },
+        )
 
     async def async_step_arisu(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle Arisu configuration."""
@@ -513,11 +639,26 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         )
                     else:
                         errors["base"] = "invalid_auth"
-                        error_info["error"] = "Credentials validation failed"
+                        error_info["error"] = _flow_error_message(
+                            bill_data.get("error", ""),
+                            "Credentials validation failed",
+                        )
                 except ArisuAuthError as e:
                     LOGGER.error(f"Arisu authentication failed: {e}")
                     errors["base"] = "invalid_auth"
                     error_info["error"] = str(e)
+                except ArisuConnectionError as e:
+                    LOGGER.error(f"Arisu connection failed: {e}")
+                    errors["base"] = "cannot_connect"
+                    error_info["error"] = _flow_error_message(
+                        e, "Could not connect to Arisu"
+                    )
+                except ArisuDataError as e:
+                    LOGGER.error(f"Arisu response handling failed: {e}")
+                    errors["base"] = "unknown"
+                    error_info["error"] = _flow_error_message(
+                        e, "Arisu returned an invalid response"
+                    )
                 except Exception as e:
                     LOGGER.error(f"Arisu connection failed: {e}")
                     errors["base"] = "unknown"
@@ -672,6 +813,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         from .weather.api import validate_kma_api
 
         errors: dict[str, str] = {}
+        error_info: dict[str, str] = {}
         area_options = [
             {"value": code, "label": f"{name}"} for code, name in AREA_CODES.items()
         ]
@@ -682,17 +824,28 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 areas = [areas]
             if not areas:
                 errors["area_codes"] = "no_selection"
-            elif await validate_kma_api(api_key, areas[0]):
-                return self.async_create_entry(
-                    title="기상특보",
-                    data={
-                        CONF_ENTRY_TYPE: ENTRY_WEATHER,
-                        "api_key": api_key,
-                        "area_codes": areas,
-                    },
-                )
             else:
-                errors["base"] = "cannot_connect"
+                try:
+                    await validate_kma_api(api_key, areas[0])
+                except ValueError as err:
+                    errors["base"] = "invalid_api_key"
+                    error_info["error"] = _flow_error_message(
+                        err, "KMA rejected the API key"
+                    )
+                except Exception as err:
+                    errors["base"] = "cannot_connect"
+                    error_info["error"] = _flow_error_message(
+                        err, "Could not connect to the KMA API"
+                    )
+                else:
+                    return self.async_create_entry(
+                        title="기상특보",
+                        data={
+                            CONF_ENTRY_TYPE: ENTRY_WEATHER,
+                            "api_key": api_key,
+                            "area_codes": areas,
+                        },
+                    )
         return self.async_show_form(
             step_id="weather_warning",
             data_schema=vol.Schema(
@@ -708,6 +861,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+            description_placeholders=error_info,
         )
 
     # ══════════ 대중교통 ══════════
@@ -764,6 +918,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_transit_bus_search(self, user_input=None) -> FlowResult:
         errors: dict[str, str] = {}
+        error_info: dict[str, str] = {}
         if user_input is not None:
             stop_id = user_input["kakao_stop_id"].strip()
             from .transit.bus_api import fetch_stop_data, build_bus_labels
@@ -777,12 +932,16 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self._bus_stop_id, self._bus_stop_name = stop_id, data["name"]
                     self._bus_labels = build_bus_labels(data)
                     return await self.async_step_transit_bus_select()
-            except Exception:
+            except Exception as err:
                 errors["kakao_stop_id"] = "cannot_connect"
+                error_info["error"] = _flow_error_message(
+                    err, "Could not load the KakaoMap bus stop"
+                )
         return self.async_show_form(
             step_id="transit_bus_search",
             data_schema=vol.Schema({vol.Required("kakao_stop_id"): str}),
             errors=errors,
+            description_placeholders=error_info,
         )
 
     async def async_step_transit_bus_select(self, user_input=None) -> FlowResult:
@@ -817,6 +976,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         from .fuel.api import validate_opinet
 
         errors: dict[str, str] = {}
+        error_info: dict[str, str] = {}
         sido_opts = [{"value": k, "label": v} for k, v in SIDO_CODES.items()]
         fuel_opts = [{"value": k, "label": v} for k, v in FUEL_TYPES.items()]
         if user_input is not None:
@@ -827,20 +987,33 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             if not sidos or not fuels:
                 errors["base"] = "no_selection"
-            elif await validate_opinet(api_key):
-                configs = [
-                    {"sido_code": s, "fuel_code": f} for s in sidos for f in fuels
-                ]
-                return self.async_create_entry(
-                    title="유가정보",
-                    data={
-                        CONF_ENTRY_TYPE: ENTRY_FUEL,
-                        "api_key": api_key,
-                        "configs": configs,
-                    },
-                )
             else:
-                errors["base"] = "cannot_connect"
+                try:
+                    await validate_opinet(api_key)
+                except ValueError as err:
+                    errors["base"] = "invalid_api_key"
+                    error_info["error"] = _flow_error_message(
+                        err, "Opinet rejected the API key"
+                    )
+                except Exception as err:
+                    errors["base"] = "cannot_connect"
+                    error_info["error"] = _flow_error_message(
+                        err, "Could not connect to the Opinet API"
+                    )
+                else:
+                    configs = [
+                        {"sido_code": s, "fuel_code": f}
+                        for s in sidos
+                        for f in fuels
+                    ]
+                    return self.async_create_entry(
+                        title="유가정보",
+                        data={
+                            CONF_ENTRY_TYPE: ENTRY_FUEL,
+                            "api_key": api_key,
+                            "configs": configs,
+                        },
+                    )
         return self.async_show_form(
             step_id="fuel",
             data_schema=vol.Schema(
@@ -863,6 +1036,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+            description_placeholders=error_info,
         )
 
     # ══════════ 학교정보 ══════════
@@ -892,39 +1066,53 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_school_search(self, user_input=None) -> FlowResult:
         errors: dict[str, str] = {}
+        error_info: dict[str, str] = {}
         if user_input is not None:
             session = async_get_clientsession(self.hass)
             from .school.api import NeisApiClient
 
             c = NeisApiClient(session, self._data["api_key"])
-            if "school_search" in user_input:
-                schools = await c.search_school(user_input["school_search"])
-                if not schools:
-                    errors["school_search"] = "no_schools_found"
-                else:
-                    opts = {
-                        f"{s['ATPT_OFCDC_SC_CODE']}_{s['SD_SCHUL_CODE']}": f"{s['SCHUL_NM']} ({s.get('ORG_RDNMA', '')})"
-                        for s in schools[:10]
-                    }
-                    return self.async_show_form(
-                        step_id="school_search",
-                        data_schema=vol.Schema(
-                            {vol.Required("selected_school"): vol.In(opts)}
-                        ),
-                    )
-            elif "selected_school" in user_input:
-                rc, sc = user_input["selected_school"].split("_")
-                info = await c.get_school_info(rc, sc)
-                if info:
-                    from .school.parser import parse_school_info
+            try:
+                if "school_search" in user_input:
+                    schools = await c.search_school(user_input["school_search"])
+                    if not schools:
+                        errors["school_search"] = "no_schools_found"
+                    else:
+                        opts = {
+                            f"{s['ATPT_OFCDC_SC_CODE']}_{s['SD_SCHUL_CODE']}": f"{s['SCHUL_NM']} ({s.get('ORG_RDNMA', '')})"
+                            for s in schools[:10]
+                        }
+                        return self.async_show_form(
+                            step_id="school_search",
+                            data_schema=vol.Schema(
+                                {vol.Required("selected_school"): vol.In(opts)}
+                            ),
+                        )
+                elif "selected_school" in user_input:
+                    rc, sc = user_input["selected_school"].split("_")
+                    info = await c.get_school_info(rc, sc)
+                    if info:
+                        from .school.parser import parse_school_info
 
-                    self._data.update(parse_school_info(info))
-                    return await self.async_step_school_class()
+                        self._data.update(parse_school_info(info))
+                        return await self.async_step_school_class()
+                    errors["base"] = "cannot_connect"
+                    error_info["error"] = "NEIS returned no school details"
+            except ValueError as err:
+                errors["base"] = "invalid_api_key"
+                error_info["error"] = _flow_error_message(
+                    err, "NEIS rejected the API key"
+                )
+            except Exception as err:
                 errors["base"] = "cannot_connect"
+                error_info["error"] = _flow_error_message(
+                    err, "Could not connect to NEIS"
+                )
         return self.async_show_form(
             step_id="school_search",
             data_schema=vol.Schema({vol.Required("school_search"): str}),
             errors=errors,
+            description_placeholders=error_info,
         )
 
     async def async_step_school_class(self, user_input=None) -> FlowResult:
@@ -969,7 +1157,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             6: "14:40-15:30",
             7: "15:40-16:30",
         }
-        schema = {vol.Required(f"period_1", default=defaults[1]): str}
+        schema = {vol.Required("period_1", default=defaults[1]): str}
         for i in range(2, 8):
             schema[vol.Optional(f"period_{i}", default=defaults.get(i, ""))] = str
         schema.update(
@@ -986,7 +1174,8 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_disaster(self, user_input=None) -> FlowResult:
         from .disaster.api import validate_disaster_api
 
-        errors, region_opts = {}, [{"value": "", "label": "전체"}]
+        errors, error_info = {}, {}
+        region_opts = [{"value": "", "label": "전체"}]
         for n in [
             "서울",
             "부산",
@@ -1008,7 +1197,19 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         ]:
             region_opts.append({"value": n, "label": n})
         if user_input is not None:
-            if await validate_disaster_api(user_input["api_key"]):
+            try:
+                await validate_disaster_api(user_input["api_key"])
+            except ValueError as err:
+                errors["base"] = "invalid_api_key"
+                error_info["error"] = _flow_error_message(
+                    err, "The disaster API rejected the API key"
+                )
+            except Exception as err:
+                errors["base"] = "cannot_connect"
+                error_info["error"] = _flow_error_message(
+                    err, "Could not connect to the disaster API"
+                )
+            else:
                 region = user_input.get("sub_region", "").strip() or user_input.get(
                     "region_filter", ""
                 )
@@ -1020,8 +1221,6 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "region_filter": region,
                     },
                 )
-            else:
-                errors["base"] = "cannot_connect"
         return self.async_show_form(
             step_id="disaster",
             data_schema=vol.Schema(
@@ -1036,6 +1235,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+            description_placeholders=error_info,
         )
 
     # ══════════ 약국 ══════════

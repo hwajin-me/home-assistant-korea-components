@@ -51,6 +51,8 @@ class KakaoMapApiClient:
                 data = await response.json()
                 return self._parse_address_response(data)
 
+        except (KakaoMapConnectionError, KakaoMapDataError):
+            raise
         except aiohttp.ClientError as e:
             LOGGER.error(f"KakaoMap coordinate API request failed: {e}")
             raise KakaoMapConnectionError(f"Request failed: {e}")
@@ -109,6 +111,8 @@ class KakaoMapApiClient:
                 data = await response.json()
                 return data
 
+        except (KakaoMapConnectionError, KakaoMapDataError):
+            raise
         except aiohttp.ClientError as e:
             LOGGER.error(f"KakaoMap transport API request failed: {e}")
             raise KakaoMapConnectionError(f"Request failed: {e}")

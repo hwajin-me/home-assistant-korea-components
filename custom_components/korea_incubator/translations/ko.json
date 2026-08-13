@@ -20,13 +20,19 @@
           "airkorea": "에어코리아 (대기질)",
           "kma_weather": "기상청 날씨예보",
           "earthquake": "지진정보"
-        }
+        },
+        "description": "추가할 국내 서비스를 선택하세요. 각 서비스는 독립적으로 설정할 수 있습니다."
       },
       "kepco": {
         "title": "한전 로그인",
         "data": {
           "username": "사용자명",
           "password": "비밀번호"
+        },
+        "description": "전기 사용량과 요금 정보를 조회할 한전 파워플래너 계정으로 로그인합니다.",
+        "data_description": {
+          "username": "한전 파워플래너 로그인 아이디입니다.",
+          "password": "한전 파워플래너 로그인 비밀번호입니다."
         }
       },
       "gasapp": {
@@ -35,58 +41,86 @@
           "token": "토큰",
           "member_id": "회원 ID",
           "use_contract_num": "사용계약번호"
+        },
+        "description": "가스 사용량과 요금 정보를 조회할 가스앱 로그인 세션의 계정 값을 입력하세요.",
+        "data_description": {
+          "token": "로그인된 가스앱 API 세션의 X-Token 값입니다.",
+          "member_id": "가스앱 회원을 식별하는 X-Member 값입니다.",
+          "use_contract_num": "계정에 연결된 가스 사용계약번호입니다."
         }
       },
       "safety_alert": {
         "title": "안전알림 설정 - 시도 선택",
-        "description": "안전알림을 받을 시도를 선택하세요.",
+        "description": "안전 문자를 수신할 시도 또는 광역시를 선택하세요.",
         "data": {
-          "sido_code": "시도 코드",
-          "sido_name": "시도명"
+          "sido_code": "시도 코드"
+        },
+        "data_description": {
+          "sido_code": "안전 문자를 필터링할 시도 또는 광역시입니다."
         }
       },
       "safety_alert_sgg": {
         "title": "안전알림 설정 - 시군구 선택",
-        "description": "안전알림을 받을 시군구를 선택하세요. 읍면동까지 세분화하려면 '읍면동 추가' 옵션을 선택하세요.",
+        "description": "{sido_name}에서 수신할 시군구를 선택하세요. 목록을 불러오지 못한 경우 이름을 직접 입력할 수 있습니다.",
         "data": {
           "sgg_code": "시군구",
-          "sgg_name": "시군구명",
-          "add_emd": "읍면동 추가"
+          "sgg_name": "시군구명"
+        },
+        "data_description": {
+          "sgg_code": "안전알림 지역 서비스에서 조회한 시군구입니다.",
+          "sgg_name": "지역 목록을 사용할 수 없을 때 직접 입력할 시군구명입니다."
         }
       },
       "safety_alert_emd": {
         "title": "안전알림 설정 - 읍면동 선택",
-        "description": "안전알림을 받을 읍면동을 선택하세요.",
+        "description": "{sgg_name}에서 수신할 읍면동을 선택하세요. 목록을 불러오지 못한 경우 이름을 직접 입력할 수 있습니다.",
         "data": {
           "emd_code": "읍면동",
           "emd_name": "읍면동명"
+        },
+        "data_description": {
+          "emd_code": "안전알림 지역 서비스에서 조회한 읍면동입니다.",
+          "emd_name": "지역 목록을 사용할 수 없을 때 직접 입력할 읍면동명입니다."
         }
       },
       "goodsflow": {
         "title": "굿스플로우 설정",
         "data": {
           "token": "인증토큰"
+        },
+        "description": "택배 조회 사이트에서 사용하는 굿스플로우 인증 토큰을 입력하세요.",
+        "data_description": {
+          "token": "로그인된 굿스플로우 브라우저 세션의 PTK-TOKEN 값입니다."
         }
       },
       "cj_one_delivery": {
         "title": "CJ대한통운 배송조회",
-        "description": "휴대폰 번호를 입력하면 CJ O-NE 앱 인증용 문자 인증번호를 발송합니다.",
+        "description": "CJ O-NE 문자 인증번호를 받을 휴대폰 번호를 입력하세요.",
         "data": {
           "phone_number": "휴대폰 번호"
+        },
+        "data_description": {
+          "phone_number": "10자리 또는 11자리 국내 휴대폰 번호입니다. 하이픈을 포함해도 됩니다."
         }
       },
       "cj_one_delivery_code": {
         "title": "CJ대한통운 휴대폰 인증",
-        "description": "문자로 받은 인증번호를 입력하세요.",
+        "description": "문자로 받은 인증번호를 입력하세요. 인증번호는 일정 시간이 지나면 만료될 수 있습니다.",
         "data": {
           "auth_code": "인증번호"
+        },
+        "data_description": {
+          "auth_code": "CJ O-NE 인증 문자로 받은 숫자 인증번호입니다."
         }
       },
       "cj_one_delivery_options": {
         "title": "CJ대한통운 배송조회 옵션",
-        "description": "배송대기/배송중과 최근 2일 배송완료 택배는 건별 센서로 생성되고, 배송완료 건수는 최근 5일간 집계합니다. 조회 주기는 3~30분으로 설정할 수 있습니다.",
+        "description": "CJ대한통운 배송 정보를 갱신할 주기를 선택하세요. 배송 중이거나 최근 완료된 택배는 건별 센서로 생성됩니다.",
         "data": {
           "scan_interval_minutes": "조회 주기(분)"
+        },
+        "data_description": {
+          "scan_interval_minutes": "3분에서 30분 사이의 갱신 주기입니다."
         }
       },
       "arisu": {
@@ -94,11 +128,16 @@
         "data": {
           "customer_number": "고객번호",
           "customer_name": "고객명"
+        },
+        "description": "서울 아리수 수도요금 고지서에 기재된 고객 정보를 입력하세요.",
+        "data_description": {
+          "customer_number": "수도요금 고지서에 기재된 고객번호입니다.",
+          "customer_name": "수도요금 고지서에 기재된 고객명을 정확히 입력하세요."
         }
       },
       "kakaomap": {
         "title": "카카오맵 설정",
-        "description": "출발지와 도착지를 설정하여 교통정보를 조회합니다.",
+        "description": "출발지와 도착지 좌표를 입력하여 경로를 설정하세요. 구성 항목을 만들기 전에 좌표를 검증합니다.",
         "data": {
           "name": "경로 이름",
           "coord_system": "좌표계",
@@ -106,141 +145,273 @@
           "start_y": "출발지 Y좌표/위도",
           "end_x": "도착지 X좌표/경도",
           "end_y": "도착지 Y좌표/위도"
+        },
+        "data_description": {
+          "name": "집→회사처럼 경로를 구분할 수 있는 이름입니다.",
+          "coord_system": "WGS84는 경도와 위도, WCONGNAMUL은 카카오맵 X/Y 좌표를 사용합니다.",
+          "start_x": "WGS84 경도 또는 WCONGNAMUL 출발지 X 좌표입니다.",
+          "start_y": "WGS84 위도 또는 WCONGNAMUL 출발지 Y 좌표입니다.",
+          "end_x": "WGS84 경도 또는 WCONGNAMUL 도착지 X 좌표입니다.",
+          "end_y": "WGS84 위도 또는 WCONGNAMUL 도착지 Y 좌표입니다."
         }
       },
       "weather_warning": {
-        "title": "기상특보 설정",
+        "title": "기상특보",
         "data": {
           "api_key": "공공데이터 API 인증키",
-          "area_codes": "알림을 받을 지역 선택"
+          "area_codes": "지역"
+        },
+        "description": "공공데이터포털 인증키와 특보 지역을 사용하여 기상청 기상특보를 설정합니다.",
+        "data_description": {
+          "api_key": "공공데이터포털에서 발급한 기상청 기상특보 API 서비스키입니다.",
+          "area_codes": "기상특보를 모니터링할 지역을 하나 이상 선택하세요."
         }
       },
       "transit": {
-        "title": "대중교통 설정",
-        "menu_options": {
-          "transit_subway": "지하철 도착 정보",
-          "transit_bus": "버스 도착 정보"
+        "title": "대중교통 API 키",
+        "data": {
+          "seoul_api_key": "서울 열린데이터광장 API 키",
+          "bus_api_key": "버스 API 키"
+        },
+        "description": "사용할 대중교통 데이터의 API 키를 입력하세요. 사용하지 않는 데이터 소스의 키는 비워둘 수 있습니다.",
+        "data_description": {
+          "seoul_api_key": "서울 지하철 도착 정보에 사용할 서울 열린데이터광장 인증키입니다.",
+          "bus_api_key": "버스 도착 정보에 사용할 선택적인 공공 버스 API 인증키입니다."
         }
       },
+      "transit_add": {
+        "title": "항목 추가",
+        "menu_options": {
+          "transit_subway": "지하철",
+          "transit_bus_search": "버스",
+          "transit_done": "완료"
+        },
+        "description": "모니터링할 지하철역 또는 버스 정류소를 추가하세요. 모두 추가한 뒤 완료를 선택하세요."
+      },
       "transit_subway": {
-        "title": "지하철 설정",
+        "title": "지하철",
         "data": {
-          "station_name": "역 이름 (예: 강남)",
-          "line_num": "노선 선택 (비워두면 전체)",
-          "direction": "방향 선택"
+          "station": "역 이름",
+          "direction": "방향",
+          "line_id": "노선"
+        },
+        "description": "지하철역, 운행 방향과 선택적인 노선 필터를 설정합니다.",
+        "data_description": {
+          "station": "강남처럼 “역”을 제외한 역명을 입력하세요.",
+          "direction": "모니터링할 열차의 운행 방향입니다.",
+          "line_id": "선택적인 지하철 노선 필터입니다. 비워두면 모든 노선을 포함합니다."
         }
       },
       "transit_bus_search": {
-        "title": "버스 정류소 검색",
+        "title": "버스 정류소 추가",
+        "description": "카카오맵에 표시되는 정류소 ID로 버스 정류소를 검색합니다.",
         "data": {
-          "kakao_stop_id": "카카오맵 정류소 ID (예: BS12345)"
+          "kakao_stop_id": "카카오맵 정류소 ID"
+        },
+        "data_description": {
+          "kakao_stop_id": "BS12345 형식의 카카오맵 버스 정류소 식별자입니다."
         }
       },
       "transit_bus_select": {
         "title": "버스 노선 선택",
         "data": {
-          "buses": "모니터링할 노선 선택"
+          "buses": "버스 노선"
+        },
+        "description": "이 정류소에서 모니터링할 버스 노선을 선택하세요.",
+        "data_description": {
+          "buses": "이 정류소를 운행하는 노선을 하나 이상 선택하세요. 기본값은 조회된 모든 노선입니다."
         }
       },
       "fuel": {
-        "title": "유가 정보 설정",
+        "title": "유가 정보",
         "data": {
           "api_key": "Opinet API 인증키",
-          "latitude": "기준 위도",
-          "longitude": "기준 경도",
-          "radius": "검색 반경 (km)",
-          "sort": "정렬 기준"
+          "sido_codes": "지역",
+          "fuel_codes": "유종"
+        },
+        "description": "Opinet에서 제공하는 지역과 유종별 유가 정보를 설정합니다.",
+        "data_description": {
+          "api_key": "Opinet에서 발급한 API 인증키입니다.",
+          "sido_codes": "유가를 모니터링할 시도 또는 광역시를 하나 이상 선택하세요.",
+          "fuel_codes": "선택한 각 지역에서 모니터링할 유종을 하나 이상 선택하세요."
         }
       },
       "school": {
-        "title": "학교 정보 검색",
+        "title": "학교 정보",
         "data": {
-          "school_name": "학교 이름 (예: 서울초등학교)"
+          "api_key": "NEIS API 인증키",
+          "school_level": "학교급"
+        },
+        "description": "NEIS API 인증키와 검색할 학교급을 선택하여 학교 설정을 시작합니다.",
+        "data_description": {
+          "api_key": "NEIS Open API에서 발급한 인증키입니다.",
+          "school_level": "학교급에 따라 선택 가능한 학년과 시간표 API가 결정됩니다."
         }
       },
-      "school_select": {
-        "title": "학교 선택",
+      "school_search": {
+        "title": "학교 검색",
         "data": {
-          "school_code": "학교 선택",
-          "grade": "학년",
-          "class_num": "반"
+          "school_search": "학교명",
+          "selected_school": "학교 선택"
+        },
+        "description": "학교명으로 검색한 후 검색 결과에서 정확한 학교를 선택하세요.",
+        "data_description": {
+          "school_search": "이름이 비슷한 학교와 구분할 수 있도록 학교명을 입력하세요.",
+          "selected_school": "학교명과 주소를 확인하여 정확한 학교를 선택하세요."
+        }
+      },
+      "school_class": {
+        "title": "학년/반 선택",
+        "data": {
+          "grade_classes": "학년-반"
+        },
+        "description": "시간표를 모니터링할 모든 학년과 반을 선택하세요.",
+        "data_description": {
+          "grade_classes": "학년-반 조합을 하나 이상 선택하세요."
+        }
+      },
+      "school_periods": {
+        "title": "교시 설정",
+        "data": {
+          "period_1": "1교시",
+          "period_2": "2교시",
+          "period_3": "3교시",
+          "period_4": "4교시",
+          "period_5": "5교시",
+          "period_6": "6교시",
+          "period_7": "7교시",
+          "lunch_start": "점심 시작",
+          "lunch_end": "점심 종료"
+        },
+        "description": "각 교시와 점심시간을 설정하세요. 교시는 24시간제 HH:MM-HH:MM 형식으로 입력합니다.",
+        "data_description": {
+          "period_1": "1교시 시작과 종료 시각입니다. HH:MM-HH:MM 형식으로 입력하세요.",
+          "period_2": "2교시 시작과 종료 시각입니다. HH:MM-HH:MM 형식으로 입력하세요.",
+          "period_3": "3교시 시작과 종료 시각입니다. HH:MM-HH:MM 형식으로 입력하세요.",
+          "period_4": "4교시 시작과 종료 시각입니다. HH:MM-HH:MM 형식으로 입력하세요.",
+          "period_5": "5교시 시작과 종료 시각입니다. HH:MM-HH:MM 형식으로 입력하세요.",
+          "period_6": "6교시 시작과 종료 시각입니다. HH:MM-HH:MM 형식으로 입력하세요.",
+          "period_7": "7교시 시작과 종료 시각입니다. HH:MM-HH:MM 형식으로 입력하세요.",
+          "lunch_start": "점심시간 시작 시각입니다. HH:MM 형식으로 입력하세요.",
+          "lunch_end": "점심시간 종료 시각입니다. HH:MM 형식으로 입력하세요."
         }
       },
       "disaster": {
-        "title": "재난 정보 설정",
+        "title": "재난 정보",
         "data": {
-          "api_key": "공공데이터 API 인증키"
+          "api_key": "공공데이터 API 인증키",
+          "region_filter": "지역",
+          "sub_region": "세부 지역(선택)"
+        },
+        "description": "선택적인 지역 필터와 함께 전국 재난 문자를 설정합니다.",
+        "data_description": {
+          "api_key": "국민재난안전포털 API용으로 발급한 서비스키입니다.",
+          "region_filter": "선택적인 시도 단위 필터입니다. 전국 문자를 받으려면 전체를 선택하세요.",
+          "sub_region": "선택적인 시군구 또는 세부 지역 문자열입니다. 입력하면 지역 선택보다 우선합니다."
         }
       },
       "pharmacy": {
-        "title": "약국 정보 설정",
+        "title": "약국 정보",
         "data": {
           "api_key": "공공데이터 API 인증키",
-          "latitude": "기준 위도",
-          "longitude": "기준 경도",
-          "radius": "검색 반경 (m)"
+          "q0": "시도",
+          "q1": "시군구(선택)"
+        },
+        "description": "시도와 선택적인 시군구를 기준으로 약국 정보를 설정합니다.",
+        "data_description": {
+          "api_key": "공공데이터포털 약국정보 API에서 발급한 서비스키입니다.",
+          "q0": "검색할 시도 또는 광역시입니다.",
+          "q1": "검색 결과를 좁힐 선택적인 시군구명입니다."
         }
       },
       "airkorea": {
-        "title": "에어코리아 설정",
+        "title": "에어코리아 - 시도",
         "data": {
           "api_key": "공공데이터 API 인증키",
-          "sido": "시도 선택",
-          "living_api_key": "생활기상지수용 API 키 (비워두면 동일)"
+          "sido": "시도",
+          "living_api_key": "생활기상지수 API 키(비우면 동일 키 사용)"
+        },
+        "description": "시도 또는 광역시의 대기질 측정 정보를 설정합니다.",
+        "data_description": {
+          "api_key": "공공데이터포털 에어코리아 API에서 발급한 서비스키입니다.",
+          "sido": "대기질 측정소가 위치한 시도 또는 광역시입니다.",
+          "living_api_key": "생활기상지수에 사용할 별도 인증키입니다. 비워두면 에어코리아 인증키를 재사용합니다."
         }
       },
       "airkorea_select": {
         "title": "측정소 선택",
         "data": {
-          "stations": "모니터링할 측정소 목록"
+          "stations": "측정소"
+        },
+        "description": "센서를 생성할 에어코리아 측정소를 하나 이상 선택하세요.",
+        "data_description": {
+          "stations": "대기질 값을 센서로 생성할 측정소입니다."
         }
       },
       "kma_weather": {
-        "title": "기상청 날씨 설정",
+        "title": "기상청 날씨 - 시도",
         "data": {
           "api_key": "공공데이터 API 인증키",
-          "sido": "시도 선택"
+          "sido": "시도"
+        },
+        "description": "상세 예보 지역을 선택하기 전에 시도 또는 광역시를 선택하세요.",
+        "data_description": {
+          "api_key": "공공데이터포털 기상청 단기예보 API에서 발급한 서비스키입니다.",
+          "sido": "날씨를 조회할 시군구가 포함된 시도 또는 광역시입니다."
         }
       },
       "kma_weather_sgg": {
         "title": "상세 지역 선택",
         "data": {
-          "regions": "날씨를 조회할 지역(시군구) 선택",
-          "air_station": "대기질 측정소 (O₃/UV 정보용)"
+          "regions": "시군구",
+          "air_station": "대기질 측정소(O₃/UV)"
+        },
+        "description": "예보 지역을 선택하고 필요한 경우 오존 및 자외선 관련 정보에 사용할 대기질 측정소를 지정하세요.",
+        "data_description": {
+          "regions": "날씨 엔티티를 생성할 시군구를 하나 이상 선택하세요.",
+          "air_station": "오존 및 자외선 관련 값에 사용할 선택적인 측정소입니다. 필요하지 않으면 사용 안 함을 선택하세요."
         }
       },
       "earthquake": {
-        "title": "지진 정보 설정",
+        "title": "지진 정보",
         "data": {
           "api_key": "공공데이터 API 인증키",
-          "latitude": "기준 위도",
-          "longitude": "기준 경도",
-          "radius_km": "감시 반경 (km)",
-          "min_magnitude": "최소 감시 규모"
+          "latitude": "위도",
+          "longitude": "경도",
+          "radius_km": "반경(km)",
+          "min_magnitude": "최소 규모"
+        },
+        "description": "기준 위치, 감시 반경과 최소 규모를 사용하여 지진 감시를 설정합니다.",
+        "data_description": {
+          "api_key": "공공데이터포털 기상청 지진 API에서 발급한 서비스키입니다.",
+          "latitude": "십진수 형식의 기준 위도입니다.",
+          "longitude": "십진수 형식의 기준 경도입니다.",
+          "radius_km": "기준 위치에서 감시할 최대 거리(km)입니다.",
+          "min_magnitude": "감시에 포함할 최소 지진 규모입니다."
         }
       }
     },
     "error": {
       "auth": "인증에 실패했습니다. ({error})",
-      "invalid_auth": "사용자명 또는 비밀번호가 잘못되었습니다. ({error})",
+      "invalid_auth": "인증 정보가 올바르지 않습니다. ({error})",
       "cannot_connect": "서버에 연결할 수 없습니다. ({error})",
       "unknown": "알 수 없는 오류가 발생했습니다. ({error})",
-      "invalid_coordinates": "잘못된 좌표입니다.",
-      "invalid_wgs84_coordinates": "유효하지 않은 WGS84 좌표입니다. (경도: 124-132, 위도: 33-39)",
-      "invalid_wcongnamul_coordinates": "유효하지 않은 WCONGNAMUL 좌표입니다.",
-      "no_regions_available": "사용 가능한 지역이 없습니다.",
+      "invalid_coordinates": "좌표가 올바르지 않습니다. ({error})",
+      "invalid_wgs84_coordinates": "WGS84 좌표가 올바르지 않습니다(경도: 124–132, 위도: 33–39). ({error})",
+      "invalid_wcongnamul_coordinates": "WCONGNAMUL 좌표가 올바르지 않습니다. ({error})",
+      "no_regions_available": "사용 가능한 지역이 없습니다. ({error})",
       "no_sgg_available": "선택한 시도에 사용 가능한 시군구가 없습니다.",
       "no_emd_available": "선택한 시군구에 사용 가능한 읍면동이 없습니다.",
-      "invalid_api_key": "잘못된 API 인증키입니다.",
+      "invalid_api_key": "API 인증키가 올바르지 않습니다. ({error})",
       "no_schools_found": "검색 결과에 해당하는 학교가 없습니다.",
-      "no_selection": "최소 하나 이상의 항목을 선택해야 합니다.",
-      "no_stops_found": "정류소 정보를 찾을 수 없습니다.",
+      "no_selection": "최소 하나 이상의 항목을 선택하세요.",
+      "no_stops_found": "버스 정류소를 찾을 수 없습니다.",
       "no_stations_found": "측정소 정보를 찾을 수 없습니다.",
       "invalid_phone_number": "10자리 또는 11자리의 올바른 휴대폰 번호를 입력하세요.",
       "invalid_verification_code": "인증번호가 올바르지 않거나 만료되었습니다. ({error})"
     },
     "abort": {
-      "already_configured": "이 계정은 이미 설정되어 있습니다.",
+      "already_configured": "이 계정 또는 서비스는 이미 설정되어 있습니다.",
       "invalid_auth": "인증 세션이 만료되었습니다. 설정을 다시 시작하세요."
     }
   },
@@ -248,20 +419,72 @@
     "step": {
       "init": {
         "title": "옵션",
-        "description": "CJ대한통운 배송조회 주기를 변경할 수 있습니다.",
+        "description": "이 서비스에서 제공하는 설정을 변경합니다. 선택한 서비스에서 지원하는 필드만 표시됩니다.",
         "data": {
+          "api_key": "공공데이터 API 인증키",
+          "area_codes": "지역",
           "scan_interval_minutes": "조회 주기(분)"
+        },
+        "data_description": {
+          "api_key": "기상특보 요청에 사용할 공공데이터포털 서비스키입니다.",
+          "area_codes": "기상특보를 모니터링할 지역입니다.",
+          "scan_interval_minutes": "3분에서 30분 사이의 CJ O-NE 조회 주기입니다."
         }
       }
     },
     "abort": {
-      "no_options": "구성 옵션이 없습니다.",
-      "no_options_kepco": "한전에 대한 구성 옵션이 없습니다.",
-      "no_options_gasapp": "가스앱에 대한 구성 옵션이 없습니다.",
-      "no_options_safety_alert": "안전알림에 대한 구성 옵션이 없습니다.",
-      "no_options_goodsflow": "굿스플로우에 대한 구성 옵션이 없습니다.",
-      "no_options_arisu": "아리수에 대한 구성 옵션이 없습니다.",
-      "no_options_kakaomap": "카카오맵에 대한 구성 옵션이 없습니다."
+      "no_options": "변경할 수 있는 옵션이 없습니다.",
+      "no_options_transit": "대중교통에는 변경할 수 있는 옵션이 없습니다.",
+      "no_options_fuel": "유가 정보에는 변경할 수 있는 옵션이 없습니다.",
+      "no_options_school": "학교 정보에는 변경할 수 있는 옵션이 없습니다.",
+      "no_options_disaster": "재난 정보에는 변경할 수 있는 옵션이 없습니다.",
+      "no_options_safety_alert": "안전알림에는 변경할 수 있는 옵션이 없습니다.",
+      "no_options_kepco": "한전에는 변경할 수 있는 옵션이 없습니다.",
+      "no_options_gasapp": "가스앱에는 변경할 수 있는 옵션이 없습니다.",
+      "no_options_arisu": "아리수에는 변경할 수 있는 옵션이 없습니다.",
+      "no_options_pharmacy": "약국 정보에는 변경할 수 있는 옵션이 없습니다.",
+      "no_options_airkorea": "에어코리아에는 변경할 수 있는 옵션이 없습니다.",
+      "no_options_kma_weather": "기상청 날씨에는 변경할 수 있는 옵션이 없습니다.",
+      "no_options_earthquake": "지진 정보에는 변경할 수 있는 옵션이 없습니다.",
+      "no_options_goodsflow": "굿스플로우에는 변경할 수 있는 옵션이 없습니다.",
+      "no_options_kakaomap": "카카오맵에는 변경할 수 있는 옵션이 없습니다."
+    }
+  },
+  "entity": {
+    "event": {
+      "weather_warning": {
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "advisory": "주의보",
+              "warning": "경보",
+              "pre_advisory": "주의보 예고",
+              "pre_warning": "경보 예고",
+              "cancelled": "해제",
+              "none": "없음"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "school_lunch": {
+        "name": "급식"
+      },
+      "school_info": {
+        "name": "학교 정보"
+      },
+      "disaster_message": {
+        "name": "재난 알림"
+      }
+    },
+    "calendar": {
+      "school_academic": {
+        "name": "학사 일정"
+      },
+      "school_class": {
+        "name": "시간표"
+      }
     }
   }
 }
