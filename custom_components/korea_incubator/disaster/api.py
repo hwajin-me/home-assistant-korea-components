@@ -51,6 +51,14 @@ async def validate_disaster_api(api_key: str) -> bool:
 def _parse_payload(text: str) -> list[dict[str, Any]]:
     try:
         root = ET.fromstring(text)
+        result_code = (root.findtext(".//resultCode") or "").strip()
+        if result_code and result_code not in ("0", "00"):
+            result_message = (
+                root.findtext(".//errorMsg")
+                or root.findtext(".//resultMsg")
+                or "Disaster API request failed"
+            )
+            raise ValueError(f"{result_message} (code {result_code})")
         return [
             {
                 "message": item.findtext("MSG_CN", ""),
@@ -64,7 +72,21 @@ def _parse_payload(text: str) -> list[dict[str, Any]]:
     except ET.ParseError:
         pass
     data = json.loads(text)
-    body = data.get("body", [])
+    header = data.get("header") or {}
+    result_code = str(header.get("resultCode", "")).strip()
+    if result_code and result_code not in ("0", "00"):
+        result_message = (
+            header.get("errorMsg")
+            or header.get("resultMsg")
+            or "Disaster API request failed"
+        )
+        raise ValueError(f"{result_message} (code {result_code})")
+
+    body = data.get("body") or []
+    if isinstance(body, dict):
+        body = body.get("items", body.get("item", []))
+    if isinstance(body, dict):
+        body = [body]
     return [
         {
             "message": i.get("MSG_CN", ""),
@@ -85,6 +107,7 @@ async def _fetch_with_profile(profile: str, params: dict[str, str]) -> str:
             headers=_BROWSER_HEADERS,
             timeout=_TIMEOUT,
         )
+        r.raise_for_status()
         return r.text
 
 
@@ -106,6 +129,10 @@ async def fetch_disaster_messages(api_key: str, count: int = 30) -> list[dict[st
                 _LOGGER.info("Disaster API: using impersonation profile %s", profile)
                 _working_profile = profile
             return _parse_payload(text)
+        except ValueError:
+            # A valid API error response cannot be fixed by changing the TLS
+            # fingerprint, so surface it immediately (not as a connection error).
+            raise
         except Exception as err:  # noqa: BLE001 — curl_cffi raises plain Exception subclasses
             last_err = err
             _LOGGER.debug(

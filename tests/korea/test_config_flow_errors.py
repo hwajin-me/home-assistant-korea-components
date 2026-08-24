@@ -32,6 +32,30 @@ async def test_weather_warning_shows_api_error_detail() -> None:
 
 
 @pytest.mark.asyncio
+async def test_disaster_shows_expired_key_detail() -> None:
+    """An expired disaster key must be reported as an API-key error."""
+    flow = KoreaConfigFlow()
+
+    with patch(
+        "custom_components.korea_incubator.disaster.api.validate_disaster_api",
+        AsyncMock(side_effect=ValueError("기한만료된 서비스키 (code 31)")),
+    ):
+        result = await flow.async_step_disaster(
+            {
+                "api_key": "expired-key",
+                "region_filter": "서울",
+                "sub_region": "서울 용산구",
+            }
+        )
+
+    assert result["type"] == "form"
+    assert result["errors"] == {"base": "invalid_api_key"}
+    assert result["description_placeholders"] == {
+        "error": "기한만료된 서비스키 (code 31)"
+    }
+
+
+@pytest.mark.asyncio
 async def test_goodsflow_auth_error_shows_api_error_detail() -> None:
     """GoodsFlow setup must preserve the API authentication response."""
     flow = KoreaConfigFlow()

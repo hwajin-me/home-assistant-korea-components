@@ -50,8 +50,11 @@ async def async_setup_entry(
         await async_setup_cj_sensors(hass, entry, async_add_entities)
         return
 
-    coordinator: DataUpdateCoordinator = data["coordinator"]
-    device: DeviceType = data["device"]
+    # Platform-native services do not store a legacy Device object, and transit
+    # has multiple coordinators rather than one shared coordinator.
+    coordinator: DataUpdateCoordinator = data.get("coordinator")
+    device: DeviceType = data.get("device")
+    entities = []
 
     if service == "kepco":
         entities = [
@@ -295,6 +298,16 @@ async def async_setup_entry(
 
     elif service == "safety_alert":
         entities = [
+            KoreaSensor(
+                coordinator,
+                device,
+                "metadata",
+                "count",
+                "총 안전알림 수",
+                None,
+                "개",
+                SensorStateClass.MEASUREMENT,
+            ),
             KoreaSensor(
                 coordinator,
                 device,
@@ -948,15 +961,29 @@ async def async_setup_entry(
     elif service == "transit":
         from .transit.sensor import SubwayArrivalSensor, BusArrivalSensor
         from .transit.device import subway_device, bus_stop_device
+
         for station, coord in data.get("subway_coords", {}).items():
             for item in data.get("subway_items", []):
-                if item["station"] != station: continue
-                di = subway_device(item["station"], item["direction"], item.get("line_id",""))
+                if item["station"] != station:
+                    continue
+                di = subway_device(
+                    item["station"], item["direction"], item.get("line_id", "")
+                )
                 for idx in range(2):
-                    entities.append(SubwayArrivalSensor(coord, item["station"], item["direction"], item.get("line_id",""), idx, di))
+                    entities.append(
+                        SubwayArrivalSensor(
+                            coord,
+                            item["station"],
+                            item["direction"],
+                            item.get("line_id", ""),
+                            idx,
+                            di,
+                        )
+                    )
         for stop in data.get("bus_stops", []):
             coord = data.get("bus_coords", {}).get(stop["stop_id"])
-            if not coord: continue
+            if not coord:
+                continue
             di = bus_stop_device(stop["stop_id"], stop["stop_name"])
             for bus_name in stop.get("buses", []):
                 for idx in range(2):
@@ -965,16 +992,22 @@ async def async_setup_entry(
 
     elif service == "fuel":
         from .fuel.sensor import FuelAvgSensor, FuelLowSensor
+
         c = data["coordinator"]
         for cfg in data.get("configs", []):
-            entities += [FuelAvgSensor(c, cfg["sido_code"], cfg["fuel_code"]),
-                         FuelLowSensor(c, cfg["sido_code"], cfg["fuel_code"])]
+            entities += [
+                FuelAvgSensor(c, cfg["sido_code"], cfg["fuel_code"]),
+                FuelLowSensor(c, cfg["sido_code"], cfg["fuel_code"]),
+            ]
         async_add_entities(entities)
 
     elif service == "school":
         from .school.sensor import SchoolLunchSensor, SchoolInfoSensor
-        entities = [SchoolLunchSensor(data["coordinator"], entry),
-                    SchoolInfoSensor(data["coordinator"], entry)]
+
+        entities = [
+            SchoolLunchSensor(data["coordinator"], entry),
+            SchoolInfoSensor(data["coordinator"], entry),
+        ]
         async_add_entities(entities)
 
     elif service == "disaster":
@@ -986,11 +1019,22 @@ async def async_setup_entry(
 
     elif service == "pharmacy":
         from .pharmacy.sensor import PharmacySensor
-        entities = [PharmacySensor(data["coordinator"], entry.data["q0"], entry.data.get("q1",""))]
+
+        entities = [
+            PharmacySensor(
+                data["coordinator"], entry.data["q0"], entry.data.get("q1", "")
+            )
+        ]
         async_add_entities(entities)
 
     elif service == "airkorea":
-        from .airkorea.sensor import AirQualitySensor, POLLUTANTS, UVIndexSensor, AirStagnationSensor
+        from .airkorea.sensor import (
+            POLLUTANTS,
+            AirQualitySensor,
+            AirStagnationSensor,
+            UVIndexSensor,
+        )
+
         c = data["coordinator"]
         for st in data.get("stations", []):
             name = st["stationName"]
@@ -999,6 +1043,7 @@ async def async_setup_entry(
             entities.append(UVIndexSensor(c, name))
             entities.append(AirStagnationSensor(c, name))
         async_add_entities(entities)
+
 
 class KoreaSensor(CoordinatorEntity, SensorEntity):
     """Generic Korea sensor using unified data access pattern."""

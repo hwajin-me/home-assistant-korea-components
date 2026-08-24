@@ -1,11 +1,9 @@
 """Integration tests for Korea sensors with all services."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
+from unittest.mock import MagicMock
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from custom_components.korea_incubator.sensor import async_setup_entry, KoreaSensor
 from custom_components.korea_incubator.const import DOMAIN
@@ -17,7 +15,7 @@ class TestSensorIntegration:
     @pytest.fixture
     def mock_add_entities(self):
         """Create mock async_add_entities function."""
-        return AsyncMock()
+        return MagicMock()
 
     @pytest.mark.asyncio
     async def test_setup_kepco_sensors(
@@ -199,6 +197,95 @@ class TestSensorIntegration:
         assert "출발지 주소" in sensor_names
         assert "도착지 주소" in sensor_names
         assert "추천 경로 소요시간" in sensor_names
+
+    @pytest.mark.asyncio
+    async def test_setup_disaster_sensors_without_legacy_device(
+        self, mock_hass, mock_coordinator
+    ):
+        """Coordinator-only services must not require a Device object."""
+        entry = MagicMock()
+        entry.entry_id = "test_disaster_entry"
+        entry.data = {"service": "disaster"}
+        mock_coordinator.data = []
+        mock_hass.data[DOMAIN] = {
+            entry.entry_id: {
+                "coordinator": mock_coordinator,
+                "region": "서울 용산구",
+            }
+        }
+        add_entities = MagicMock()
+
+        await async_setup_entry(mock_hass, entry, add_entities)
+
+        entities = add_entities.call_args[0][0]
+        assert [entity._attr_name for entity in entities] == [
+            "최신 재난문자",
+            "재난문자 수",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_setup_transit_sensors_without_shared_coordinator(
+        self, mock_hass
+    ):
+        """Transit stores per-station coordinators instead of a shared one."""
+        entry = MagicMock()
+        entry.entry_id = "test_transit_entry"
+        entry.data = {"service": "transit"}
+        mock_hass.data[DOMAIN] = {
+            entry.entry_id: {
+                "subway_coords": {},
+                "bus_coords": {},
+                "subway_items": [],
+                "bus_stops": [],
+            }
+        }
+        add_entities = MagicMock()
+
+        await async_setup_entry(mock_hass, entry, add_entities)
+
+        add_entities.assert_called_once_with([])
+
+    @pytest.mark.asyncio
+    async def test_setup_airkorea_sensors_initializes_entity_list(
+        self, mock_hass, mock_coordinator
+    ):
+        """AirKorea appends sensors to a list that must exist for its branch."""
+        entry = MagicMock()
+        entry.entry_id = "test_airkorea_entry"
+        entry.data = {"service": "airkorea"}
+        mock_hass.data[DOMAIN] = {
+            entry.entry_id: {
+                "coordinator": mock_coordinator,
+                "stations": [{"stationName": "용산구"}],
+            }
+        }
+        add_entities = MagicMock()
+
+        await async_setup_entry(mock_hass, entry, add_entities)
+
+        entities = add_entities.call_args[0][0]
+        assert len(entities) == 9
+
+    @pytest.mark.asyncio
+    async def test_setup_fuel_sensors_initializes_entity_list(
+        self, mock_hass, mock_coordinator
+    ):
+        """Fuel entities can be appended without a legacy service branch."""
+        entry = MagicMock()
+        entry.entry_id = "test_fuel_entry"
+        entry.data = {"service": "fuel"}
+        mock_hass.data[DOMAIN] = {
+            entry.entry_id: {
+                "coordinator": mock_coordinator,
+                "configs": [{"sido_code": "01", "fuel_code": "B027"}],
+            }
+        }
+        add_entities = MagicMock()
+
+        await async_setup_entry(mock_hass, entry, add_entities)
+
+        entities = add_entities.call_args[0][0]
+        assert len(entities) == 2
 
 
 class TestKoreaSensorEntity:

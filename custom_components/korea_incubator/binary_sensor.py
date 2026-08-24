@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime
 from typing import Dict, Any, Optional, Union, Mapping
-from collections.abc import Callable
 
 import pytz
 from homeassistant.components.binary_sensor import (
@@ -45,13 +44,13 @@ async def async_setup_entry(
 ) -> None:
     """Set up Korea binary sensors from a config entry."""
     data: Dict[str, Any] = hass.data[DOMAIN][entry.entry_id]
-    coordinator: DataUpdateCoordinator = data["coordinator"]
-    device: DeviceType = data["device"]
     service: str = entry.data.get("service")
 
     entities = []
 
     if service == "safety_alert":
+        coordinator: DataUpdateCoordinator = data["coordinator"]
+        device: DeviceType = data["device"]
         entities.append(
             SafetyAlertSensor(
                 coordinator=coordinator,
@@ -69,11 +68,13 @@ async def async_setup_entry(
         return
 
     elif service == "airkorea":
-        from .airkorea.sensor import AirGradeBinarySensor
+        from .airkorea.sensor import AirAlertBinarySensor
         store = hass.data[DOMAIN][entry.entry_id]
         c = store["coordinator"]
         for st in store.get("stations", []):
-            entities.append(AirGradeBinarySensor(c, st["stationName"]))
+            entities.append(
+                AirAlertBinarySensor(c, st["stationName"], entry.data.get("sido", ""))
+            )
 
     if entities:
         async_add_entities(entities)
