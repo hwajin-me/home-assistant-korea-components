@@ -27,13 +27,21 @@ class GasAppApiClient:
         self._token = None
         self._member_id = None
         self._use_contract_num = None
+        self._company_id = "1"
         self._base_url = "https://app.gasapp.co.kr/api"
 
-    def set_credentials(self, token: str, member_id: str, use_contract_num: str):
+    def set_credentials(
+        self,
+        token: str,
+        member_id: str,
+        use_contract_num: str,
+        company_id: str = "1",
+    ):
         """Set authentication credentials."""
         self._token = token
         self._member_id = member_id
         self._use_contract_num = use_contract_num
+        self._company_id = company_id
 
     def _get_headers(self) -> Dict[str, str]:
         """Get request headers with authentication."""
@@ -43,7 +51,7 @@ class GasAppApiClient:
         return {
             "X-Token": self._token,
             "X-Member": self._member_id,
-            "X-Company": "1",
+            "X-Company": self._company_id,
             "X-Version": "4.2.5.24144",
             "Host": "app.gasapp.co.kr",
             "Connection": "close",

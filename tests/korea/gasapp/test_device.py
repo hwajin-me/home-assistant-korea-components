@@ -33,6 +33,7 @@ class TestGasAppDeviceMock:
             "test_member",
             "test_contract",
             session,
+            company_id="6",
         )
         device.api_client = mock_api_client
         yield device
@@ -43,6 +44,7 @@ class TestGasAppDeviceMock:
         assert gasapp_device.unique_id == "gasapp_test_contract"
         assert gasapp_device._name == "가스앱 (test_contract)"
         assert gasapp_device.available is True
+        assert gasapp_device.company_id == "6"
 
         device_info = gasapp_device.device_info
         assert device_info["name"] == "가스앱 (test_contract)"
@@ -222,10 +224,6 @@ class TestGasAppDeviceIntegration:
         )
 
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not pytest.config.getoption("--integration", default=False),
-        reason="Integration tests disabled",
-    )
     async def test_real_device_update_auth_failure(self, real_gasapp_device):
         """Test real device update with invalid credentials."""
         with pytest.raises(UpdateFailed):

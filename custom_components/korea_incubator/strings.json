@@ -40,12 +40,14 @@
         "data": {
           "token": "Token",
           "member_id": "Member ID",
+          "company_id": "Gas Company ID",
           "use_contract_num": "Use Contract Number"
         },
         "description": "Enter the account values from an authenticated GasApp session to retrieve gas usage and billing data.",
         "data_description": {
           "token": "The X-Token value from an authenticated GasApp API session.",
           "member_id": "The X-Member value identifying the GasApp member.",
+          "company_id": "The X-Company value for the gas company associated with the contract.",
           "use_contract_num": "The gas use-contract number associated with the account."
         }
       },

@@ -271,6 +271,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     user_input["token"],
                     user_input["member_id"],
                     user_input["use_contract_num"],
+                    company_id=user_input["company_id"],
                 )
                 try:
                     if await client.async_get_home_data() is not None:
@@ -317,6 +318,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required("token"): str,
                     vol.Required("member_id"): str,
+                    vol.Required("company_id", default="1"): str,
                     vol.Required("use_contract_num"): str,
                 }
             ),

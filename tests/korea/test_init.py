@@ -58,19 +58,78 @@ class TestKoreaIntegrationSetup:
     @pytest.mark.asyncio
     async def test_setup_gasapp_success(self, mock_hass, mock_entry_gasapp):
         """Test successful GasApp setup."""
-        with patch(
-            "custom_components.korea_incubator.GasAppDevice"
-        ) as mock_device_class:
+        with (
+            patch(
+                "custom_components.korea_incubator.GasAppDevice"
+            ) as mock_device_class,
+            patch(
+                "custom_components.korea_incubator.DataUpdateCoordinator"
+            ) as mock_coordinator_class,
+            patch(
+                "custom_components.korea_incubator.async_setup_llm_api",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(
+                mock_hass.config_entries,
+                "async_forward_entry_setups",
+                AsyncMock(),
+            ),
+        ):
             mock_device = AsyncMock()
             mock_device.async_update = AsyncMock()
             mock_device.async_close_session = AsyncMock()
             mock_device_class.return_value = mock_device
+            mock_coordinator = MagicMock()
+            mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+            mock_coordinator_class.return_value = mock_coordinator
 
             result = await async_setup_entry(mock_hass, mock_entry_gasapp)
 
             assert result is True
+            assert mock_device_class.call_args.kwargs["company_id"] == "6"
             assert DOMAIN in mock_hass.data
             assert mock_entry_gasapp.entry_id in mock_hass.data[DOMAIN]
+
+    @pytest.mark.asyncio
+    async def test_setup_gasapp_defaults_company_for_existing_entry(
+        self, mock_hass, mock_entry_gasapp
+    ):
+        """Existing GasApp entries without company_id must keep using company 1."""
+        mock_entry_gasapp.data = {
+            key: value
+            for key, value in mock_entry_gasapp.data.items()
+            if key != "company_id"
+        }
+
+        with (
+            patch(
+                "custom_components.korea_incubator.GasAppDevice"
+            ) as mock_device_class,
+            patch(
+                "custom_components.korea_incubator.DataUpdateCoordinator"
+            ) as mock_coordinator_class,
+            patch(
+                "custom_components.korea_incubator.async_setup_llm_api",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(
+                mock_hass.config_entries,
+                "async_forward_entry_setups",
+                AsyncMock(),
+            ),
+        ):
+            mock_device = AsyncMock()
+            mock_device.async_update = AsyncMock()
+            mock_device.async_close_session = AsyncMock()
+            mock_device_class.return_value = mock_device
+            mock_coordinator = MagicMock()
+            mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+            mock_coordinator_class.return_value = mock_coordinator
+
+            result = await async_setup_entry(mock_hass, mock_entry_gasapp)
+
+        assert result is True
+        assert mock_device_class.call_args.kwargs["company_id"] == "1"
 
     @pytest.mark.asyncio
     async def test_setup_safety_alert_success(self, mock_hass, mock_entry_safety_alert):

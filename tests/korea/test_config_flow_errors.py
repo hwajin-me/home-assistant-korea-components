@@ -86,6 +86,42 @@ async def test_goodsflow_auth_error_shows_api_error_detail() -> None:
     }
 
 
+@pytest.mark.asyncio
+async def test_gasapp_config_forwards_company_id() -> None:
+    """GasApp setup must use the configured X-Company value."""
+    flow = KoreaConfigFlow()
+    session_context = MagicMock()
+    session_context.__aenter__ = AsyncMock(return_value=MagicMock())
+    session_context.__aexit__ = AsyncMock(return_value=None)
+    client = MagicMock()
+    client.async_get_home_data = AsyncMock(
+        side_effect=GasAppAuthError("Authentication failed")
+    )
+
+    with (
+        patch(
+            "custom_components.korea_incubator.config_flow.aiohttp.ClientSession",
+            return_value=session_context,
+        ),
+        patch(
+            "custom_components.korea_incubator.config_flow.GasAppApiClient",
+            return_value=client,
+        ),
+    ):
+        await flow.async_step_gasapp(
+            {
+                "token": "token",
+                "member_id": "member",
+                "company_id": "6",
+                "use_contract_num": "contract",
+            }
+        )
+
+    client.set_credentials.assert_called_once_with(
+        "token", "member", "contract", company_id="6"
+    )
+
+
 def test_config_flow_error_is_limited_for_ui() -> None:
     """Unexpectedly large API bodies must not flood the config-flow UI."""
     from custom_components.korea_incubator.config_flow import _flow_error_message

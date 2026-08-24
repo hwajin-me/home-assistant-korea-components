@@ -27,6 +27,8 @@ class SafetyAlertDevice:
         area_code2: Optional[str] = None,
         area_code3: Optional[str] = None,
         session: aiohttp.ClientSession = None,  # __init__.py에서 항상 전달됨
+        area_name2: Optional[str] = None,
+        area_name3: Optional[str] = None,
     ) -> None:
         """Initialize Safety Alert device."""
         self.hass: HomeAssistant = hass
@@ -35,11 +37,24 @@ class SafetyAlertDevice:
         self.area_name: str = area_name
         self.area_code2: Optional[str] = area_code2
         self.area_code3: Optional[str] = area_code3
+        self.area_name2: Optional[str] = area_name2
+        self.area_name3: Optional[str] = area_name3
         self.session: aiohttp.ClientSession = session  # 타입 힌트 수정
         self.api_client: SafetyAlertApiClient = SafetyAlertApiClient(self.session)
 
         self._name: str = f"안전알림 ({area_name})"
-        self._unique_id: str = f"safety_alert_{area_code}"
+        # A single config entry represents one selected administrative region.
+        # The previous ID used only the sido code, so every sgg/emd below the
+        # same sido produced identical entity and device IDs. Prefer numeric
+        # region codes and retain names as a fallback for manual region input.
+        region_identifiers = [
+            area_code,
+            area_code2 or area_name2,
+            area_code3 or area_name3,
+        ]
+        self._unique_id = "safety_alert_" + "_".join(
+            identifier for identifier in region_identifiers if identifier
+        )
         self._available: bool = True
         self.data: Dict[str, Any] = {
             "has_data": False,

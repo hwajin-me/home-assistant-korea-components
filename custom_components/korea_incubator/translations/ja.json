@@ -33,6 +33,7 @@
         "data": {
           "token": "トークン",
           "member_id": "会員ID",
+          "company_id": "都市ガス会社コード",
           "use_contract_num": "使用契約番号"
         }
       },

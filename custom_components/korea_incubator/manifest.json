@@ -20,5 +20,5 @@
     "pycryptodome==3.20.0",
     "voluptuous>=0.15.2"
   ],
-  "version": "1.2.5"
+  "version": "1.2.6"
 }

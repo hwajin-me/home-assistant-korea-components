@@ -46,6 +46,7 @@ from .kepco.device import KepcoDevice
 from .kepco.exceptions import KepcoAuthError
 from .safety_alert.device import SafetyAlertDevice
 from .safety_alert.exceptions import SafetyAlertConnectionError, SafetyAlertDataError
+from .safety_alert.migration import migrate_region_unique_ids
 
 # Device type union for type hints
 DeviceType = Union[
@@ -131,6 +132,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry.data.get("member_id"),
             entry.data.get("use_contract_num"),
             aiohttp.ClientSession(),
+            company_id=entry.data.get("company_id", "1"),
         )
         try:
             await device.async_update()
@@ -164,6 +166,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry.data.get("area_code2"),
             entry.data.get("area_code3"),
             aiohttp.ClientSession(),
+            entry.data.get("area_name2"),
+            entry.data.get("area_name3"),
         )
         try:
             await device.async_update()
@@ -521,6 +525,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "coordinator": coordinator,
         "device": device,
     }
+
+    if service == "safety_alert":
+        migrate_region_unique_ids(hass, entry, device)
 
     # Fetch initial data so we have data when entities are added
     await coordinator.async_config_entry_first_refresh()

@@ -23,15 +23,19 @@ class GasAppDevice:
         member_id: str,
         use_contract_num: str,
         session: aiohttp.ClientSession,
+        company_id: str = "1",
     ):
         self.hass = hass
         self.entry_id = entry_id
         self.token = token
         self.member_id = member_id
         self.use_contract_num = use_contract_num
+        self.company_id = company_id
         self.session = session
         self.api_client = GasAppApiClient(self.session)
-        self.api_client.set_credentials(token, member_id, use_contract_num)
+        self.api_client.set_credentials(
+            token, member_id, use_contract_num, company_id=company_id
+        )
 
         self._name = f"가스앱 ({use_contract_num})"
         self._unique_id = f"gasapp_{use_contract_num}"

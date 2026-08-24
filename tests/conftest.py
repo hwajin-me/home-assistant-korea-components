@@ -98,6 +98,7 @@ def gasapp_config_data():
         "service": "gasapp",
         "token": "test_token",
         "member_id": "test_member",
+        "company_id": "6",
         "use_contract_num": "test_contract",
     }
 

@@ -40,12 +40,14 @@
         "data": {
           "token": "토큰",
           "member_id": "회원 ID",
+          "company_id": "도시가스사 코드",
           "use_contract_num": "사용계약번호"
         },
         "description": "가스 사용량과 요금 정보를 조회할 가스앱 로그인 세션의 계정 값을 입력하세요.",
         "data_description": {
           "token": "로그인된 가스앱 API 세션의 X-Token 값입니다.",
           "member_id": "가스앱 회원을 식별하는 X-Member 값입니다.",
+          "company_id": "계약에 연결된 도시가스사의 X-Company 값입니다.",
           "use_contract_num": "계정에 연결된 가스 사용계약번호입니다."
         }
       },
