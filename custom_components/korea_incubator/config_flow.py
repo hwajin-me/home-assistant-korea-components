@@ -685,8 +685,20 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             async with aiohttp.ClientSession() as session:
-                client = KakaoMapApiClient(session)
+                client = KakaoMapApiClient(
+                    session,
+                    user_input.get("api_key"),
+                    user_input.get("web_cookie"),
+                )
                 try:
+                    if not user_input.get("api_key") and not user_input.get(
+                        "web_cookie"
+                    ):
+                        errors["base"] = "invalid_auth"
+                        error_info["error"] = (
+                            "Enter a Kakao REST API key or KakaoMap web cookie"
+                        )
+
                     # 좌표계 변환 처리
                     coord_system = user_input.get("coord_system", "WCONGNAMUL")
 
@@ -751,6 +763,14 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             start_coords["x"], start_coords["y"]
                         )
 
+                        # Validate the REST API key and route coordinates together.
+                        await client.async_get_public_transport_route(
+                            start_coords["x"],
+                            start_coords["y"],
+                            end_coords["x"],
+                            end_coords["y"],
+                        )
+
                         if start_address.get("success"):
                             unique_id = (
                                 f"kakaomap_{user_input['name'].replace(' ', '_')}"
@@ -792,6 +812,10 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required("name", default="집↔회사"): str,
+                    vol.Optional("api_key", default=""): str,
+                    vol.Optional("web_cookie", default=""): str,
+                    vol.Optional("start_id", default=""): str,
+                    vol.Optional("end_id", default=""): str,
                     vol.Required("coord_system", default="WCONGNAMUL"): vol.In(
                         ["WCONGNAMUL", "WGS84"]
                     ),
@@ -1479,7 +1503,7 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
                     step_id="init",
                     data_schema=vol.Schema(
                         {
-                            vol.Required(
+                            vol.Optional(
                                 "api_key",
                                 default=self._config_entry.data.get("api_key", ""),
                             ): str,
@@ -1493,6 +1517,30 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
                                     mode=SelectSelectorMode.DROPDOWN,
                                 )
                             ),
+                        }
+                    ),
+                )
+            if service == ENTRY_KAKAOMAP:
+                if user_input is not None:
+                    return self.async_create_entry(title="", data=user_input)
+                return self.async_show_form(
+                    step_id="kakaomap",
+                    data_schema=vol.Schema(
+                        {
+                            vol.Required(
+                                "api_key",
+                                default=self._config_entry.options.get(
+                                    "api_key",
+                                    self._config_entry.data.get("api_key", ""),
+                                ),
+                            ): str,
+                            vol.Optional(
+                                "web_cookie",
+                                default=self._config_entry.options.get(
+                                    "web_cookie",
+                                    self._config_entry.data.get("web_cookie", ""),
+                                ),
+                            ): str,
                         }
                     ),
                 )

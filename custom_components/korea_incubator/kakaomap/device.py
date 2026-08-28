@@ -23,6 +23,10 @@ class KakaoMapDevice:
         start_coords: Dict[str, float],
         end_coords: Dict[str, float],
         session: aiohttp.ClientSession,
+        api_key: str | None = None,
+        web_cookie: str | None = None,
+        start_id: str = "",
+        end_id: str = "",
     ):
         self.hass = hass
         self.entry_id = entry_id
@@ -30,7 +34,9 @@ class KakaoMapDevice:
         self.start_coords = start_coords  # {"x": float, "y": float}
         self.end_coords = end_coords  # {"x": float, "y": float}
         self.session = session
-        self.api_client = KakaoMapApiClient(self.session)
+        self.start_id = start_id
+        self.end_id = end_id
+        self.api_client = KakaoMapApiClient(self.session, api_key, web_cookie)
 
         self._name = f"카카오맵 ({name})"
         self._unique_id = f"kakaomap_{entry_id}"
@@ -75,6 +81,10 @@ class KakaoMapDevice:
                     self.start_coords["y"],
                     self.end_coords["x"],
                     self.end_coords["y"],
+                    start_name=start_address.get("address") or "출발",
+                    end_name=end_address.get("address") or "도착",
+                    start_id=self.start_id,
+                    end_id=self.end_id,
                 )
             )
 

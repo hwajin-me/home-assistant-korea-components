@@ -142,6 +142,10 @@
         "description": "Define a named route by entering its start and destination coordinates. Coordinates are validated before the entry is created.",
         "data": {
           "name": "Route Name",
+          "api_key": "Kakao REST API Key",
+          "web_cookie": "KakaoMap Web Cookie",
+          "start_id": "Start Place ID",
+          "end_id": "Destination Place ID",
           "coord_system": "Coordinate System",
           "start_x": "Start X Coordinate/Longitude",
           "start_y": "Start Y Coordinate/Latitude",
@@ -150,6 +154,10 @@
         },
         "data_description": {
           "name": "A recognizable name for this route, such as Home to Work.",
+          "api_key": "The REST API key from your Kakao Developers application.",
+          "web_cookie": "Cookie header copied from an anonymous map.kakao.com request. Use this when no REST API key is configured.",
+          "start_id": "Optional KakaoMap place or station ID used by the web route API.",
+          "end_id": "Optional KakaoMap place or station ID used by the web route API.",
           "coord_system": "WGS84 uses longitude and latitude; WCONGNAMUL uses KakaoMap X and Y coordinates.",
           "start_x": "Starting longitude for WGS84 or X coordinate for WCONGNAMUL.",
           "start_y": "Starting latitude for WGS84 or Y coordinate for WCONGNAMUL.",
@@ -431,6 +439,18 @@
           "api_key": "Public Data Portal service key used for weather-warning requests.",
           "area_codes": "Regions whose weather warnings should be monitored.",
           "scan_interval_minutes": "CJ O-NE refresh interval from 3 to 30 minutes."
+        }
+      },
+      "kakaomap": {
+        "title": "KakaoMap Options",
+        "description": "Enter either a REST API key or an anonymous KakaoMap web cookie.",
+        "data": {
+          "api_key": "Kakao REST API Key",
+          "web_cookie": "KakaoMap Web Cookie"
+        },
+        "data_description": {
+          "api_key": "The REST API key from your Kakao Developers application.",
+          "web_cookie": "Cookie header copied from a map.kakao.com route request. The captcha token is generated automatically."
         }
       }
     },

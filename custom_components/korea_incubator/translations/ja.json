@@ -80,6 +80,10 @@
         "description": "出発地と目的地を設定して交通情報を照会します。",
         "data": {
           "name": "ルート名",
+          "api_key": "Kakao REST APIキー",
+          "web_cookie": "KakaoMap Web Cookie",
+          "start_id": "出発地ID",
+          "end_id": "目的地ID",
           "coord_system": "座標系",
           "start_x": "出発地X座標/経度",
           "start_y": "出発地Y座標/緯度",

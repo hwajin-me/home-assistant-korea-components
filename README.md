@@ -107,6 +107,7 @@
 - **사용계약번호**: 가스 사용계약번호
 
 #### 🗺️ 카카오맵
+- **REST API 키 또는 웹 쿠키**: Kakao Developers REST API 키나 `map.kakao.com` 길찾기 요청의 Cookie 헤더 중 하나
 - **경로명**: 식별을 위한 경로 이름 (예: "집↔회사")
 - **좌표계**: WGS84 또는 WCONGNAMUL 선택
 - **출발지 좌표**: X(경도), Y(위도)

@@ -6,7 +6,7 @@ from typing import Any
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from . import DISASTER_SCAN_INTERVAL
-from .api import fetch_disaster_messages
+from .api import DisasterApiError, DisasterDailyLimitError, fetch_disaster_messages
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,19 +46,30 @@ def _matches_region(area: str, region_filter: str) -> bool:
     return _normalize_region(region_filter) in _normalize_region(area)
 
 
-class DisasterCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
+class DisasterCoordinator(DataUpdateCoordinator[list[dict[str, Any]] | None]):
     def __init__(self, hass, api_key, region_filter=""):
         super().__init__(hass, _LOGGER, name="disaster",
                          update_interval=timedelta(seconds=DISASTER_SCAN_INTERVAL))
         self._api_key = api_key
         self._region_filter = region_filter
         self._consecutive_failures = 0
+        self._daily_limit_logged_until = None
 
     async def _async_update_data(self):
         try:
             all_msgs = await fetch_disaster_messages(self._api_key, count=30)
             self._consecutive_failures = 0
-        except ValueError as err:
+            self._daily_limit_logged_until = None
+        except DisasterDailyLimitError as err:
+            if self._daily_limit_logged_until != err.reset_at:
+                _LOGGER.warning(
+                    "Disaster API daily limit reached; entities will remain unknown "
+                    "until %s",
+                    err.reset_at.isoformat(),
+                )
+                self._daily_limit_logged_until = err.reset_at
+            return None
+        except DisasterApiError as err:
             # API-declared failures such as an expired key are permanent until
             # the user updates the configuration; do not hide them as empty data.
             raise UpdateFailed(f"Disaster API rejected the request: {err}") from err

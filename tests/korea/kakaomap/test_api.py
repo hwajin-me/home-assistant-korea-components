@@ -17,7 +17,7 @@ class TestKakaoMapApiMock:
     @pytest.fixture
     async def api_client(self, mock_session):
         """Create KakaoMap API client with mock session."""
-        return KakaoMapApiClient(mock_session)
+        return KakaoMapApiClient(mock_session, "test-rest-api-key")
 
     @pytest.mark.asyncio
     async def test_coordinate_to_address_success(
@@ -89,14 +89,85 @@ class TestKakaoMapApiMock:
         mock_response.json.return_value = kakaomap_mock_route_response
         mock_session.get.return_value.__aenter__.return_value = mock_response
 
-        result = await api_client.async_get_public_transport_route(
+        await api_client.async_get_public_transport_route(
             515290, 1122478, 506190, 1110730, start_time="202501151400"
         )
 
-        # Verify start time parameter was passed
+        # Verify the official API parameter names and authentication header.
         call_args = mock_session.get.call_args
-        assert "startAt" in call_args[1]["params"]
-        assert call_args[1]["params"]["startAt"] == "202501151400"
+        assert call_args[0][0] == "https://dapi.kakao.com/v2/routing/publictraffic"
+        assert call_args[1]["params"]["start_x"] == "515290"
+        assert call_args[1]["headers"]["Authorization"] == (
+            "KakaoAK test-rest-api-key"
+        )
+
+    def test_normalize_official_route_response(self, api_client):
+        """Test conversion of the official Kakao routing response."""
+        result = api_client._normalize_route_response(
+            {
+                "routes": [
+                    {
+                        "properties": {
+                            "totalTime": 1680,
+                            "totalDistance": 15000,
+                            "type": "BUS_AND_SUBWAY",
+                            "transfers": 1,
+                            "fare": {"value": 1400},
+                        },
+                        "steps": [
+                            {
+                                "properties": {
+                                    "distance": 500,
+                                    "time": 300,
+                                    "vehicles": [],
+                                }
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+        route = result["in_local"]["routes"][0]
+        assert route["time"] == {"value": 1680}
+        assert route["walkingDistance"] == {"value": 500}
+        assert route["recommended"] is True
+
+    @pytest.mark.asyncio
+    async def test_web_route_issues_fresh_gate_token(
+        self, mock_session, kakaomap_mock_route_response
+    ):
+        """Test the KakaoMap web cookie and gate-token request flow."""
+        gate_response = AsyncMock()
+        gate_response.status = 200
+        gate_response.json.return_value = {"token": "fresh-gate-token"}
+        mock_session.post.return_value.__aenter__.return_value = gate_response
+
+        route_response = AsyncMock()
+        route_response.status = 200
+        route_response.headers = {"Content-Type": "application/json"}
+        route_response.json.return_value = kakaomap_mock_route_response
+        mock_session.get.return_value.__aenter__.return_value = route_response
+
+        client = KakaoMapApiClient(mock_session, web_cookie="_kdt=test; _kau=test")
+        result = await client.async_get_public_transport_route(
+            493528,
+            1126264,
+            506190,
+            1110730,
+            start_name="서울역",
+            end_name="강남역 2호선",
+            start_id="9113903",
+            end_id="SES0222",
+        )
+
+        assert result == kakaomap_mock_route_response
+        gate_payload = mock_session.post.call_args.kwargs["json"]
+        assert gate_payload["method"] == "GET"
+        assert "/route/pubtrans.json?" in gate_payload["url"]
+        route_headers = mock_session.get.call_args.kwargs["headers"]
+        assert route_headers["x-kmap-captcha-token"] == "fresh-gate-token"
+        assert route_headers["Cookie"] == "_kdt=test; _kau=test"
 
     @pytest.mark.asyncio
     async def test_get_public_transport_route_json_error(

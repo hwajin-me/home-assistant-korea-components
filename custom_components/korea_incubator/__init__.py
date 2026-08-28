@@ -262,6 +262,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry.data.get("start_coords"),
             entry.data.get("end_coords"),
             aiohttp.ClientSession(),
+            entry.options.get("api_key", entry.data.get("api_key")),
+            entry.options.get("web_cookie", entry.data.get("web_cookie")),
+            entry.data.get("start_id", ""),
+            entry.data.get("end_id", ""),
         )
         try:
             await device.async_update()
@@ -526,6 +530,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "device": device,
     }
 
+    if service == ENTRY_KAKAOMAP:
+        entry.async_on_unload(entry.add_update_listener(_async_kakaomap_options_updated))
+
     if service == "safety_alert":
         migrate_region_unique_ids(hass, entry, device)
 
@@ -568,3 +575,10 @@ async def _async_cj_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> 
         return
     coordinator.apply_options()
     await coordinator.async_request_refresh()
+
+
+async def _async_kakaomap_options_updated(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> None:
+    """Reload KakaoMap after its REST API key changes."""
+    await hass.config_entries.async_reload(entry.entry_id)

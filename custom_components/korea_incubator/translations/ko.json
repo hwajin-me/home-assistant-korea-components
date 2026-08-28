@@ -142,6 +142,10 @@
         "description": "출발지와 도착지 좌표를 입력하여 경로를 설정하세요. 구성 항목을 만들기 전에 좌표를 검증합니다.",
         "data": {
           "name": "경로 이름",
+          "api_key": "Kakao REST API 키",
+          "web_cookie": "KakaoMap 웹 쿠키",
+          "start_id": "출발지 장소 ID",
+          "end_id": "도착지 장소 ID",
           "coord_system": "좌표계",
           "start_x": "출발지 X좌표/경도",
           "start_y": "출발지 Y좌표/위도",
@@ -150,6 +154,10 @@
         },
         "data_description": {
           "name": "집→회사처럼 경로를 구분할 수 있는 이름입니다.",
+          "api_key": "Kakao Developers 애플리케이션의 REST API 키입니다.",
+          "web_cookie": "로그인 여부와 무관하게 map.kakao.com 요청에서 복사한 Cookie 헤더입니다. REST API 키가 없을 때 사용합니다.",
+          "start_id": "웹 길찾기 API에서 사용할 선택적인 KakaoMap 장소 또는 역 ID입니다.",
+          "end_id": "웹 길찾기 API에서 사용할 선택적인 KakaoMap 장소 또는 역 ID입니다.",
           "coord_system": "WGS84는 경도와 위도, WCONGNAMUL은 카카오맵 X/Y 좌표를 사용합니다.",
           "start_x": "WGS84 경도 또는 WCONGNAMUL 출발지 X 좌표입니다.",
           "start_y": "WGS84 위도 또는 WCONGNAMUL 출발지 Y 좌표입니다.",
@@ -431,6 +439,18 @@
           "api_key": "기상특보 요청에 사용할 공공데이터포털 서비스키입니다.",
           "area_codes": "기상특보를 모니터링할 지역입니다.",
           "scan_interval_minutes": "3분에서 30분 사이의 CJ O-NE 조회 주기입니다."
+        }
+      },
+      "kakaomap": {
+        "title": "카카오맵 옵션",
+        "description": "REST API 키 또는 익명 KakaoMap 웹 쿠키 중 하나를 입력하세요.",
+        "data": {
+          "api_key": "Kakao REST API 키",
+          "web_cookie": "KakaoMap 웹 쿠키"
+        },
+        "data_description": {
+          "api_key": "Kakao Developers 애플리케이션의 REST API 키입니다.",
+          "web_cookie": "map.kakao.com 길찾기 요청에서 복사한 Cookie 헤더입니다. captcha token은 자동으로 새로 발급합니다."
         }
       }
     },
