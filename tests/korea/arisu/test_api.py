@@ -2,12 +2,11 @@
 
 import pytest
 import aiohttp
+from datetime import datetime
 from unittest.mock import AsyncMock, patch
-from bs4 import BeautifulSoup
 
 from custom_components.korea_incubator.arisu.api import ArisuApiClient
 from custom_components.korea_incubator.arisu.exceptions import (
-    ArisuAuthError,
     ArisuConnectionError,
     ArisuDataError,
 )
@@ -40,14 +39,22 @@ class TestArisuApiMock:
         </html>
         """
 
+    @pytest.fixture
+    def session_html_response(self):
+        """Create the session page fragment required for CSRF-protected POSTs."""
+        return (
+            '<html><input type="hidden" name="_csrf" value="test-csrf-token" /></html>'
+        )
+
     @pytest.mark.asyncio
     async def test_get_water_bill_data_success(
-        self, api_client, mock_session, mock_html_response
+        self, api_client, mock_session, mock_html_response, session_html_response
     ):
         """Test successful water bill data retrieval."""
         # Mock session initialization
         init_response = AsyncMock()
         init_response.status = 200
+        init_response.text.return_value = session_html_response
 
         # Mock bill data response
         bill_response = AsyncMock()
@@ -61,17 +68,22 @@ class TestArisuApiMock:
 
         assert result["success"] is True
         assert result["total_amount"] == 45000
-        assert result["billing_month"] in [
-            "2025-01",
-            "2024-12",
-        ]  # Current or previous month
+        assert result["billing_month"] == datetime.now().strftime("%Y-%m")
+        assert mock_session.post.call_args.kwargs["data"]["_csrf"] == "test-csrf-token"
+        assert (
+            mock_session.post.call_args.kwargs["headers"]["X-CSRF-TOKEN"]
+            == "test-csrf-token"
+        )
 
     @pytest.mark.asyncio
-    async def test_get_water_bill_no_data(self, api_client, mock_session):
+    async def test_get_water_bill_no_data(
+        self, api_client, mock_session, session_html_response
+    ):
         """Test water bill with no data found."""
         # Mock responses with no bill data
         init_response = AsyncMock()
         init_response.status = 200
+        init_response.text.return_value = session_html_response
 
         bill_response = AsyncMock()
         bill_response.status = 200
@@ -86,10 +98,13 @@ class TestArisuApiMock:
         assert "No bill data found" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_get_water_bill_http_error(self, api_client, mock_session):
+    async def test_get_water_bill_http_error(
+        self, api_client, mock_session, session_html_response
+    ):
         """Test water bill with HTTP error."""
         init_response = AsyncMock()
         init_response.status = 200
+        init_response.text.return_value = session_html_response
 
         bill_response = AsyncMock()
         bill_response.status = 500
@@ -114,6 +129,9 @@ class TestArisuApiMock:
         """Test water bill with HTML parsing error."""
         init_response = AsyncMock()
         init_response.status = 200
+        init_response.text.return_value = (
+            '<html><input name="_csrf" value="test-csrf-token" /></html>'
+        )
 
         bill_response = AsyncMock()
         bill_response.status = 200
@@ -176,6 +194,9 @@ class TestArisuApiMock:
         """Test with various customer data combinations."""
         init_response = AsyncMock()
         init_response.status = 200
+        init_response.text.return_value = (
+            '<html><input name="_csrf" value="test-csrf-token" /></html>'
+        )
 
         bill_response = AsyncMock()
         bill_response.status = 200

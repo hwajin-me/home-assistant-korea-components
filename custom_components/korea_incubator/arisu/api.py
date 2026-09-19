@@ -19,6 +19,7 @@ class ArisuApiClient:
     def __init__(self, session: aiohttp.ClientSession) -> None:
         """Initialize the Arisu API client."""
         self._session: aiohttp.ClientSession = session
+        self._csrf_token: str | None = None
         self._base_url: str = (
             "https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do"
         )
@@ -96,8 +97,13 @@ class ArisuApiClient:
     ) -> Dict[str, Any]:
         """Get water bill information from Arisu."""
         try:
-            # Step 1: 초기 페이지 접속으로 세션 설정
+            # Step 1: 초기 페이지에서 세션과 CSRF 토큰을 설정한다.
             await self._init_session()
+
+            if not self._csrf_token:
+                raise ArisuConnectionError(
+                    "Could not obtain the CSRF token required by Arisu"
+                )
 
             form_data = {
                 "searchMkey": customer_number,  # 고객번호 필수로 전송
@@ -115,6 +121,7 @@ class ArisuApiClient:
                 "levyDay": "0",
                 "epayNo": "",
                 "sujunNm": "",
+                "_csrf": self._csrf_token,
             }
 
             headers = {
@@ -131,6 +138,7 @@ class ArisuApiClient:
                 "Sec-Fetch-User": "?1",
                 "Upgrade-Insecure-Requests": "1",
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+                "X-CSRF-TOKEN": self._csrf_token,
             }
 
             LOGGER.debug(
@@ -187,8 +195,16 @@ class ArisuApiClient:
                 headers=headers,
             ) as response:
                 if response.status == 200:
+                    html_content = await response.text()
+                    soup = BeautifulSoup(html_content, "html.parser")
+                    token_input = soup.find("input", {"name": "_csrf"})
+                    self._csrf_token = token_input.get("value") if token_input else None
+                    if not self._csrf_token:
+                        LOGGER.warning(
+                            "Arisu session page did not contain a CSRF token"
+                        )
+                        return
                     LOGGER.debug("Session initialized successfully")
-                    # 세션 쿠키가 자동으로 저장됨
                 else:
                     LOGGER.warning(f"Session initialization failed: {response.status}")
 
