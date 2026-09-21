@@ -527,9 +527,61 @@
     },
     "abort": {
       "already_configured": "This account or service is already configured.",
+      "region_added": "The region was added to Safety Alert.",
       "invalid_auth": "The verification session expired. Start setup again.",
       "animal_reauth_unsupported": "This service does not support this key recovery flow.",
       "reauth_successful": "API key updated successfully."
+    }
+  },
+  "config_subentries": {
+    "region": {
+      "title": "Safety Alert region",
+      "step": {
+        "safety_alert": {
+          "title": "Safety Alert Setup - Select Province/City",
+          "description": "Select the province or metropolitan city whose safety alerts you want to receive.",
+          "data": {
+            "sido_code": "Province/City Code"
+          },
+          "data_description": {
+            "sido_code": "The province or metropolitan city used to filter safety alerts."
+          }
+        },
+        "safety_alert_sgg": {
+          "title": "Safety Alert Setup - Select District",
+          "description": "Select a district in {sido_name}. If the district list cannot be loaded, enter its name manually.",
+          "data": {
+            "sgg_code": "District",
+            "sgg_name": "District Name"
+          },
+          "data_description": {
+            "sgg_code": "A district returned by the Safety Alert region service.",
+            "sgg_name": "The district name to use when the region list is unavailable."
+          }
+        },
+        "safety_alert_emd": {
+          "title": "Safety Alert Setup - Select Sub-district",
+          "description": "Select a sub-district in {sgg_name}. If the sub-district list cannot be loaded, enter its name manually.",
+          "data": {
+            "emd_code": "Sub-district",
+            "emd_name": "Sub-district Name"
+          },
+          "data_description": {
+            "emd_code": "A sub-district returned by the Safety Alert region service.",
+            "emd_name": "The sub-district name to use when the region list is unavailable."
+          }
+        }
+      },
+      "error": {
+        "cannot_connect": "Failed to connect to the server. ({error})",
+        "unknown": "An unknown error occurred. ({error})",
+        "no_regions_available": "No regions are available. ({error})",
+        "no_sgg_available": "No districts are available for the selected province or city.",
+        "no_emd_available": "No sub-districts are available for the selected district."
+      },
+      "abort": {
+        "already_configured": "This region is already configured."
+      }
     }
   },
   "options": {

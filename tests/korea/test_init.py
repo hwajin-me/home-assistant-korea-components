@@ -32,7 +32,6 @@ class TestKoreaIntegrationSetup:
             ),
             patch("custom_components.korea_incubator.aiohttp.ClientSession"),
             patch("custom_components.korea_incubator.curl_cffi.AsyncSession"),
-            patch("custom_components.korea_incubator.migrate_region_unique_ids"),
         ):
             yield coordinator
 
@@ -156,20 +155,14 @@ class TestKoreaIntegrationSetup:
 
     @pytest.mark.asyncio
     async def test_setup_safety_alert_success(self, mock_hass, mock_entry_safety_alert):
-        """Test successful Safety Alert setup."""
+        """Safety Alert delegates to its multi-region lifecycle."""
         with patch(
-            "custom_components.korea_incubator.SafetyAlertDevice"
-        ) as mock_device_class:
-            mock_device = AsyncMock()
-            mock_device.async_update = AsyncMock()
-            mock_device.async_close_session = AsyncMock()
-            mock_device_class.return_value = mock_device
-
+            "custom_components.korea_incubator.safety_alert.group.setup_group",
+            new_callable=AsyncMock, return_value=True,
+        ) as setup:
             result = await async_setup_entry(mock_hass, mock_entry_safety_alert)
-
             assert result is True
-            assert DOMAIN in mock_hass.data
-            assert mock_entry_safety_alert.entry_id in mock_hass.data[DOMAIN]
+            setup.assert_awaited_once_with(mock_hass, mock_entry_safety_alert, PLATFORM_MAP["safety_alert"])
 
     @pytest.mark.asyncio
     async def test_setup_unknown_service(self, mock_hass):

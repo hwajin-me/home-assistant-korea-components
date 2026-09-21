@@ -8,7 +8,8 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.data_entry_flow import FlowResult, AbortFlow
+from types import MappingProxyType
 
 from .arisu.api import ArisuApiClient
 from .animal_medical.config_flow import AnimalMedicalFlow
@@ -80,12 +81,21 @@ def _flow_error_message(error: Exception | str, fallback: str) -> str:
 
 
 from .pharmacy.config_flow import PharmacyFlow
+from .public_data import configured_data_go_kr_api_key
 
 
 class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Korea integration."""
 
     VERSION = 1
+
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(cls, config_entry):
+        """Expose region management on the Safety Alert service."""
+        if config_entry.data.get("service") == ENTRY_SAFETY_ALERT:
+            return {"region": SafetyAlertRegionFlow}
+        return {}
 
     def __init__(self):
         """Initialize the config flow."""
@@ -96,6 +106,12 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
         self._animal_medical_page = 1
         self._animal_medical_total = 0
         self._animal_medical_results: list[dict[str, Any]] = []
+
+    def _data_go_kr_api_key_default(self, current_key: str = "") -> str:
+        """Prefer this flow's value, otherwise reuse a saved portal key."""
+        if current_key:
+            return current_key
+        return configured_data_go_kr_api_key(getattr(self, "hass", None))
 
     async def async_step_user(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle the initial step."""
@@ -607,10 +623,6 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             if emd_name:
                 display_name += f" {emd_name}"
 
-            unique_id = f"safety_alert_{sido_code}_{sgg_code}_{emd_code}"
-            await self.async_set_unique_id(unique_id)
-            self._abort_if_unique_id_configured()
-
             entry_data = {
                 "service": "safety_alert",
                 "area_code": sido_code,
@@ -618,23 +630,55 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                 "sido_code": sido_code,
                 "sido_name": self._safety_alert_data["sido_name"],
             }
-            if sgg_code:
+            if sgg_code or sgg_name:
                 entry_data["area_code2"] = api_sgg or ""
                 entry_data["area_name2"] = sgg_name
             if emd_code or emd_name:
                 entry_data["area_code3"] = api_emd or ""
                 entry_data["area_name3"] = emd_name
 
-            return self.async_create_entry(
-                title=f"안전알림 ({display_name})", data=entry_data
-            )
+            return await self._finish_safety_alert(entry_data)
 
+        except AbortFlow:
+            raise
         except SafetyAlertConnectionError as e:
             LOGGER.error(f"Safety Alert connection failed: {e}")
             return self._show_safety_alert_emd_error("cannot_connect", e)
         except Exception as e:
             LOGGER.error(f"Safety Alert setup failed: {e}")
             return self._show_safety_alert_emd_error("unknown", e)
+
+    async def _finish_safety_alert(self, data):
+        """Create one service, or append the region to the existing service."""
+        from .safety_alert.group import SERVICE_DATA, region_id
+
+        identity = region_id(data)
+        parent = next(
+            (entry for entry in self._async_current_entries()
+             if entry.data.get("grouped")
+             and entry.data.get("service") == ENTRY_SAFETY_ALERT),
+            None,
+        )
+        if parent:
+            if any(region_id(sub.data) == identity for sub in parent.subentries.values()):
+                return self.async_abort(reason="already_configured")
+            self.hass.config_entries.async_add_subentry(
+                parent,
+                config_entries.ConfigSubentry(
+                    data=MappingProxyType(data), subentry_type="region",
+                    title=data["area_name"], unique_id=identity,
+                ),
+            )
+            return self.async_abort(reason="region_added")
+        await self.async_set_unique_id("safety_alert_service")
+        self._abort_if_unique_id_configured()
+        return self.async_create_entry(
+            title="안전알림", data=SERVICE_DATA,
+            subentries=[{
+                "data": data, "subentry_type": "region",
+                "title": data["area_name"], "unique_id": identity,
+            }],
+        )
 
     def _show_safety_alert_emd_error(
         self, error_key: str, error: Exception
@@ -918,7 +962,9 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             step_id="weather_warning",
             data_schema=vol.Schema(
                 {
-                    vol.Required("api_key"): str,
+                    vol.Required(
+                        "api_key", default=self._data_go_kr_api_key_default()
+                    ): str,
                     vol.Required("area_codes"): SelectSelector(
                         SelectSelectorConfig(
                             options=area_options,
@@ -1326,7 +1372,9 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             step_id="airkorea",
             data_schema=vol.Schema(
                 {
-                    vol.Required("api_key"): str,
+                    vol.Required(
+                        "api_key", default=self._data_go_kr_api_key_default()
+                    ): str,
                     vol.Optional("living_api_key", default=""): str,
                     vol.Required("sido", default="서울"): SelectSelector(
                         SelectSelectorConfig(
@@ -1378,7 +1426,9 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             step_id="kma_weather",
             data_schema=vol.Schema(
                 {
-                    vol.Required("api_key"): str,
+                    vol.Required(
+                        "api_key", default=self._data_go_kr_api_key_default()
+                    ): str,
                     vol.Required("sido"): SelectSelector(
                         SelectSelectorConfig(
                             options=sido_opts, mode=SelectSelectorMode.DROPDOWN
@@ -1445,7 +1495,9 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             step_id="earthquake",
             data_schema=vol.Schema(
                 {
-                    vol.Required("api_key"): str,
+                    vol.Required(
+                        "api_key", default=self._data_go_kr_api_key_default()
+                    ): str,
                     vol.Optional("latitude", default=37.5665): vol.Coerce(float),
                     vol.Optional("longitude", default=126.978): vol.Coerce(float),
                     vol.Optional("radius_km", default=200): vol.Coerce(int),
@@ -1610,6 +1662,29 @@ async def fetch_stop_data(session: aiohttp.ClientSession, stop_id: str) -> dict:
             return await response.json()
     except Exception:
         return {}
+
+
+class SafetyAlertRegionFlow(config_entries.ConfigSubentryFlow):
+    """Add a region using the same province/city/neighborhood forms."""
+
+    def __init__(self):
+        self._safety_alert_data = {}
+
+    async def async_step_user(self, user_input=None):
+        return await self.async_step_safety_alert(user_input)
+
+    async_step_safety_alert = KoreaConfigFlow.async_step_safety_alert
+    async_step_safety_alert_sgg = KoreaConfigFlow.async_step_safety_alert_sgg
+    async_step_safety_alert_emd = KoreaConfigFlow.async_step_safety_alert_emd
+    _create_safety_alert_entry = KoreaConfigFlow._create_safety_alert_entry
+    _show_safety_alert_emd_error = KoreaConfigFlow._show_safety_alert_emd_error
+
+    async def _finish_safety_alert(self, data):
+        from .safety_alert.group import region_id
+        identity = region_id(data)
+        if any(region_id(sub.data) == identity for sub in self._get_entry().subentries.values()):
+            return self.async_abort(reason="already_configured")
+        return self.async_create_entry(title=data["area_name"], data=data, unique_id=identity)
 
 
 def build_bus_labels(data: dict) -> dict:

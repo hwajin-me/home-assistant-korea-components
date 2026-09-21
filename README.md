@@ -138,6 +138,18 @@
 - **고객명**: 계약자 성명
 
 #### 🚨 안전알림서비스
+
+지역 설정은 하나의 **안전알림** 서비스 아래 하위 설정으로 표시됩니다. 서비스의
+**지역 추가**에서 지역을 추가하고, 각 하위 설정을 삭제해 해당 지역만 제거할 수 있습니다.
+업데이트 후 Home Assistant를 재시작하면 기존의 활성 지역 설정이 자동으로 합쳐집니다.
+기존 지역 기기와 엔티티 ID는 유지되며, 이전 버전에서 생성한 빈 상위 기기는 정리됩니다.
+사용자가 비활성화한 설정은 활성화할 때 이전됩니다. 실행 중인 다른 지역 설정은
+재시작 시 이전하므로, 최초 적용에는 전체 재시작을 권장합니다.
+
+Safety Alert uses one service entry with a subentry per region. Restart Home Assistant
+after updating to migrate existing enabled regions automatically while retaining their
+device and entity IDs. Disabled entries migrate when enabled. Adding or removing a
+region reloads the service; a temporary API failure in one region does not block others.
 - **시도**: 거주 지역의 시/도 선택
 - **시군구**: 거주 지역의 시/군/구 선택 (선택사항)
 - **읍면동**: 거주 지역의 읍/면/동 선택 (선택사항)

@@ -1,7 +1,7 @@
 """Integration tests for Korea sensors with all services."""
 
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 
@@ -83,7 +83,8 @@ class TestSensorIntegration:
             }
         }
 
-        await async_setup_entry(mock_hass, mock_entry_gasapp, mock_add_entities)
+        with patch("custom_components.korea_incubator.sensor.er.async_get", return_value=MagicMock()):
+            await async_setup_entry(mock_hass, mock_entry_gasapp, mock_add_entities)
 
         entities = mock_add_entities.call_args[0][0]
         sensor_names = [entity._attr_name for entity in entities]

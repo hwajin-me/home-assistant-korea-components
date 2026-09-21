@@ -48,7 +48,7 @@ class GetSafetyAlertsTool(BaseKRTool):
             coord = coords.get(code)
             if coord is None or coord.data is None:
                 continue
-            alerts = (coord.data.get("alerts") or [])[:limit]
+            alerts = (coord.data.get("parsed_data", {}).get("data") or [])[:limit]
             out.append({
                 "region_name": region.get("name") or code,
                 "region_code": code,
@@ -56,10 +56,10 @@ class GetSafetyAlertsTool(BaseKRTool):
                 "alerts": [
                     {
                         "message": a.get("MSG_CN") or a.get("message"),
-                        "category": a.get("DST_SE_NM"),
-                        "level": a.get("EMRG_STEP_NM"),
+                        "category": a.get("DSSTR_SE_NM"),
+                        "level": a.get("EMRGNCY_STEP_NM"),
                         "area": a.get("RCV_AREA_NM"),
-                        "created_at": a.get("CRT_DT"),
+                        "created_at": a.get("REGIST_DT"),
                     }
                     for a in alerts
                 ],

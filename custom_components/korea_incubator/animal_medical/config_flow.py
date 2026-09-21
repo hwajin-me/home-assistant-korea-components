@@ -19,6 +19,7 @@ from .api import (
     async_fetch_institutions,
 )
 from .kakao_flow import KakaoPlaceFlow
+from ..public_data import configured_data_go_kr_api_key
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,7 +43,11 @@ class AnimalMedicalFlow(KakaoPlaceFlow):
             data_schema=vol.Schema(
                 {
                     **interval_schema(values.get(CONF_INTERVAL, DEFAULT_INTERVAL)),
-                    vol.Required("api_key", default=values.get("api_key", "")): str,
+                    vol.Required(
+                        "api_key",
+                        default=values.get("api_key")
+                        or configured_data_go_kr_api_key(getattr(self, "hass", None)),
+                    ): str,
                     vol.Required(
                         "institution_type",
                         default=values.get("institution_type", "hospital"),

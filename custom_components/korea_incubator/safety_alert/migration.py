@@ -25,7 +25,8 @@ def _expected_entity_unique_ids(device: SafetyAlertDevice) -> set[str]:
 
 
 def migrate_region_unique_ids(
-    hass: HomeAssistant, entry: ConfigEntry, device: SafetyAlertDevice
+    hass: HomeAssistant, entry: ConfigEntry, device: SafetyAlertDevice,
+    *, unassigned_only: bool = False,
 ) -> None:
     """Reconcile obsolete Safety Alert entities on every setup.
 
@@ -44,6 +45,8 @@ def migrate_region_unique_ids(
     # duplicate-unique-ID error, leaving it behind for the platform to expose
     # as another entity on every reload.
     entries = list(er.async_entries_for_config_entry(entity_registry, entry.entry_id))
+    if unassigned_only:
+        entries = [item for item in entries if item.config_subentry_id is None]
     existing_unique_ids = {entity_entry.unique_id for entity_entry in entries}
 
     for entity_entry in entries:
@@ -81,9 +84,14 @@ def migrate_region_unique_ids(
     # Move it only when this entry actually owned the registered legacy entities.
     if migrated_entity and device.unique_id != legacy_device_id:
         device_registry = dr.async_get(hass)
-        legacy_device = device_registry.async_get_device_by_identifier(
-            (DOMAIN, legacy_device_id), entry.entry_id
-        )
+        if hasattr(device_registry, "async_get_device_by_identifier"):
+            legacy_device = device_registry.async_get_device_by_identifier(
+                (DOMAIN, legacy_device_id), entry.entry_id
+            )
+        else:
+            legacy_device = device_registry.async_get_device(
+                identifiers={(DOMAIN, legacy_device_id)}
+            )
         if legacy_device is not None:
             device_registry.async_update_device(
                 legacy_device.id,

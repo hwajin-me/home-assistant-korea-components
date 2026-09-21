@@ -11,6 +11,7 @@ from ..animal_medical import CONF_INTERVAL, DEFAULT_INTERVAL, MAX_INTERVAL
 from ..animal_medical.api import AnimalMedicalApiError, AnimalMedicalAuthError
 from . import PAGE_SIZE
 from .api import fetch_detail, fetch_page
+from ..public_data import configured_data_go_kr_api_key
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,7 +40,11 @@ class PharmacyFlow:
             step_id="pharmacy",
             data_schema=vol.Schema(
                 {
-                    vol.Required("api_key", default=data.get("api_key", "")): str,
+                    vol.Required(
+                        "api_key",
+                        default=data.get("api_key")
+                        or configured_data_go_kr_api_key(getattr(self, "hass", None)),
+                    ): str,
                     vol.Required("q0", default=data.get("q0", "서울특별시")): str,
                     vol.Optional("q1", default=data.get("q1", "")): str,
                     vol.Optional("name", default=data.get("name", "")): str,

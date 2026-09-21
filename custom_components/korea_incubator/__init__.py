@@ -11,7 +11,6 @@ from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.components import persistent_notification
 import voluptuous as vol
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .arisu.device import ArisuDevice
@@ -50,8 +49,6 @@ from .kepco.api import KepcoApiClient
 from .kepco.device import KepcoDevice
 from .kepco.exceptions import KepcoAuthError
 from .safety_alert.device import SafetyAlertDevice
-from .safety_alert.exceptions import SafetyAlertConnectionError, SafetyAlertDataError
-from .safety_alert.migration import migrate_region_unique_ids
 
 # Device type union for type hints
 DeviceType = Union[
@@ -94,19 +91,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up the Korea platform from a config entry."""
     service: str = entry.data.get("service")
 
-    # Create the shared service device before any regional Safety Alert device
-    # is registered.  This gives the device registry a stable parent and lets
-    # the UI render regions as one service group rather than unrelated cards.
     if service == ENTRY_SAFETY_ALERT:
-        device_registry = dr.async_get(hass)
-        device_registry.async_get_or_create(
-            config_entry_id=entry.entry_id,
-            identifiers={(DOMAIN, "safety_alert_service")},
-            name="안전알림",
-            manufacturer="행정안전부",
-            model="안전알림서비스",
-            configuration_url="https://www.safekorea.go.kr",
-        )
+        from .safety_alert.group import setup_group
+        return await setup_group(hass, entry, PLATFORM_MAP[service])
+
     device: DeviceType = None
     update_interval: timedelta = timedelta(minutes=20)
 
@@ -177,42 +165,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     f"Error communicating with GasApp API: {err}"
                 ) from err
 
-    elif service == "safety_alert":
-        update_interval = timedelta(minutes=5)
-        device = SafetyAlertDevice(
-            hass,
-            entry.entry_id,
-            entry.data.get("area_code"),
-            entry.data.get("area_name"),
-            entry.data.get("area_code2"),
-            entry.data.get("area_code3"),
-            aiohttp.ClientSession(),
-            entry.data.get("area_name2"),
-            entry.data.get("area_name3"),
-        )
-        try:
-            await device.async_update()
-        except (SafetyAlertConnectionError, SafetyAlertDataError) as err:
-            LOGGER.error(f"Error during initial data fetch for SafetyAlert: {err}")
-            await device.async_close_session()
-            return False
-        except Exception as err:
-            LOGGER.error(f"Error during initial data fetch for SafetyAlert: {err}")
-            await device.async_close_session()
-            return False
-
-        async def async_update_data() -> Dict[str, Any]:
-            try:
-                await device.async_update()
-                return device.data
-            except (SafetyAlertConnectionError, SafetyAlertDataError) as err:
-                raise UpdateFailed(
-                    f"Error communicating with SafetyAlert API: {err}"
-                ) from err
-            except Exception as err:
-                raise UpdateFailed(
-                    f"Error communicating with SafetyAlert API: {err}"
-                ) from err
 
     elif service == "goodsflow":
         update_interval = timedelta(minutes=15)
@@ -613,9 +565,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if service == ENTRY_KAKAOMAP:
         entry.async_on_unload(entry.add_update_listener(_async_kakaomap_options_updated))
 
-    if service == "safety_alert":
-        migrate_region_unique_ids(hass, entry, device)
-
     # Fetch initial data so we have data when entities are added
     await coordinator.async_config_entry_first_refresh()
 
@@ -634,6 +583,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     service = entry.data.get("service")
+    if entry.data.get("merged_into"):
+        return True
     store = hass.data.get(DOMAIN, {}).get(entry.entry_id, {}) or {}
 
     if unload_ok := await hass.config_entries.async_unload_platforms(

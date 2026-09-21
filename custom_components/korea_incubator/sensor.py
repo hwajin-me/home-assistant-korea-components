@@ -71,6 +71,10 @@ async def async_setup_entry(
     """Set up Korea sensors from a config entry."""
     data: Dict[str, Any] = hass.data[DOMAIN][entry.entry_id]
     service: str = entry.data.get("service")
+    if service == "safety_alert" and entry.data.get("grouped"):
+        from .safety_alert.group import setup_platform
+        await setup_platform(hass, entry, async_add_entities, async_setup_entry)
+        return
 
     if service == "cj_one_delivery":
         from .cj_one_delivery.sensor import async_setup_entry as async_setup_cj_sensors
@@ -420,11 +424,8 @@ async def async_setup_entry(
                 None,
                 None,
                 None,
-                value_translation=lambda x: (
-                    x["data"][0]["RCV_AREA_NM"]
-                    if "data" in x and len(x["data"][0]["RCV_AREA_NM"]) < 250
-                    else "전체"
-                ),
+                value_transform=lambda value: value if len(str(value)) < 250 else "전체",
+                default_value="없음",
             ),
             KoreaSensor(
                 coordinator,
