@@ -495,6 +495,26 @@
         "data_description": {
           "api_key": "The service key issued for the pharmacy-information API on the Public Data Portal."
         }
+      },
+      "safety_alert_region": {
+        "title": "Reconfigure Safety Alert region",
+        "description": "Select the region to change. Other regions are kept.",
+        "data": {
+          "region": "Region"
+        },
+        "data_description": {
+          "region": "Choose the existing Safety Alert region to edit."
+        }
+      },
+      "transit_keep": {
+        "title": "Existing transit items",
+        "description": "Select the items to keep. You can add new items in the next step.",
+        "data": {
+          "keep_items": "Items to keep"
+        },
+        "data_description": {
+          "keep_items": "Unchecked items are removed. Clear all selections to rebuild the list."
+        }
       }
     },
     "error": {
@@ -530,10 +550,16 @@
       "region_added": "The region was added to Safety Alert.",
       "invalid_auth": "The verification session expired. Start setup again.",
       "animal_reauth_unsupported": "This service does not support this key recovery flow.",
-      "reauth_successful": "API key updated successfully."
+      "reauth_successful": "API key updated successfully.",
+      "reconfigure_successful": "Configuration updated successfully.",
+      "reconfigure_unsupported": "This service does not support reconfiguration.",
+      "reconfigure_account_mismatch": "Use the same account or customer number as the existing entry. Add a new entry for another account."
     }
   },
   "options": {
+    "error": {
+      "invalid_naver_url": "Enter a valid Naver Place URL or numeric place ID."
+    },
     "step": {
       "init": {
         "title": "Options",

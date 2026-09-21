@@ -81,9 +81,10 @@ def _flow_error_message(error: Exception | str, fallback: str) -> str:
 
 from .pharmacy.config_flow import PharmacyFlow
 from .public_data import configured_data_go_kr_api_key
+from .reconfigure import ServiceReconfigureFlow
 
 
-class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow, domain=DOMAIN):
+class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Korea integration."""
 
     VERSION = 1
@@ -149,12 +150,12 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                 await client.close()
             if not errors:
                 await self.async_set_unique_id(f"dh_lottery_{user_input[CONF_USERNAME]}")
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(
+                self._check_service_unique_id()
+                return self._finish_service_entry(
                     title=f"동행복권 ({user_input[CONF_USERNAME]})",
                     data={"service": ENTRY_DH_LOTTERY, **user_input},
                 )
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="dh_lottery",
             data_schema=vol.Schema({vol.Required(CONF_USERNAME): str, vol.Required(CONF_PASSWORD): str}),
             errors=errors,
@@ -173,7 +174,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             )
             if len(phone_number) not in (10, 11):
                 errors[CONF_PHONE_NUMBER] = "invalid_phone_number"
-                return self.async_show_form(
+                return self._show_service_form(
                     step_id="cj_one_delivery",
                     data_schema=vol.Schema({vol.Required(CONF_PHONE_NUMBER): str}),
                     errors=errors,
@@ -191,7 +192,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             else:
                 return await self.async_step_cj_one_delivery_code()
 
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="cj_one_delivery",
             data_schema=vol.Schema({vol.Required(CONF_PHONE_NUMBER): str}),
             errors=errors,
@@ -224,10 +225,10 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     char for char in self._cj_phone_number if char.isdigit()
                 )
                 await self.async_set_unique_id(f"cj_one_delivery_{phone_number}")
-                self._abort_if_unique_id_configured()
+                self._check_service_unique_id()
                 return await self.async_step_cj_one_delivery_options()
 
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="cj_one_delivery_code",
             data_schema=vol.Schema({vol.Required(CONF_AUTH_CODE): str}),
             errors=errors,
@@ -242,7 +243,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             auth_session = self._cj_auth_session
             if auth_session is None:
                 return self.async_abort(reason="invalid_auth")
-            return self.async_create_entry(
+            return self._finish_service_entry(
                 title=f"CJ대한통운 ({self._cj_phone_number})",
                 data={
                     "service": ENTRY_CJ_ONE_DELIVERY,
@@ -254,7 +255,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                 options=user_input,
             )
 
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="cj_one_delivery_options",
             data_schema=_cj_one_delivery_options_schema(),
         )
@@ -276,10 +277,10 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     ):
                         unique_id = f"kepco_{user_input[CONF_USERNAME]}"
                         await self.async_set_unique_id(unique_id)
-                        self._abort_if_unique_id_configured()
+                        self._check_service_unique_id()
 
                         user_input["service"] = "kepco"
-                        return self.async_create_entry(
+                        return self._finish_service_entry(
                             title=f"한전 ({user_input[CONF_USERNAME]})", data=user_input
                         )
                     else:
@@ -291,12 +292,14 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     LOGGER.error(f"KEPCO login failed: {e}")
                     errors["base"] = "invalid_auth"
                     error_info["error"] = str(e)
+                except AbortFlow:
+                    raise
                 except Exception as e:
                     LOGGER.error(f"KEPCO login failed: {e}")
                     errors["base"] = "unknown"
                     error_info["error"] = str(e)
 
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="kepco",
             data_schema=vol.Schema(
                 {
@@ -326,10 +329,10 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     if await client.async_get_home_data() is not None:
                         unique_id = f"gasapp_{user_input['use_contract_num']}"
                         await self.async_set_unique_id(unique_id)
-                        self._abort_if_unique_id_configured()
+                        self._check_service_unique_id()
 
                         user_input["service"] = "gasapp"
-                        return self.async_create_entry(
+                        return self._finish_service_entry(
                             title=f"가스앱 ({user_input['use_contract_num']})",
                             data=user_input,
                         )
@@ -354,6 +357,8 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     error_info["error"] = _flow_error_message(
                         e, "GasApp returned an invalid response"
                     )
+                except AbortFlow:
+                    raise
                 except Exception as e:
                     LOGGER.error(f"GasApp connection failed: {e}")
                     errors["base"] = "unknown"
@@ -361,7 +366,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                         e, "Unexpected GasApp error"
                     )
 
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="gasapp",
             data_schema=vol.Schema(
                 {
@@ -398,9 +403,9 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                         await self.async_set_unique_id(
                             f"goodsflow_{user_input['token'][:8]}"
                         )
-                        self._abort_if_unique_id_configured()
+                        self._check_service_unique_id()
                         user_input["service"] = ENTRY_GOODSFLOW
-                        return self.async_create_entry(
+                        return self._finish_service_entry(
                             title="굿스플로우 택배조회", data=user_input
                         )
                 except GoodsFlowAuthError as err:
@@ -418,6 +423,8 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     error_info["error"] = _flow_error_message(
                         err, "GoodsFlow returned an invalid response"
                     )
+                except AbortFlow:
+                    raise
                 except Exception as err:
                     LOGGER.exception("Unexpected GoodsFlow setup error")
                     errors["base"] = "unknown"
@@ -425,7 +432,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                         err, "Unexpected GoodsFlow error"
                     )
 
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="goodsflow",
             data_schema=vol.Schema({vol.Required("token"): str}),
             errors=errors,
@@ -463,7 +470,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     }
                     self._safety_alert_data["sido_options"] = sido_options
 
-                    return self.async_show_form(
+                    return self._show_service_form(
                         step_id="safety_alert",
                         data_schema=vol.Schema(
                             {
@@ -480,12 +487,14 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             LOGGER.error(f"Safety Alert region API failed: {e}")
             errors["base"] = "cannot_connect"
             error_info["error"] = str(e)
+        except AbortFlow:
+            raise
         except Exception as e:
             LOGGER.error(f"Safety Alert setup failed: {e}")
             errors["base"] = "unknown"
             error_info["error"] = str(e)
 
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="safety_alert",
             data_schema=vol.Schema(
                 {
@@ -520,7 +529,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
         if sgg_list:
             sgg_options = {r["code"]: r["name"] for r in sgg_list}
             self._safety_alert_data["sgg_options"] = sgg_options
-            return self.async_show_form(
+            return self._show_service_form(
                 step_id="safety_alert_sgg",
                 data_schema=vol.Schema(
                     {
@@ -532,7 +541,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
 
         # API returned no data — fall back to manual text input
         LOGGER.warning("No sgg data returned for sido %s, using text input", sido_code)
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="safety_alert_sgg",
             data_schema=vol.Schema(
                 {
@@ -568,7 +577,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
         if emd_list:
             emd_options = {r["code"]: r["name"] for r in emd_list}
             self._safety_alert_data["emd_options"] = emd_options
-            return self.async_show_form(
+            return self._show_service_form(
                 step_id="safety_alert_emd",
                 data_schema=vol.Schema(
                     {
@@ -580,7 +589,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
 
         # API returned no data — fall back to manual text input
         LOGGER.warning("No emd data returned for sgg %s, using text input", sgg_code)
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="safety_alert_emd",
             data_schema=vol.Schema(
                 {
@@ -630,11 +639,11 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
 
             return await self._finish_safety_alert(entry_data)
 
-        except AbortFlow:
-            raise
         except SafetyAlertConnectionError as e:
             LOGGER.error(f"Safety Alert connection failed: {e}")
             return self._show_safety_alert_emd_error("cannot_connect", e)
+        except AbortFlow:
+            raise
         except Exception as e:
             LOGGER.error(f"Safety Alert setup failed: {e}")
             return self._show_safety_alert_emd_error("unknown", e)
@@ -644,6 +653,33 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
         from .safety_alert.group import SERVICE_DATA, region_id
 
         identity = region_id(data)
+        entry = getattr(self, "_reconfigure_entry", None)
+        if entry is not None:
+            if not entry.data.get("grouped"):
+                return self._finish_service_entry(title=entry.title, data=data)
+            key = self._reconfigure_region
+            regions = dict(entry.data.get("regions", {}))
+            others = [value for region_key, value in regions.items() if region_key != key]
+            others.extend(sub.data for sub_key, sub in entry.subentries.items() if sub_key != key)
+            if any(region_id(region) == identity for region in others):
+                return self.async_abort(reason="already_configured")
+            # Preserve migration metadata and the region's stable storage key.
+            old = (entry.subentries[key].data if key in entry.subentries else regions.get(key, {}))
+            data.update({name: value for name, value in old.items()
+                         if name.startswith("legacy_")})
+            if key in entry.subentries:
+                changed = self.hass.config_entries.async_update_subentry(
+                    entry, entry.subentries[key], data=data,
+                    title=data["area_name"], unique_id=identity,
+                )
+            else:
+                regions[key or identity] = data
+                changed = self.hass.config_entries.async_update_entry(
+                    entry, data={**entry.data, "regions": regions}
+                )
+            if not changed or not entry.update_listeners:
+                self.hass.config_entries.async_schedule_reload(entry.entry_id)
+            return self.async_abort(reason="reconfigure_successful")
         parent = next(
             (entry for entry in self._async_current_entries()
              if entry.data.get("grouped")
@@ -659,8 +695,8 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             self.hass.config_entries.async_update_entry(parent, data={**parent.data, "regions": regions})
             return self.async_abort(reason="region_added")
         await self.async_set_unique_id("safety_alert_service")
-        self._abort_if_unique_id_configured()
-        return self.async_create_entry(
+        self._check_service_unique_id()
+        return self._finish_service_entry(
             title="안전알림", data={**SERVICE_DATA, "regions": {identity: data}},
         )
 
@@ -673,7 +709,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             schema = vol.Schema({vol.Required("emd_code"): vol.In(emd_options)})
         else:
             schema = vol.Schema({vol.Required("emd_name"): str})
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="safety_alert_emd",
             data_schema=schema,
             errors={"base": error_key},
@@ -702,10 +738,10 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     ):
                         unique_id = f"arisu_{user_input['customer_number']}"
                         await self.async_set_unique_id(unique_id)
-                        self._abort_if_unique_id_configured()
+                        self._check_service_unique_id()
 
                         user_input["service"] = "arisu"
-                        return self.async_create_entry(
+                        return self._finish_service_entry(
                             title=f"아리수 ({user_input['customer_number']})",
                             data=user_input,
                         )
@@ -731,12 +767,14 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     error_info["error"] = _flow_error_message(
                         e, "Arisu returned an invalid response"
                     )
+                except AbortFlow:
+                    raise
                 except Exception as e:
                     LOGGER.error(f"Arisu connection failed: {e}")
                     errors["base"] = "unknown"
                     error_info["error"] = str(e)
 
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="arisu",
             data_schema=vol.Schema(
                 {
@@ -846,7 +884,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                                 f"kakaomap_{user_input['name'].replace(' ', '_')}"
                             )
                             await self.async_set_unique_id(unique_id)
-                            self._abort_if_unique_id_configured()
+                            self._check_service_unique_id()
 
                             user_input["service"] = "kakaomap"
                             user_input["start_coords"] = start_coords
@@ -854,7 +892,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                             # 원본 좌표계 정보도 저장 (참고용)
                             user_input["original_coord_system"] = coord_system
 
-                            return self.async_create_entry(
+                            return self._finish_service_entry(
                                 title=f"카카오맵 ({user_input['name']})",
                                 data=user_input,
                             )
@@ -872,12 +910,14 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     LOGGER.error(f"Invalid coordinates: {e}")
                     errors["base"] = "invalid_coordinates"
                     error_info["error"] = str(e)
+                except AbortFlow:
+                    raise
                 except Exception as e:
                     LOGGER.error(f"KakaoMap setup failed: {e}")
                     errors["base"] = "unknown"
                     error_info["error"] = str(e)
 
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="kakaomap",
             data_schema=vol.Schema(
                 {
@@ -928,13 +968,15 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     error_info["error"] = _flow_error_message(
                         err, "KMA rejected the API key"
                     )
+                except AbortFlow:
+                    raise
                 except Exception as err:
                     errors["base"] = "cannot_connect"
                     error_info["error"] = _flow_error_message(
                         err, "Could not connect to the KMA API"
                     )
                 else:
-                    return self.async_create_entry(
+                    return self._finish_service_entry(
                         title="기상특보",
                         data={
                             CONF_ENTRY_TYPE: ENTRY_WEATHER,
@@ -942,7 +984,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                             "area_codes": areas,
                         },
                     )
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="weather_warning",
             data_schema=vol.Schema(
                 {
@@ -972,8 +1014,10 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                 "subway_items": [],
                 "bus_stops": [],
             }
+            if getattr(self, "_reconfigure_entry", None) is not None:
+                return await self.async_step_transit_keep()
             return await self.async_step_transit_add()
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="transit",
             data_schema=vol.Schema(
                 {
@@ -981,6 +1025,28 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     vol.Optional("bus_api_key"): str,
                 }
             ),
+        )
+
+    async def async_step_transit_keep(self, user_input=None) -> FlowResult:
+        """Keep selected existing stops before optionally adding new ones."""
+        import homeassistant.helpers.config_validation as cv
+        from copy import deepcopy
+
+        old = self._reconfigure_entry.data
+        items = [(field, index, item)
+                 for field in ("subway_items", "bus_stops")
+                 for index, item in enumerate(old.get(field, []))]
+        choices = {f"{field}:{index}": str(item.get("station") or item.get("stop_name") or item.get("stop_id") or index + 1)
+                   for field, index, item in items}
+        if user_input is not None:
+            selected = user_input.get("keep_items", [])
+            for field, index, item in items:
+                if f"{field}:{index}" in selected:
+                    self._data[field].append(deepcopy(item))
+            return await self.async_step_transit_add()
+        return self._show_service_form(
+            step_id="transit_keep",
+            data_schema=vol.Schema({vol.Required("keep_items", default=list(choices)): cv.multi_select(choices)}),
         )
 
     async def async_step_transit_add(self, user_input=None) -> FlowResult:
@@ -1003,7 +1069,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             return await self.async_step_transit_add()
         dir_opts = {d: d for d in DIRECTIONS}
         line_opts = {"": "전체", **SUBWAY_LINES}
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="transit_subway",
             data_schema=vol.Schema(
                 {
@@ -1030,12 +1096,14 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     self._bus_stop_id, self._bus_stop_name = stop_id, data["name"]
                     self._bus_labels = build_bus_labels(data)
                     return await self.async_step_transit_bus_select()
+            except AbortFlow:
+                raise
             except Exception as err:
                 errors["kakao_stop_id"] = "cannot_connect"
                 error_info["error"] = _flow_error_message(
                     err, "Could not load the KakaoMap bus stop"
                 )
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="transit_bus_search",
             data_schema=vol.Schema({vol.Required("kakao_stop_id"): str}),
             errors=errors,
@@ -1054,7 +1122,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                 }
             )
             return await self.async_step_transit_add()
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="transit_bus_select",
             data_schema=vol.Schema(
                 {
@@ -1066,7 +1134,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
         )
 
     async def async_step_transit_done(self, user_input=None) -> FlowResult:
-        return self.async_create_entry(title="대중교통", data=self._data)
+        return self._finish_service_entry(title="대중교통", data=self._data)
 
     # ══════════ 유가정보 ══════════
     async def async_step_fuel(self, user_input=None) -> FlowResult:
@@ -1093,6 +1161,8 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     error_info["error"] = _flow_error_message(
                         err, "Opinet rejected the API key"
                     )
+                except AbortFlow:
+                    raise
                 except Exception as err:
                     errors["base"] = "cannot_connect"
                     error_info["error"] = _flow_error_message(
@@ -1102,7 +1172,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     configs = [
                         {"sido_code": s, "fuel_code": f} for s in sidos for f in fuels
                     ]
-                    return self.async_create_entry(
+                    return self._finish_service_entry(
                         title="유가정보",
                         data={
                             CONF_ENTRY_TYPE: ENTRY_FUEL,
@@ -1110,7 +1180,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                             "configs": configs,
                         },
                     )
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="fuel",
             data_schema=vol.Schema(
                 {
@@ -1147,7 +1217,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                 "school_level": user_input["school_level"],
             }
             return await self.async_step_school_search()
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="school",
             data_schema=vol.Schema(
                 {
@@ -1178,7 +1248,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                             f"{s['ATPT_OFCDC_SC_CODE']}_{s['SD_SCHUL_CODE']}": f"{s['SCHUL_NM']} ({s.get('ORG_RDNMA', '')})"
                             for s in schools[:10]
                         }
-                        return self.async_show_form(
+                        return self._show_service_form(
                             step_id="school_search",
                             data_schema=vol.Schema(
                                 {vol.Required("selected_school"): vol.In(opts)}
@@ -1199,12 +1269,14 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                 error_info["error"] = _flow_error_message(
                     err, "NEIS rejected the API key"
                 )
+            except AbortFlow:
+                raise
             except Exception as err:
                 errors["base"] = "cannot_connect"
                 error_info["error"] = _flow_error_message(
                     err, "Could not connect to NEIS"
                 )
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="school_search",
             data_schema=vol.Schema({vol.Required("school_search"): str}),
             errors=errors,
@@ -1233,7 +1305,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             for g in range(1, max_g + 1)
             for cl in range(1, 21)
         }
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="school_class",
             data_schema=vol.Schema(
                 {vol.Required("grade_classes"): cv.multi_select(opts)}
@@ -1243,7 +1315,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
     async def async_step_school_periods(self, user_input=None) -> FlowResult:
         if user_input is not None:
             self._data.update(user_input)
-            return self.async_create_entry(title="학교정보", data=self._data)
+            return self._finish_service_entry(title="학교정보", data=self._data)
         defaults = {
             1: "09:00-09:50",
             2: "10:00-10:50",
@@ -1262,7 +1334,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                 vol.Optional("lunch_end", default="13:40"): str,
             }
         )
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="school_periods", data_schema=vol.Schema(schema)
         )
 
@@ -1300,6 +1372,8 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                 error_info["error"] = _flow_error_message(
                     err, "The disaster API rejected the API key"
                 )
+            except AbortFlow:
+                raise
             except Exception as err:
                 errors["base"] = "cannot_connect"
                 error_info["error"] = _flow_error_message(
@@ -1309,7 +1383,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                 region = user_input.get("sub_region", "").strip() or user_input.get(
                     "region_filter", ""
                 )
-                return self.async_create_entry(
+                return self._finish_service_entry(
                     title=f"재난정보 {region}",
                     data={
                         CONF_ENTRY_TYPE: ENTRY_DISASTER,
@@ -1317,7 +1391,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                         "region_filter": region,
                     },
                 )
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="disaster",
             data_schema=vol.Schema(
                 {
@@ -1352,7 +1426,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             self._air_sido = user_input["sido"]
             return await self.async_step_airkorea_select()
         sido_opts = [{"value": k, "label": k} for k in STATIONS_BY_SIDO.keys()]
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="airkorea",
             data_schema=vol.Schema(
                 {
@@ -1382,9 +1456,9 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     "sido": self._air_sido,
                 }
             )
-            return self.async_create_entry(title="에어코리아", data=self._data)
+            return self._finish_service_entry(title="에어코리아", data=self._data)
         station_list = STATIONS_BY_SIDO.get(self._air_sido, [])
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="airkorea_select",
             data_schema=vol.Schema(
                 {
@@ -1406,7 +1480,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             )
             return await self.async_step_kma_weather_sgg()
         sido_opts = [{"value": k, "label": k} for k in SIDO_LIST.keys()]
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="kma_weather",
             data_schema=vol.Schema(
                 {
@@ -1442,14 +1516,14 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     "sido": self._kma_sido,
                 }
             )
-            return self.async_create_entry(title="기상청 날씨예보", data=self._data)
+            return self._finish_service_entry(title="기상청 날씨예보", data=self._data)
         air_opts = {
             "": "사용 안 함",
             **{
                 s: f"{s} (O₃/UV)" for s in STATIONS_BY_SIDO.get(self._kma_sido, [])[:30]
             },
         }
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="kma_weather_sgg",
             data_schema=vol.Schema(
                 {
@@ -1464,7 +1538,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
     # ══════════ 지진 정보 ══════════
     async def async_step_earthquake(self, user_input=None) -> FlowResult:
         if user_input is not None:
-            return self.async_create_entry(
+            return self._finish_service_entry(
                 title="지진 정보",
                 data={
                     CONF_ENTRY_TYPE: ENTRY_EARTHQUAKE,
@@ -1475,7 +1549,7 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
                     "min_magnitude": user_input.get("min_magnitude", 3.0),
                 },
             )
-        return self.async_show_form(
+        return self._show_service_form(
             step_id="earthquake",
             data_schema=vol.Schema(
                 {
@@ -1537,6 +1611,13 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
         ]:
             # 새 서비스들은 옵션 플로우에서 기본 스키마 제공 가능 (필요시 상세 구현)
             if service == ENTRY_WEATHER:
+                if user_input is not None:
+                    self.hass.config_entries.async_update_entry(
+                        self._config_entry,
+                        data={**self._config_entry.data, **user_input},
+                    )
+                    self.hass.config_entries.async_schedule_reload(self._config_entry.entry_id)
+                    return self.async_create_entry(title="", data={})
                 from .weather import AREA_CODES
 
                 area_options = [{"value": c, "label": n} for c, n in AREA_CODES.items()]
@@ -1594,15 +1675,22 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
         from .animal_medical.config_flow import interval_schema
         from .animal_medical.naver import place_id
 
-        def naver_url(value):
-            if not value.strip():
-                return ""
-            try:
-                return f"https://map.naver.com/p/entry/place/{place_id(value)}"
-            except ValueError:
-                raise vol.Invalid("Enter a valid Naver Place URL or numeric ID") from None
-
+        errors = {}
+        values = {**self._config_entry.data, **self._config_entry.options}
         if user_input is not None:
+            user_input = dict(user_input)
+            values.update(user_input)
+            if "naver_place_url" in user_input:
+                value = user_input["naver_place_url"].strip()
+                try:
+                    user_input["naver_place_url"] = (
+                        f"https://map.naver.com/p/entry/place/{place_id(value)}"
+                        if value else ""
+                    )
+                except ValueError:
+                    errors["naver_place_url"] = "invalid_naver_url"
+
+        if user_input is not None and not errors:
             if user_input.get("naver_query", "").strip():
                 self._medical_options = {
                     key: value for key, value in user_input.items() if key != "naver_query"
@@ -1618,23 +1706,20 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
                     self._config_entry.entry_id
                 )
             return self.async_create_entry(title="", data=user_input)
-        interval = self._config_entry.options.get(
-            CONF_INTERVAL, self._config_entry.data.get(CONF_INTERVAL, DEFAULT_INTERVAL)
-        )
+        interval = values.get(CONF_INTERVAL, DEFAULT_INTERVAL)
         return self.async_show_form(
             step_id="animal_medical_options",
             data_schema=vol.Schema(
                 {
                     **interval_schema(interval),
-                    vol.Optional("naver_query", default=""): str,
+                    vol.Optional("naver_query", default=values.get("naver_query", "")): str,
                     vol.Optional(
                         "naver_place_url",
-                        default=self._config_entry.options.get(
-                            "naver_place_url", self._config_entry.data.get("naver_place_url", "")
-                        ),
-                    ): naver_url,
+                        default=values.get("naver_place_url", ""),
+                    ): str,
                 }
             ),
+            errors=errors,
         )
 
     async def async_step_medical_naver(self, user_input=None):

@@ -169,7 +169,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     elif service == "goodsflow":
         update_interval = timedelta(minutes=15)
         device = GoodsFlowDevice(
-            hass, entry.entry_id, entry.data.get("token"), aiohttp.ClientSession()
+            hass, entry.entry_id, entry.data.get("token"), aiohttp.ClientSession(),
+            unique_id=entry.data.get("device_unique_id"),
         )
         try:
             await device.async_update()

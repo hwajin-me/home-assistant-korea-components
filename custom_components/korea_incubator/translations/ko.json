@@ -495,6 +495,26 @@
         "data_description": {
           "api_key": "공공데이터포털 약국정보 API에서 발급한 서비스키입니다."
         }
+      },
+      "safety_alert_region": {
+        "title": "안전알림 지역 재설정",
+        "description": "변경할 지역을 선택하세요. 다른 지역은 유지됩니다.",
+        "data": {
+          "region": "지역"
+        },
+        "data_description": {
+          "region": "변경할 기존 안전알림 지역을 선택하세요."
+        }
+      },
+      "transit_keep": {
+        "title": "기존 교통 항목",
+        "description": "유지할 항목을 선택하세요. 다음 단계에서 새 항목을 추가할 수 있습니다.",
+        "data": {
+          "keep_items": "유지할 항목"
+        },
+        "data_description": {
+          "keep_items": "선택을 해제한 항목은 제거됩니다. 모두 해제하여 새로 구성할 수도 있습니다."
+        }
       }
     },
     "error": {
@@ -530,10 +550,16 @@
       "region_added": "안전알림에 지역이 추가되었습니다.",
       "invalid_auth": "인증 세션이 만료되었습니다. 설정을 다시 시작하세요.",
       "animal_reauth_unsupported": "이 서비스는 이 인증키 갱신 절차를 지원하지 않습니다.",
-      "reauth_successful": "인증키가 갱신되었습니다."
+      "reauth_successful": "인증키가 갱신되었습니다.",
+      "reconfigure_successful": "설정이 변경되었습니다.",
+      "reconfigure_unsupported": "이 서비스는 재설정을 지원하지 않습니다.",
+      "reconfigure_account_mismatch": "기존 항목과 동일한 계정 또는 고객번호를 사용하세요. 다른 계정은 새로 추가하세요."
     }
   },
   "options": {
+    "error": {
+      "invalid_naver_url": "올바른 네이버지도 장소 URL 또는 숫자 장소 ID를 입력하세요."
+    },
     "step": {
       "init": {
         "title": "옵션",

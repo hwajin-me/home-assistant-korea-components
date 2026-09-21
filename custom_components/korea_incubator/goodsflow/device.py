@@ -14,7 +14,15 @@ from ..const import DOMAIN, LOGGER
 class GoodsFlowDevice:
     """GoodsFlow device representation."""
 
-    def __init__(self, hass, entry_id: str, token: str, session: aiohttp.ClientSession):
+    def __init__(
+        self,
+        hass,
+        entry_id: str,
+        token: str,
+        session: aiohttp.ClientSession,
+        *,
+        unique_id: str | None = None,
+    ):
         self.hass = hass
         self.entry_id = entry_id
         self.token = token
@@ -23,7 +31,7 @@ class GoodsFlowDevice:
         self.api_client.set_token(token)
 
         self._name = "굿스플로우 택배조회"
-        self._unique_id = f"goodsflow_{token[:8]}"
+        self._unique_id = unique_id or f"goodsflow_{token[:8]}"
         self._available = True
         self.data = {}
         self._last_update_success = None
