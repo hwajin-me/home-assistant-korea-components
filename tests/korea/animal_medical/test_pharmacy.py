@@ -211,11 +211,13 @@ async def test_reconfigure_legacy_and_duplicate(flow, fetch, kakao_network, old_
         "reason"
     ] == "already_configured"
     flow.hass.config_entries.async_entry_for_domain_unique_id.return_value = entry
-    flow.async_update_reload_and_abort = MagicMock(return_value={"type": "abort"})
     await flow.async_step_pharmacy_select({"selection": "C1"})
     await flow.async_step_animal_kakao({"selection": "123"})
+    await flow.async_step_medical_links(
+        {"kakao_place_id": "123", "naver_place_url": ""}
+    )
     assert (
-        flow.async_update_reload_and_abort.call_args.kwargs["unique_id"]
+        flow.hass.config_entries.async_update_entry.call_args.kwargs["unique_id"]
         == "pharmacy_C1"
     )
 

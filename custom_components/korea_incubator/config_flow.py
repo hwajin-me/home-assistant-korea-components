@@ -23,17 +23,14 @@ from .const import (
     CONF_ENTRY_TYPE,
     DOMAIN,
     ENTRY_AIRKOREA,
-    ENTRY_ARISU,
     ENTRY_CJ_ONE_DELIVERY,
     ENTRY_ANIMAL_MEDICAL,
     ENTRY_DH_LOTTERY,
     ENTRY_DISASTER,
     ENTRY_EARTHQUAKE,
     ENTRY_FUEL,
-    ENTRY_GASAPP,
     ENTRY_GOODSFLOW,
     ENTRY_KAKAOMAP,
-    ENTRY_KEPCO,
     ENTRY_KMA_WEATHER,
     ENTRY_PHARMACY,
     ENTRY_SAFETY_ALERT,
@@ -70,6 +67,10 @@ from .safety_alert.api import SafetyAlertApiClient
 from .safety_alert.exceptions import SafetyAlertConnectionError
 from .safety_alert.region_api import SafetyAlertRegionApiClient
 
+from .pharmacy.config_flow import PharmacyFlow
+from .public_data import configured_data_go_kr_api_key
+from .reconfigure import ServiceReconfigureFlow
+
 
 def _flow_error_message(error: Exception | str, fallback: str) -> str:
     """Return a concise API error suitable for a config-flow placeholder."""
@@ -79,12 +80,13 @@ def _flow_error_message(error: Exception | str, fallback: str) -> str:
     return message[:500]
 
 
-from .pharmacy.config_flow import PharmacyFlow
-from .public_data import configured_data_go_kr_api_key
-from .reconfigure import ServiceReconfigureFlow
-
-
-class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow, domain=DOMAIN):
+class KoreaConfigFlow(
+    ServiceReconfigureFlow,
+    PharmacyFlow,
+    AnimalMedicalFlow,
+    config_entries.ConfigFlow,
+    domain=DOMAIN,
+):
     """Handle a config flow for Korea integration."""
 
     VERSION = 1
@@ -107,6 +109,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
 
     async def async_step_user(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle the initial step."""
+        self._remember_service_input("user", user_input)
         return self.async_show_menu(
             step_id="user",
             menu_options=[
@@ -131,10 +134,9 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
             ],
         )
 
-    async def async_step_dh_lottery(
-        self, user_input: Optional[Dict[str, Any]] = None
-    ):
+    async def async_step_dh_lottery(self, user_input: Optional[Dict[str, Any]] = None):
         """Configure a Donghaeng Lottery account."""
+        self._remember_service_input("dh_lottery", user_input)
         errors: Dict[str, str] = {}
         if user_input is not None:
             from .lottery import LotteryClient, LotteryError
@@ -149,7 +151,9 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
             finally:
                 await client.close()
             if not errors:
-                await self.async_set_unique_id(f"dh_lottery_{user_input[CONF_USERNAME]}")
+                await self.async_set_unique_id(
+                    f"dh_lottery_{user_input[CONF_USERNAME]}"
+                )
                 self._check_service_unique_id()
                 return self._finish_service_entry(
                     title=f"동행복권 ({user_input[CONF_USERNAME]})",
@@ -157,7 +161,9 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
                 )
         return self._show_service_form(
             step_id="dh_lottery",
-            data_schema=vol.Schema({vol.Required(CONF_USERNAME): str, vol.Required(CONF_PASSWORD): str}),
+            data_schema=vol.Schema(
+                {vol.Required(CONF_USERNAME): str, vol.Required(CONF_PASSWORD): str}
+            ),
             errors=errors,
         )
 
@@ -165,6 +171,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         self, user_input: Optional[Dict[str, Any]] = None
     ):
         """Send the CJ O-NE SMS verification code."""
+        self._remember_service_input("cj_one_delivery", user_input)
         errors: Dict[str, str] = {}
         error_info: Dict[str, str] = {}
         if user_input is not None:
@@ -203,6 +210,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         self, user_input: Optional[Dict[str, Any]] = None
     ):
         """Verify the CJ O-NE SMS code."""
+        self._remember_service_input("cj_one_delivery_code", user_input)
         errors: Dict[str, str] = {}
         error_info: Dict[str, str] = {}
         if user_input is not None:
@@ -239,6 +247,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         self, user_input: Optional[Dict[str, Any]] = None
     ):
         """Configure the polling interval."""
+        self._remember_service_input("cj_one_delivery_options", user_input)
         if user_input is not None:
             auth_session = self._cj_auth_session
             if auth_session is None:
@@ -262,6 +271,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
 
     async def async_step_kepco(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle KEPCO configuration."""
+        self._remember_service_input("kepco", user_input)
         errors: Dict[str, str] = {}
         error_info: Dict[str, str] = {}
 
@@ -313,6 +323,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
 
     async def async_step_gasapp(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle GasApp configuration."""
+        self._remember_service_input("gasapp", user_input)
         errors: Dict[str, str] = {}
         error_info: Dict[str, str] = {}
 
@@ -382,6 +393,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
 
     async def async_step_goodsflow(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle GoodsFlow configuration."""
+        self._remember_service_input("goodsflow", user_input)
         errors: Dict[str, str] = {}
         error_info: Dict[str, str] = {}
 
@@ -443,6 +455,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         self, user_input: Optional[Dict[str, Any]] = None
     ):
         """Handle Safety Alert configuration - start with sido selection."""
+        self._remember_service_input("safety_alert", user_input)
         errors: Dict[str, str] = {}
         error_info: Dict[str, str] = {}
 
@@ -451,6 +464,10 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
             sido_name = self._safety_alert_data.get("sido_options", {}).get(
                 sido_code, sido_code
             )
+            if self._safety_alert_data.get("sido_code") != sido_code:
+                self._safety_alert_data = {
+                    "sido_options": self._safety_alert_data.get("sido_options", {})
+                }
             self._safety_alert_data["sido_code"] = sido_code
             self._safety_alert_data["sido_name"] = sido_name
             return await self.async_step_safety_alert_sgg()
@@ -509,6 +526,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         self, user_input: Optional[Dict[str, Any]] = None
     ):
         """Handle Safety Alert sgg (시군구) selection."""
+        self._remember_service_input("safety_alert_sgg", user_input)
         errors: Dict[str, str] = {}
 
         if user_input is not None:
@@ -516,6 +534,9 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
             sgg_name = self._safety_alert_data.get("sgg_options", {}).get(
                 sgg_code, sgg_code
             )
+            if self._safety_alert_data.get("sgg_code") != sgg_code:
+                for key in ("emd_code", "emd_name", "emd_options"):
+                    self._safety_alert_data.pop(key, None)
             self._safety_alert_data["sgg_code"] = sgg_code
             self._safety_alert_data["sgg_name"] = sgg_name
             return await self.async_step_safety_alert_emd()
@@ -524,7 +545,15 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         sido_name = self._safety_alert_data.get("sido_name", "")
 
         region_client = SafetyAlertRegionApiClient()
-        sgg_list = await region_client.async_get_sgg_list(sido_code)
+        try:
+            sgg_list = await region_client.async_get_sgg_list(sido_code)
+        except (aiohttp.ClientError, TimeoutError, SafetyAlertConnectionError) as err:
+            return self._show_service_form(
+                step_id="safety_alert_sgg",
+                data_schema=vol.Schema({vol.Required("sgg_name"): str}),
+                errors={"base": "cannot_connect"},
+                description_placeholders={"sido_name": sido_name, "error": str(err)},
+            )
 
         if sgg_list:
             sgg_options = {r["code"]: r["name"] for r in sgg_list}
@@ -556,6 +585,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         self, user_input: Optional[Dict[str, Any]] = None
     ):
         """Handle Safety Alert emd (읍면동) selection."""
+        self._remember_service_input("safety_alert_emd", user_input)
         errors: Dict[str, str] = {}
 
         if user_input is not None:
@@ -572,7 +602,15 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         sgg_name = self._safety_alert_data.get("sgg_name", "")
 
         region_client = SafetyAlertRegionApiClient()
-        emd_list = await region_client.async_get_emd_list(sido_code, sgg_code)
+        try:
+            emd_list = await region_client.async_get_emd_list(sido_code, sgg_code)
+        except (aiohttp.ClientError, TimeoutError, SafetyAlertConnectionError) as err:
+            return self._show_service_form(
+                step_id="safety_alert_emd",
+                data_schema=vol.Schema({vol.Required("emd_name"): str}),
+                errors={"base": "cannot_connect"},
+                description_placeholders={"sgg_name": sgg_name, "error": str(err)},
+            )
 
         if emd_list:
             emd_options = {r["code"]: r["name"] for r in emd_list}
@@ -659,18 +697,34 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
                 return self._finish_service_entry(title=entry.title, data=data)
             key = self._reconfigure_region
             regions = dict(entry.data.get("regions", {}))
-            others = [value for region_key, value in regions.items() if region_key != key]
-            others.extend(sub.data for sub_key, sub in entry.subentries.items() if sub_key != key)
+            others = [
+                value for region_key, value in regions.items() if region_key != key
+            ]
+            others.extend(
+                sub.data for sub_key, sub in entry.subentries.items() if sub_key != key
+            )
             if any(region_id(region) == identity for region in others):
                 return self.async_abort(reason="already_configured")
             # Preserve migration metadata and the region's stable storage key.
-            old = (entry.subentries[key].data if key in entry.subentries else regions.get(key, {}))
-            data.update({name: value for name, value in old.items()
-                         if name.startswith("legacy_")})
+            old = (
+                entry.subentries[key].data
+                if key in entry.subentries
+                else regions.get(key, {})
+            )
+            data.update(
+                {
+                    name: value
+                    for name, value in old.items()
+                    if name.startswith("legacy_")
+                }
+            )
             if key in entry.subentries:
                 changed = self.hass.config_entries.async_update_subentry(
-                    entry, entry.subentries[key], data=data,
-                    title=data["area_name"], unique_id=identity,
+                    entry,
+                    entry.subentries[key],
+                    data=data,
+                    title=data["area_name"],
+                    unique_id=identity,
                 )
             else:
                 regions[key or identity] = data
@@ -681,23 +735,31 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
                 self.hass.config_entries.async_schedule_reload(entry.entry_id)
             return self.async_abort(reason="reconfigure_successful")
         parent = next(
-            (entry for entry in self._async_current_entries()
-             if entry.data.get("grouped")
-             and entry.data.get("service") == ENTRY_SAFETY_ALERT),
+            (
+                entry
+                for entry in self._async_current_entries()
+                if entry.data.get("grouped")
+                and entry.data.get("service") == ENTRY_SAFETY_ALERT
+            ),
             None,
         )
         if parent:
             regions = dict(parent.data.get("regions", {}))
-            configured = list(regions.values()) + [sub.data for sub in parent.subentries.values()]
+            configured = list(regions.values()) + [
+                sub.data for sub in parent.subentries.values()
+            ]
             if any(region_id(region) == identity for region in configured):
                 return self.async_abort(reason="already_configured")
             regions[identity] = data
-            self.hass.config_entries.async_update_entry(parent, data={**parent.data, "regions": regions})
+            self.hass.config_entries.async_update_entry(
+                parent, data={**parent.data, "regions": regions}
+            )
             return self.async_abort(reason="region_added")
         await self.async_set_unique_id("safety_alert_service")
         self._check_service_unique_id()
         return self._finish_service_entry(
-            title="안전알림", data={**SERVICE_DATA, "regions": {identity: data}},
+            title="안전알림",
+            data={**SERVICE_DATA, "regions": {identity: data}},
         )
 
     def _show_safety_alert_emd_error(
@@ -721,6 +783,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
 
     async def async_step_arisu(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle Arisu configuration."""
+        self._remember_service_input("arisu", user_input)
         errors: Dict[str, str] = {}
         error_info: Dict[str, str] = {}
 
@@ -788,6 +851,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
 
     async def async_step_kakaomap(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle KakaoMap configuration."""
+        self._remember_service_input("kakaomap", user_input)
         errors: Dict[str, str] = {}
         error_info: Dict[str, str] = {}
 
@@ -945,6 +1009,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
 
     # ══════════ 기상특보 ══════════
     async def async_step_weather_warning(self, user_input=None) -> FlowResult:
+        self._remember_service_input("weather_warning", user_input)
         from .weather import AREA_CODES
         from .weather.api import validate_kma_api
 
@@ -1006,6 +1071,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
 
     # ══════════ 대중교통 ══════════
     async def async_step_transit(self, user_input=None) -> FlowResult:
+        self._remember_service_input("transit", user_input)
         if user_input is not None:
             self._data = {
                 CONF_ENTRY_TYPE: ENTRY_TRANSIT,
@@ -1029,15 +1095,25 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
 
     async def async_step_transit_keep(self, user_input=None) -> FlowResult:
         """Keep selected existing stops before optionally adding new ones."""
+        self._remember_service_input("transit_keep", user_input)
         import homeassistant.helpers.config_validation as cv
         from copy import deepcopy
 
         old = self._reconfigure_entry.data
-        items = [(field, index, item)
-                 for field in ("subway_items", "bus_stops")
-                 for index, item in enumerate(old.get(field, []))]
-        choices = {f"{field}:{index}": str(item.get("station") or item.get("stop_name") or item.get("stop_id") or index + 1)
-                   for field, index, item in items}
+        items = [
+            (field, index, item)
+            for field in ("subway_items", "bus_stops")
+            for index, item in enumerate(old.get(field, []))
+        ]
+        choices = {
+            f"{field}:{index}": str(
+                item.get("station")
+                or item.get("stop_name")
+                or item.get("stop_id")
+                or index + 1
+            )
+            for field, index, item in items
+        }
         if user_input is not None:
             selected = user_input.get("keep_items", [])
             for field, index, item in items:
@@ -1046,26 +1122,34 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
             return await self.async_step_transit_add()
         return self._show_service_form(
             step_id="transit_keep",
-            data_schema=vol.Schema({vol.Required("keep_items", default=list(choices)): cv.multi_select(choices)}),
+            data_schema=vol.Schema(
+                {
+                    vol.Required("keep_items", default=list(choices)): cv.multi_select(
+                        choices
+                    )
+                }
+            ),
         )
 
     async def async_step_transit_add(self, user_input=None) -> FlowResult:
+        self._remember_service_input("transit_add", user_input)
         return self.async_show_menu(
             step_id="transit_add",
             menu_options=["transit_subway", "transit_bus_search", "transit_done"],
         )
 
     async def async_step_transit_subway(self, user_input=None) -> FlowResult:
+        self._remember_service_input("transit_subway", user_input)
         from .transit import DIRECTIONS, SUBWAY_LINES
 
         if user_input is not None:
-            self._data["subway_items"].append(
-                {
-                    "station": user_input["station"].strip(),
-                    "direction": user_input["direction"],
-                    "line_id": user_input.get("line_id", ""),
-                }
-            )
+            item = {
+                "station": user_input["station"].strip(),
+                "direction": user_input["direction"],
+                "line_id": user_input.get("line_id", ""),
+            }
+            if item not in self._data["subway_items"]:
+                self._data["subway_items"].append(item)
             return await self.async_step_transit_add()
         dir_opts = {d: d for d in DIRECTIONS}
         line_opts = {"": "전체", **SUBWAY_LINES}
@@ -1081,6 +1165,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         )
 
     async def async_step_transit_bus_search(self, user_input=None) -> FlowResult:
+        self._remember_service_input("transit_bus_search", user_input)
         errors: dict[str, str] = {}
         error_info: dict[str, str] = {}
         if user_input is not None:
@@ -1111,16 +1196,24 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         )
 
     async def async_step_transit_bus_select(self, user_input=None) -> FlowResult:
+        self._remember_service_input("transit_bus_select", user_input)
         import homeassistant.helpers.config_validation as cv
 
         if user_input is not None:
-            self._data.setdefault("bus_stops", []).append(
-                {
-                    "stop_id": self._bus_stop_id,
-                    "stop_name": self._bus_stop_name,
-                    "buses": user_input.get("buses", []),
-                }
-            )
+            stops = self._data.setdefault("bus_stops", [])
+            item = {
+                "stop_id": self._bus_stop_id,
+                "stop_name": self._bus_stop_name,
+                "buses": user_input.get("buses", []),
+            }
+            # Selecting an existing stop edits its lines instead of adding a
+            # second coordinator and duplicate entities for the same stop.
+            for index, stop in enumerate(stops):
+                if stop["stop_id"] == self._bus_stop_id:
+                    stops[index] = item
+                    break
+            else:
+                stops.append(item)
             return await self.async_step_transit_add()
         return self._show_service_form(
             step_id="transit_bus_select",
@@ -1134,10 +1227,12 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         )
 
     async def async_step_transit_done(self, user_input=None) -> FlowResult:
+        self._remember_service_input("transit_done", user_input)
         return self._finish_service_entry(title="대중교통", data=self._data)
 
     # ══════════ 유가정보 ══════════
     async def async_step_fuel(self, user_input=None) -> FlowResult:
+        self._remember_service_input("fuel", user_input)
         from .fuel import SIDO_CODES, FUEL_TYPES
         from .fuel.api import validate_opinet
 
@@ -1207,6 +1302,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
 
     # ══════════ 학교정보 ══════════
     async def async_step_school(self, user_input=None) -> FlowResult:
+        self._remember_service_input("school", user_input)
         from .school import SCHOOL_LEVELS
 
         errors: dict[str, str] = {}
@@ -1231,6 +1327,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         )
 
     async def async_step_school_search(self, user_input=None) -> FlowResult:
+        self._remember_service_input("school_search", user_input)
         errors: dict[str, str] = {}
         error_info: dict[str, str] = {}
         if user_input is not None:
@@ -1284,10 +1381,15 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         )
 
     async def async_step_school_class(self, user_input=None) -> FlowResult:
+        self._remember_service_input("school_class", user_input)
         import homeassistant.helpers.config_validation as cv
 
         if user_input is not None:
             selected = user_input.get("grade_classes", [])
+            if not selected:
+                result = await self.async_step_school_class()
+                result["errors"] = {"base": "no_selection"}
+                return result
             self._data["grade_classes"] = selected
             if selected:
                 g, cl = selected[0].split("-")
@@ -1313,7 +1415,33 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         )
 
     async def async_step_school_periods(self, user_input=None) -> FlowResult:
+        self._remember_service_input("school_periods", user_input)
         if user_input is not None:
+            from datetime import datetime
+
+            invalid = {}
+            for field, value in user_input.items():
+                try:
+                    if field.startswith("period_"):
+                        if not value and field != "period_1":
+                            continue
+                        start, end = value.split("-")
+                        if datetime.strptime(start, "%H:%M") >= datetime.strptime(
+                            end, "%H:%M"
+                        ):
+                            raise ValueError("Invalid period order")
+                    elif field in {"lunch_start", "lunch_end"}:
+                        datetime.strptime(value, "%H:%M")
+                except (ValueError, TypeError):
+                    invalid[field] = "invalid_time"
+            if not invalid and datetime.strptime(
+                user_input.get("lunch_start", "12:50"), "%H:%M"
+            ) >= datetime.strptime(user_input.get("lunch_end", "13:40"), "%H:%M"):
+                invalid["lunch_end"] = "invalid_time"
+            if invalid:
+                result = await self.async_step_school_periods()
+                result["errors"] = invalid
+                return result
             self._data.update(user_input)
             return self._finish_service_entry(title="학교정보", data=self._data)
         defaults = {
@@ -1340,6 +1468,7 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
 
     # ══════════ 재난정보 ══════════
     async def async_step_disaster(self, user_input=None) -> FlowResult:
+        self._remember_service_input("disaster", user_input)
         from .disaster.api import validate_disaster_api
 
         errors, error_info = {}, {}
@@ -1411,13 +1540,25 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
     # ══════════ 약국 ══════════
 
     async def async_step_pharmacy(self, user_input=None) -> FlowResult:
+        self._remember_service_input("pharmacy", user_input)
         return await PharmacyFlow.async_step_pharmacy(self, user_input)
 
     # ══════════ 에어코리아 ══════════
     async def async_step_airkorea(self, user_input=None) -> FlowResult:
+        self._remember_service_input("airkorea", user_input)
         from .airkorea import STATIONS_BY_SIDO
 
         if user_input is not None:
+            from urllib.parse import unquote
+
+            user_input = dict(user_input)
+            for key in ("api_key", "living_api_key"):
+                if key in user_input:
+                    user_input[key] = unquote(user_input[key].strip())
+            if result := await self._async_validate_public_service(
+                "airkorea", user_input
+            ):
+                return result
             self._data = {
                 CONF_ENTRY_TYPE: ENTRY_AIRKOREA,
                 "api_key": user_input["api_key"],
@@ -1444,10 +1585,15 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         )
 
     async def async_step_airkorea_select(self, user_input=None) -> FlowResult:
+        self._remember_service_input("airkorea_select", user_input)
         import homeassistant.helpers.config_validation as cv
         from .airkorea import STATIONS_BY_SIDO
 
         if user_input is not None:
+            if not user_input.get("stations"):
+                result = await self.async_step_airkorea_select()
+                result["errors"] = {"base": "no_selection"}
+                return result
             self._data.update(
                 {
                     "stations": [
@@ -1471,9 +1617,20 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
 
     # ══════════ 기상청 날씨예보 ══════════
     async def async_step_kma_weather(self, user_input=None) -> FlowResult:
+        self._remember_service_input("kma_weather", user_input)
         from .kma_weather import SIDO_LIST
 
         if user_input is not None:
+            from urllib.parse import unquote
+
+            user_input = dict(user_input)
+            for key in ("api_key", "living_api_key"):
+                if key in user_input:
+                    user_input[key] = unquote(user_input[key].strip())
+            if result := await self._async_validate_public_service(
+                "kma_weather", user_input
+            ):
+                return result
             self._data, self._kma_sido = (
                 {CONF_ENTRY_TYPE: ENTRY_KMA_WEATHER, "api_key": user_input["api_key"]},
                 user_input["sido"],
@@ -1497,12 +1654,18 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
         )
 
     async def async_step_kma_weather_sgg(self, user_input=None) -> FlowResult:
+        self._remember_service_input("kma_weather_sgg", user_input)
         import homeassistant.helpers.config_validation as cv
-        from .kma_weather import SIDO_LIST
+        from .kma_weather import SIDO_LIST, AIR_SIDO
         from .airkorea import STATIONS_BY_SIDO, SIDO_AREA_CODE
 
+        air_sido = AIR_SIDO.get(self._kma_sido, self._kma_sido)
         sgg_map = SIDO_LIST.get(self._kma_sido, {})
         if user_input is not None:
+            if not user_input.get("regions"):
+                result = await self.async_step_kma_weather_sgg()
+                result["errors"] = {"base": "no_selection"}
+                return result
             selected = user_input.get("regions", [])
             self._data.update(
                 {
@@ -1512,16 +1675,14 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
                         if r in sgg_map
                     ],
                     "air_station": user_input.get("air_station", ""),
-                    "area_no": SIDO_AREA_CODE.get(self._kma_sido, ""),
+                    "area_no": SIDO_AREA_CODE.get(air_sido, ""),
                     "sido": self._kma_sido,
                 }
             )
             return self._finish_service_entry(title="기상청 날씨예보", data=self._data)
         air_opts = {
             "": "사용 안 함",
-            **{
-                s: f"{s} (O₃/UV)" for s in STATIONS_BY_SIDO.get(self._kma_sido, [])[:30]
-            },
+            **{s: f"{s} (O₃/UV)" for s in STATIONS_BY_SIDO.get(air_sido, [])},
         }
         return self._show_service_form(
             step_id="kma_weather_sgg",
@@ -1537,7 +1698,18 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
 
     # ══════════ 지진 정보 ══════════
     async def async_step_earthquake(self, user_input=None) -> FlowResult:
+        self._remember_service_input("earthquake", user_input)
         if user_input is not None:
+            from urllib.parse import unquote
+
+            user_input = dict(user_input)
+            for key in ("api_key", "living_api_key"):
+                if key in user_input:
+                    user_input[key] = unquote(user_input[key].strip())
+            if result := await self._async_validate_public_service(
+                "earthquake", user_input
+            ):
+                return result
             return self._finish_service_entry(
                 title="지진 정보",
                 data={
@@ -1556,10 +1728,18 @@ class KoreaConfigFlow(ServiceReconfigureFlow, PharmacyFlow, AnimalMedicalFlow, c
                     vol.Required(
                         "api_key", default=self._data_go_kr_api_key_default()
                     ): str,
-                    vol.Optional("latitude", default=37.5665): vol.Coerce(float),
-                    vol.Optional("longitude", default=126.978): vol.Coerce(float),
-                    vol.Optional("radius_km", default=200): vol.Coerce(int),
-                    vol.Optional("min_magnitude", default=3.0): vol.Coerce(float),
+                    vol.Optional("latitude", default=37.5665): vol.All(
+                        vol.Coerce(float), vol.Range(min=-90, max=90)
+                    ),
+                    vol.Optional("longitude", default=126.978): vol.All(
+                        vol.Coerce(float), vol.Range(min=-180, max=180)
+                    ),
+                    vol.Optional("radius_km", default=200): vol.All(
+                        vol.Coerce(int), vol.Range(min=1)
+                    ),
+                    vol.Optional("min_magnitude", default=3.0): vol.All(
+                        vol.Coerce(float), vol.Range(min=0, max=10)
+                    ),
                 }
             ),
         )
@@ -1579,95 +1759,137 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
         self._config_entry = config_entry
 
     async def async_step_init(self, user_input: Optional[Dict[str, Any]] = None):
-        """Manage the options."""
+        """Validate and save supported options; connection settings use reconfigure."""
         service = self._config_entry.data.get("service")
         if service in (ENTRY_ANIMAL_MEDICAL, ENTRY_PHARMACY):
             return await self.async_step_animal_medical_options(user_input)
         if service == ENTRY_CJ_ONE_DELIVERY:
             if user_input is not None:
-                return self.async_create_entry(title="", data=user_input)
+                return self.async_create_entry(
+                    title="", data={**self._config_entry.options, **user_input}
+                )
             return self.async_show_form(
                 step_id="init",
                 data_schema=_cj_one_delivery_options_schema(
                     dict(self._config_entry.options)
                 ),
             )
-        if service in [
-            ENTRY_WEATHER,
-            ENTRY_TRANSIT,
-            ENTRY_FUEL,
-            ENTRY_SCHOOL,
-            ENTRY_DISASTER,
-            ENTRY_SAFETY_ALERT,
-            ENTRY_KEPCO,
-            ENTRY_GASAPP,
-            ENTRY_ARISU,
-            ENTRY_PHARMACY,
-            ENTRY_AIRKOREA,
-            ENTRY_KMA_WEATHER,
-            ENTRY_EARTHQUAKE,
-            ENTRY_GOODSFLOW,
-            ENTRY_KAKAOMAP,
-        ]:
-            # 새 서비스들은 옵션 플로우에서 기본 스키마 제공 가능 (필요시 상세 구현)
+        if service not in {ENTRY_WEATHER, ENTRY_KAKAOMAP}:
+            return self.async_abort(reason="use_reconfigure")
+
+        values = {
+            **self._config_entry.data,
+            **self._config_entry.options,
+            **(user_input or {}),
+        }
+        errors, detail = {}, ""
+        if user_input is not None:
             if service == ENTRY_WEATHER:
-                if user_input is not None:
+                from .weather.api import validate_kma_api
+
+                if not user_input.get("area_codes"):
+                    errors["base"] = "no_selection"
+                elif not user_input.get("api_key", "").strip():
+                    errors["base"] = "invalid_api_key"
+                    detail = "Enter an API key"
+                else:
+                    try:
+                        await validate_kma_api(user_input["api_key"])
+                    except ValueError as err:
+                        errors["base"], detail = "invalid_api_key", str(err)
+                    except Exception as err:
+                        errors["base"], detail = "cannot_connect", str(err)
+                if not errors:
                     self.hass.config_entries.async_update_entry(
                         self._config_entry,
                         data={**self._config_entry.data, **user_input},
                     )
-                    self.hass.config_entries.async_schedule_reload(self._config_entry.entry_id)
-                    return self.async_create_entry(title="", data={})
-                from .weather import AREA_CODES
+                    self.hass.config_entries.async_schedule_reload(
+                        self._config_entry.entry_id
+                    )
+                    return self.async_create_entry(
+                        title="",
+                        data={
+                            key: value
+                            for key, value in self._config_entry.options.items()
+                            if key not in user_input
+                        },
+                    )
+            else:
+                # Omitted optional credentials mean removal, not reuse of an old cookie.
+                credentials = {
+                    "api_key": user_input.get("api_key", ""),
+                    "web_cookie": user_input.get("web_cookie", ""),
+                }
+                values.update(credentials)
+                if not any(value.strip() for value in credentials.values()):
+                    errors["base"], detail = (
+                        "invalid_auth",
+                        "Enter a REST API key or web cookie",
+                    )
+                else:
+                    from .kakaomap.exceptions import KakaoMapError
 
-                area_options = [{"value": c, "label": n} for c, n in AREA_CODES.items()]
-                return self.async_show_form(
-                    step_id="init",
-                    data_schema=vol.Schema(
-                        {
-                            vol.Optional(
-                                "api_key",
-                                default=self._config_entry.data.get("api_key", ""),
-                            ): str,
-                            vol.Required(
-                                "area_codes",
-                                default=self._config_entry.data.get("area_codes", []),
-                            ): SelectSelector(
-                                SelectSelectorConfig(
-                                    options=area_options,
-                                    multiple=True,
-                                    mode=SelectSelectorMode.DROPDOWN,
-                                )
-                            ),
-                        }
-                    ),
-                )
-            if service == ENTRY_KAKAOMAP:
-                if user_input is not None:
-                    return self.async_create_entry(title="", data=user_input)
-                return self.async_show_form(
-                    step_id="kakaomap",
-                    data_schema=vol.Schema(
-                        {
-                            vol.Required(
-                                "api_key",
-                                default=self._config_entry.options.get(
-                                    "api_key",
-                                    self._config_entry.data.get("api_key", ""),
-                                ),
-                            ): str,
-                            vol.Optional(
-                                "web_cookie",
-                                default=self._config_entry.options.get(
-                                    "web_cookie",
-                                    self._config_entry.data.get("web_cookie", ""),
-                                ),
-                            ): str,
-                        }
-                    ),
-                )
-            return self.async_abort(reason=f"no_options_{service}")
+                    client = KakaoMapApiClient(
+                        async_get_clientsession(self.hass), **credentials
+                    )
+                    try:
+                        start = self._config_entry.data["start_coords"]
+                        end = self._config_entry.data["end_coords"]
+                        await client.async_get_public_transport_route(
+                            start["x"], start["y"], end["x"], end["y"]
+                        )
+                    except (KeyError, TypeError):
+                        return self.async_abort(reason="use_reconfigure")
+                    except (KakaoMapError, aiohttp.ClientError, TimeoutError) as err:
+                        errors["base"], detail = "cannot_connect", str(err)
+                if not errors:
+                    options = {**self._config_entry.options, **credentials}
+                    if dict(self._config_entry.options) == options:
+                        self.hass.config_entries.async_schedule_reload(
+                            self._config_entry.entry_id
+                        )
+                    return self.async_create_entry(title="", data=options)
 
+        if service == ENTRY_WEATHER:
+            from .weather import AREA_CODES
+
+            schema = vol.Schema(
+                {
+                    vol.Required("api_key", default=values.get("api_key", "")): str,
+                    vol.Required(
+                        "area_codes", default=values.get("area_codes", [])
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[
+                                {"value": code, "label": name}
+                                for code, name in AREA_CODES.items()
+                            ],
+                            multiple=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                }
+            )
+        else:
+            schema = vol.Schema(
+                {
+                    vol.Optional("api_key", default=values.get("api_key", "")): str,
+                    vol.Optional(
+                        "web_cookie", default=values.get("web_cookie", "")
+                    ): str,
+                }
+            )
+        return self.async_show_form(
+            step_id="init" if service == ENTRY_WEATHER else "kakaomap",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={"error": detail[:500]},
+        )
+
+    async def async_step_kakaomap(self, user_input=None):
+        """Handle submissions from the KakaoMap options form."""
+        return await self.async_step_init(user_input)
 
     async def async_step_animal_medical_options(self, user_input=None):
         """Saving settings always fetches fresh institution data."""
@@ -1685,7 +1907,8 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
                 try:
                     user_input["naver_place_url"] = (
                         f"https://map.naver.com/p/entry/place/{place_id(value)}"
-                        if value else ""
+                        if value
+                        else ""
                     )
                 except ValueError:
                     errors["naver_place_url"] = "invalid_naver_url"
@@ -1693,7 +1916,9 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None and not errors:
             if user_input.get("naver_query", "").strip():
                 self._medical_options = {
-                    key: value for key, value in user_input.items() if key != "naver_query"
+                    key: value
+                    for key, value in user_input.items()
+                    if key != "naver_query"
                 }
                 self._naver_query = user_input["naver_query"].strip()
                 self._naver_items = []
@@ -1712,7 +1937,9 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema(
                 {
                     **interval_schema(interval),
-                    vol.Optional("naver_query", default=values.get("naver_query", "")): str,
+                    vol.Optional(
+                        "naver_query", default=values.get("naver_query", "")
+                    ): str,
                     vol.Optional(
                         "naver_place_url",
                         default=values.get("naver_place_url", ""),

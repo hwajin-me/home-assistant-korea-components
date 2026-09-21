@@ -7,7 +7,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from ..animal_medical.coordinates import point_wgs84
 from ..animal_medical.hours import effective_schedule
-from ..animal_medical.sensor import AnimalMedicalSensor
+from ..animal_medical.sensor import AnimalMedicalSensor, institution_identifier
 from ..const import DOMAIN
 from .api import weekly_hours
 
@@ -18,7 +18,7 @@ class PharmacySensor(AnimalMedicalSensor):
     def __init__(self, coordinator, entry_data):
         CoordinatorEntity.__init__(self, coordinator)
         self._entry_data = dict(entry_data)
-        identifier = f"pharmacy_{entry_data['hpid']}"
+        identifier = institution_identifier(entry_data)
         self._attr_unique_id = f"{DOMAIN}_{identifier}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, identifier)},

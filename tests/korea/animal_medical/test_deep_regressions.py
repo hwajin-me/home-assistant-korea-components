@@ -33,13 +33,16 @@ async def test_reconfigure_interval_overrides_old_options(flow, kakao_network):
     form = await flow.async_step_reconfigure()
     assert form["data_schema"]({"api_key": "key"})["scan_interval_minutes"] == 120
     flow._kakao_entry = {**DATA, "scan_interval_minutes": 15}
-    flow.async_update_reload_and_abort = MagicMock(return_value={})
     await flow._async_kakao_finish("123")
-    updates = flow.async_update_reload_and_abort.call_args.kwargs
-    assert updates["options"]["scan_interval_minutes"] == 15
+    await flow.async_step_medical_links(
+        {"kakao_place_id": "123", "naver_place_url": ""}
+    )
+    updates = flow.hass.config_entries.async_update_entry.call_args.kwargs
+    assert "scan_interval_minutes" not in updates["options"]
+    assert updates["data"]["scan_interval_minutes"] == 15
     new_entry = MagicMock(options=updates["options"], entry_id="entry")
     coordinator = PharmacyCoordinator(
-        flow.hass, updates["data_updates"], config_entry=new_entry
+        flow.hass, updates["data"], config_entry=new_entry
     )
     assert coordinator.interval_minutes == 15
 

@@ -56,6 +56,7 @@ async def test_token_data_update_does_not_reload_entry(mock_hass) -> None:
     entry.entry_id = "cj_entry"
     entry.options = {"scan_interval_minutes": 30}
     coordinator = MagicMock()
+    coordinator.loaded_data = dict(entry.data)
     coordinator.loaded_options = dict(entry.options)
     coordinator.async_request_refresh = AsyncMock()
     mock_hass.data = {DOMAIN: {entry.entry_id: {"coordinator": coordinator}}}
@@ -74,6 +75,7 @@ async def test_option_change_updates_coordinator_without_reload(mock_hass) -> No
     entry.entry_id = "cj_entry"
     entry.options = {"scan_interval_minutes": 20}
     coordinator = MagicMock()
+    coordinator.loaded_data = dict(entry.data)
     coordinator.loaded_options = {"scan_interval_minutes": 30}
     coordinator.async_request_refresh = AsyncMock()
     mock_hass.data = {DOMAIN: {entry.entry_id: {"coordinator": coordinator}}}

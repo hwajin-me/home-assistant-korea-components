@@ -62,7 +62,15 @@ async def test_each_service_opens_its_own_form(service):
     flow.hass.config_entries.async_update_entry.assert_not_called()
 
 
-async def test_earthquake_prefill_and_save_preserve_entry():
+@patch(
+    "homeassistant.helpers.aiohttp_client.async_get_clientsession",
+    return_value=MagicMock(),
+)
+@patch(
+    "custom_components.korea_incubator.config_validation.validate_service",
+    new_callable=AsyncMock,
+)
+async def test_earthquake_prefill_and_save_preserve_entry(validate, session):
     flow, entry = make_flow(
         "earthquake",
         {
@@ -153,7 +161,15 @@ async def test_rotated_goodsflow_token_does_not_create_duplicate():
     flow.hass.config_entries.async_update_entry.assert_not_called()
 
 
-async def test_airkorea_multistep_prefill_and_save():
+@patch(
+    "homeassistant.helpers.aiohttp_client.async_get_clientsession",
+    return_value=MagicMock(),
+)
+@patch(
+    "custom_components.korea_incubator.config_validation.validate_service",
+    new_callable=AsyncMock,
+)
+async def test_airkorea_multistep_prefill_and_save(validate, session):
     flow, _ = make_flow(
         "airkorea",
         {"api_key": "old", "sido": "서울", "stations": [{"stationName": "강남구"}]},
@@ -266,9 +282,7 @@ async def test_cj_reconfigure_verifies_sms_before_replacing_tokens():
         ]
         == "new"
     )
-    flow.hass.config_entries.async_schedule_reload.assert_called_once_with(
-        entry.entry_id
-    )
+    flow.hass.config_entries.async_schedule_reload.assert_not_called()
 
 
 async def test_goodsflow_device_keeps_identity_after_token_rotation():
@@ -315,7 +329,11 @@ async def test_fuel_and_disaster_restore_transformed_values():
     assert values["sub_region"] == "서울 용산구"
 
 
-async def test_weather_options_are_saved_and_reloaded():
+@patch(
+    "custom_components.korea_incubator.weather.api.validate_kma_api",
+    new_callable=AsyncMock,
+)
+async def test_weather_options_are_saved_and_reloaded(validate):
     from custom_components.korea_incubator.config_flow import KoreaOptionsFlow
 
     _, entry = make_flow("weather_warning", {"api_key": "old", "area_codes": []})

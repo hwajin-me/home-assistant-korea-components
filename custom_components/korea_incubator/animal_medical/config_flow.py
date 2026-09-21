@@ -185,7 +185,7 @@ class AnimalMedicalFlow(KakaoPlaceFlow):
                 await self.async_set_unique_id(
                     f"animal_{data['institution_type']}_{data['municipality_code']}_{data['management_number']}"
                 )
-                self._abort_if_unique_id_configured()
+                self._check_service_unique_id()
                 return await self._async_link_kakao(selected, data)
             errors["selection"] = "animal_invalid_selection"
 
@@ -251,30 +251,18 @@ class AnimalMedicalFlow(KakaoPlaceFlow):
         return await self.async_step_animal_medical_reauth()
 
     async def async_step_reconfigure(self, user_input=None):
-        """Link or replace a Kakao place for an existing public-data entry."""
+        """Edit institution settings, validate selection, then link opening hours."""
         entry = self._get_reconfigure_entry()
         if entry.data.get(CONF_ENTRY_TYPE) == "pharmacy":
             return await self.async_step_pharmacy(user_input)
-        if entry.data.get(CONF_ENTRY_TYPE) != ENTRY_ANIMAL_MEDICAL:
-            return self.async_abort(reason="animal_reauth_unsupported")
-        from .coordinator import AnimalMedicalCoordinator
-
-        coordinator = AnimalMedicalCoordinator(self.hass, dict(entry.data))
-        try:
-            record = await coordinator._find(entry.data["business_name"])
-            if record is None:
-                record = await coordinator._find("")
-            if record is None:
-                raise AnimalMedicalApiError("Selected institution is no longer listed")
-        except AnimalMedicalApiError as err:
-            _LOGGER.warning("Animal medical reconfigure: %s", err)
-            return self.async_show_form(
-                step_id="reconfigure",
-                data_schema=vol.Schema({}),
-                errors={"base": "animal_cannot_connect"},
-                description_placeholders={"error": str(err)},
-            )
-        return await self._async_link_kakao(record, dict(entry.data))
+        values = {**entry.data, **entry.options}
+        self._animal_input = {
+            **values,
+            "search_method": "road_address"
+            if values.get("road_address")
+            else "municipality_code",
+        }
+        return await self.async_step_animal_medical(user_input)
 
     async def async_step_animal_medical_reauth(self, user_input=None):
         errors = {}

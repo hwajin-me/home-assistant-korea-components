@@ -102,57 +102,100 @@ async def test_ambiguous_and_navigation_boundaries(
         assert (await flow.async_step_animal_kakao({"selection": choice}))["errors"]
 
 
-async def test_reconfigure_link_and_preserve_entry(flow, entry_data, record):
-    entry = MagicMock(data=entry_data)
+async def test_reconfigure_opens_editable_form_without_network(flow, entry_data):
+    entry = MagicMock(data=entry_data, options={})
     flow.context["source"] = "reconfigure"
     with (
         patch.object(flow, "_get_reconfigure_entry", return_value=entry),
-        patch.object(
-            flow, "async_update_reload_and_abort", return_value={"type": "abort"}
-        ) as update,
         patch(
             "custom_components.korea_incubator.animal_medical.coordinator.AnimalMedicalCoordinator._find",
             new_callable=AsyncMock,
-            side_effect=[None, record],
-        ),
+        ) as find,
     ):
-        assert (await flow.async_step_reconfigure())["type"] == "abort"
-        assert update.call_args.kwargs["data_updates"]["kakao_place_id"] == "123"
-        assert update.call_args.kwargs["data_updates"]["api_key"] == "key"
+        result = await flow.async_step_reconfigure()
+    assert result["step_id"] == "animal_medical"
+    values = result["data_schema"]({})
+    assert values["api_key"] == "key"
+    assert values["road_address"] == "서울"
+    find.assert_not_awaited()
+    flow.hass.config_entries.async_update_entry.assert_not_called()
 
 
-@pytest.mark.parametrize("records", [[None, None], [AnimalMedicalApiError("offline")]])
-async def test_reconfigure_errors(flow, entry_data, records):
+@pytest.mark.parametrize("error", [AnimalMedicalApiError("offline")])
+async def test_reconfigure_errors_retain_edited_key(flow, entry_data, error):
+    entry = MagicMock(data=entry_data, options={})
+    flow.context["source"] = "reconfigure"
+    flow._get_reconfigure_entry = MagicMock(return_value=entry)
+    result = await flow.async_step_reconfigure()
+    values = result["data_schema"]({})
     with (
-        patch.object(
-            flow, "_get_reconfigure_entry", return_value=MagicMock(data=entry_data)
+        patch(
+            "custom_components.korea_incubator.animal_medical.config_flow.async_get_clientsession"
         ),
         patch(
-            "custom_components.korea_incubator.animal_medical.coordinator.AnimalMedicalCoordinator._find",
+            "custom_components.korea_incubator.animal_medical.config_flow.async_fetch_institutions",
             new_callable=AsyncMock,
-            side_effect=records,
+            side_effect=error,
         ),
     ):
-        assert (await flow.async_step_reconfigure())["errors"][
-            "base"
-        ] == "animal_cannot_connect"
+        result = await flow.async_step_animal_medical({**values, "api_key": "edited"})
+    assert result["errors"]["base"] == "animal_cannot_connect"
+    assert result["data_schema"]({})["api_key"] == "edited"
+    flow.hass.config_entries.async_update_entry.assert_not_called()
 
 
-async def test_reconfigure_success_and_other_service(flow, entry_data, record):
+async def test_reconfigure_complete_and_preserve_identity(flow, entry_data, record):
+    entry = MagicMock(
+        data=entry_data,
+        options={"scan_interval_minutes": 90, "naver_place_url": "1234"},
+        entry_id="existing",
+        unique_id="animal_hospital_3000000_A1",
+    )
+    flow.context["source"] = "reconfigure"
+    flow._get_reconfigure_entry = MagicMock(return_value=entry)
+    result = await flow.async_step_reconfigure()
+    values = result["data_schema"]({})
     with (
-        patch.object(
-            flow, "_get_reconfigure_entry", return_value=MagicMock(data=entry_data)
+        patch(
+            "custom_components.korea_incubator.animal_medical.config_flow.async_get_clientsession"
         ),
         patch(
-            "custom_components.korea_incubator.animal_medical.coordinator.AnimalMedicalCoordinator._find",
+            "custom_components.korea_incubator.animal_medical.config_flow.async_fetch_institutions",
             new_callable=AsyncMock,
-            return_value=record,
+            return_value=([record], 1),
         ),
     ):
-        assert (await flow.async_step_reconfigure())["data"]["kakao_place_id"] == "123"
+        await flow.async_step_animal_medical(
+            {**values, "api_key": "new", "scan_interval_minutes": 15}
+        )
+        flow.hass.config_entries.async_entry_for_domain_unique_id.return_value = entry
+        result = await flow.async_step_animal_medical_select(
+            {"selection": "3000000:A1"}
+        )
+    assert result["step_id"] == "medical_links"
+    flow.hass.config_entries.async_update_entry.assert_not_called()
+    result = await flow.async_step_medical_links(
+        {"kakao_place_id": "123", "naver_place_url": "18199503"}
+    )
+    assert result["reason"] == "reconfigure_successful"
+    updates = flow.hass.config_entries.async_update_entry.call_args.kwargs
+    assert updates["data"]["api_key"] == "new"
+    assert updates["data"]["scan_interval_minutes"] == 15
+    assert updates["data"]["kakao_place_id"] == "123"
+    assert (
+        updates["data"]["naver_place_url"]
+        == "https://map.naver.com/p/entry/place/18199503"
+    )
+    assert "naver_place_url" not in updates["options"]
+    assert updates["data"]["device_unique_id"] == "animal_hospital_3000000_A1"
+
+
+async def test_reconfigure_other_service_aborts(flow):
     with patch.object(
         flow,
         "_get_reconfigure_entry",
         return_value=MagicMock(data={"service": "other"}),
     ):
-        assert (await flow.async_step_reconfigure())["type"] == "abort"
+        assert (await flow.async_step_reconfigure())[
+            "reason"
+        ] == "reconfigure_unsupported"

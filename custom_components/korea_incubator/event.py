@@ -1,4 +1,5 @@
 """Event platform dispatcher."""
+from .entity_reconfigure import reconcile_entities
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -30,6 +31,9 @@ def _migrate_earthquake_unique_id(hass: HomeAssistant, entry: ConfigEntry) -> No
             )
             break
 
+
+
+@reconcile_entities("event")
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
                             async_add_entities: AddEntitiesCallback) -> None:
     etype = entry.data.get(CONF_ENTRY_TYPE)

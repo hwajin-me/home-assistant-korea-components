@@ -194,7 +194,12 @@ region reloads the service; a temporary API failure in one region does not block
 - 대중교통은 기존 정류장·지하철 항목 중 유지할 항목을 선택한 뒤 새 항목을 추가할 수 있습니다.
 - 안전알림은 변경할 지역을 선택하며, 다른 지역은 유지됩니다.
 - 굿스플로우는 토큰을 교체해도 기존 기기·엔티티 식별자를 유지합니다.
-- 동물병원·동물약국·약국은 기존 기관별 재설정 절차를 사용합니다.
+- 동물병원·동물약국·약국은 API 키, 검색 지역, 기관, 조회 주기를 변경하고 카카오·네이버 장소 연결을 검토한 뒤 저장합니다. 기관을 변경해도 기존 엔티티 ID는 유지하고 이전 기관의 장소 연결은 제거합니다.
+- 입력 오류나 일시적인 API 장애가 발생하면 수정한 값을 유지하므로 다시 입력할 필요 없이 재시도할 수 있습니다.
+- 에어코리아·기상청 날씨·지진은 API 응답을 검증한 뒤 저장합니다. 정상 응답에 자료가 없는 경우는 오류로 처리하지 않습니다.
+- 변경 후 선택에서 제외된 측정소·지역·학급·교통 항목의 엔티티를 정리합니다. 유지한 항목과 다른 설정 항목의 엔티티는 보존합니다.
+
+Reconfiguration is available for every service in the integration. It validates changes before saving, keeps the existing config entry, and reloads it after completion. Medical entries allow editing credentials, institution selection, polling interval, and both map links. Account-based services require the same account/customer identity; add a new entry for a different account. Removed selections are cleaned up after successful platform setup, while retained and disabled entities remain registered.
 
 ## 📊 제공되는 센서
 

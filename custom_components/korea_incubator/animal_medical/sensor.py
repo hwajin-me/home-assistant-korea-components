@@ -17,6 +17,15 @@ from .hours import current_state, effective_schedule
 from .icons import operating_icon
 
 
+def institution_identifier(data):
+    """Keep device and entity identities stable when the selected institution changes."""
+    if data.get("device_unique_id"):
+        return data["device_unique_id"]
+    if data.get("service") == "pharmacy":
+        return f"pharmacy_{data['hpid']}"
+    return f"animal_{data['institution_type']}_{data['municipality_code']}_{data['management_number']}"
+
+
 class AnimalMedicalSensor(CoordinatorEntity, SensorEntity):
     """Recalculate current opening state every minute without polling the API."""
 
@@ -40,10 +49,7 @@ class AnimalMedicalSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._entry_data = dict(entry_data)
         kind = entry_data["institution_type"]
-        identifier = (
-            f"animal_{kind}_{entry_data['municipality_code']}_"
-            f"{entry_data['management_number']}"
-        )
+        identifier = institution_identifier(entry_data)
         self._attr_unique_id = f"{DOMAIN}_{identifier}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, identifier)},

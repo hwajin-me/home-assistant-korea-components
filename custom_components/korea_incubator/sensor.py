@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .entity_reconfigure import reconcile_entities
 from datetime import datetime
 from typing import Dict, Any, Optional, Union, Callable
 
@@ -65,6 +66,9 @@ def _remove_reindexed_gasapp_entities(
             registry.async_remove(entity_entry.entity_id)
 
 
+
+
+@reconcile_entities("sensor")
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:

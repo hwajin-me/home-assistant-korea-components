@@ -276,15 +276,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         from .cj_one_delivery.coordinator import CJOneDeliveryCoordinator
 
         async def async_update_tokens(auth_session: AuthSession) -> None:
-            hass.config_entries.async_update_entry(
-                entry,
-                data={
-                    **entry.data,
-                    CONF_USER_ID: auth_session.user_id,
-                    CONF_ACCESS_TOKEN: auth_session.access_token,
-                    CONF_REFRESH_TOKEN: auth_session.refresh_token,
-                },
-            )
+            if dict(entry.data) != coordinator.loaded_data:
+                # A reconfiguration replaced these credentials while the old
+                # request was running. Do not overwrite the newly verified login.
+                return
+            data = {
+                **entry.data,
+                CONF_USER_ID: auth_session.user_id,
+                CONF_ACCESS_TOKEN: auth_session.access_token,
+                CONF_REFRESH_TOKEN: auth_session.refresh_token,
+            }
+            # The client already uses these refreshed tokens; no reload is needed.
+            coordinator.loaded_data = dict(data)
+            hass.config_entries.async_update_entry(entry, data=data)
 
         client = CJOneDeliveryClient(
             session=async_get_clientsession(hass),
@@ -631,6 +635,9 @@ async def _async_animal_options_updated(hass: HomeAssistant, entry: ConfigEntry)
 async def _async_cj_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Apply CJ O-NE polling options without unloading its entities."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    if dict(entry.data) != coordinator.loaded_data:
+        await hass.config_entries.async_reload(entry.entry_id)
+        return
     if dict(entry.options) == coordinator.loaded_options:
         return
     coordinator.apply_options()

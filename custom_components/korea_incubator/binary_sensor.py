@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .entity_reconfigure import reconcile_entities
 import datetime
 from typing import Dict, Any, Optional, Union, Mapping
 
@@ -37,6 +38,9 @@ DeviceType = Union[
 ]
 
 
+
+
+@reconcile_entities("binary_sensor")
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,

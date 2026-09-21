@@ -213,7 +213,7 @@ async def test_reauth_form_and_other_services(flow):
     result = await flow.async_step_reauth({"service": "animal_medical"})
     assert result["step_id"] == "animal_medical_reauth"
     result = await flow.async_step_reauth({"service": "other"})
-    assert result["reason"] == "animal_reauth_unsupported"
+    assert result["reason"] == "reconfigure_unsupported"
 
 
 @pytest.mark.parametrize(

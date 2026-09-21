@@ -82,7 +82,11 @@ def pytest_collection_modifyitems(config, items):
 def mock_hass():
     """Create a mock Home Assistant instance."""
     hass = MagicMock()
-    hass.data = {DOMAIN: {}}
+    from homeassistant.helpers import entity_registry as er
+
+    registry = MagicMock()
+    registry.entities.get_entries_for_config_entry_id.return_value = []
+    hass.data = {DOMAIN: {}, er.DATA_REGISTRY: registry}
     hass.config_entries.async_forward_entry_setups = AsyncMock()
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
     return hass

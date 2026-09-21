@@ -462,6 +462,18 @@
           "selection": "Check the address and phone to distinguish institutions with the same name."
         }
       },
+      "medical_links": {
+        "title": "Review map links",
+        "description": "Review both map links before saving. Credentials, institution, search criteria and interval are editable in the preceding steps.",
+        "data": {
+          "kakao_place_id": "Kakao place ID",
+          "naver_place_url": "Naver place URL"
+        },
+        "data_description": {
+          "kakao_place_id": "Numeric place ID of the selected institution; replace it to correct the match.",
+          "naver_place_url": "Naver place URL or numeric ID for the same institution. Clear to unlink."
+        }
+      },
       "reconfigure": {
         "title": "再設定",
         "description": "Refresh the institution record and search Kakao again. {error}"
@@ -518,6 +530,7 @@
       }
     },
     "error": {
+      "invalid_naver_url": "Enter a valid Naver place URL or numeric ID.",
       "invalid_login": "Could not sign in or retrieve the account balance.",
       "auth": "認証に失敗しました。({error})",
       "invalid_auth": "ユーザー名またはパスワードが間違っています。({error})",
@@ -543,14 +556,15 @@
       "animal_no_results": "No selectable results. Change the search criteria.",
       "animal_invalid_selection": "Select an institution or navigation item from the current page.",
       "animal_kakao_error": "Kakao request failed. Retry the search. ({error})",
-      "animal_kakao_no_results": "No Kakao places found. Edit the institution name or region."
+      "animal_kakao_no_results": "No Kakao places found. Edit the institution name or region.",
+      "invalid_time": "Enter valid HH:MM times with the start before the end."
     },
     "abort": {
       "already_configured": "このアカウントは既に設定されています。",
       "region_added": "The region was added to Safety Alert.",
       "invalid_auth": "The verification session expired. Start setup again.",
       "animal_reauth_unsupported": "This service does not support this key recovery flow.",
-      "reauth_successful": "API key updated successfully.",
+      "reauth_successful": "Authentication updated successfully.",
       "reconfigure_successful": "Configuration updated successfully.",
       "reconfigure_unsupported": "This service does not support reconfiguration.",
       "reconfigure_account_mismatch": "Use the same account or customer number as the existing entry. Add a new entry for another account."
@@ -558,7 +572,11 @@
   },
   "options": {
     "error": {
-      "invalid_naver_url": "有効なNaver地図の場所URLまたは数字の場所IDを入力してください。"
+      "invalid_naver_url": "有効なNaver地図の場所URLまたは数字の場所IDを入力してください。",
+      "invalid_auth": "ユーザー名またはパスワードが間違っています。({error})",
+      "invalid_api_key": "無効なAPI認証キーです。",
+      "cannot_connect": "サーバーに接続できません。({error})",
+      "no_selection": "少なくとも1つ以上の項目を選択してください。"
     },
     "step": {
       "init": {
@@ -601,7 +619,7 @@
       },
       "animal_medical_options": {
         "title": "Animal medical refresh settings",
-        "description": "Saving fetches fresh API data immediately. Further refreshes follow the interval from the last successful fetch.",
+        "description": "Saving fetches fresh API data immediately. Further refreshes follow the interval from the last successful fetch. To edit credentials, search criteria, institution and both map links, select Reconfigure from this entry’s ⋮ menu.",
         "data": {
           "naver_query": "Naver search query (optional)",
           "naver_place_url": "Naver Place URL (optional)",
@@ -629,7 +647,8 @@
       "no_options_kma_weather": "There are no options to configure for KMA Weather.",
       "no_options_earthquake": "There are no options to configure for earthquake information.",
       "no_options_goodsflow": "グッズフローに対する設定オプションはありません。",
-      "no_options_kakaomap": "カカオマップに対する設定オプションはありません。"
+      "no_options_kakaomap": "カカオマップに対する設定オプションはありません。",
+      "use_reconfigure": "Choose Reconfigure from this entry’s menu to change connection and service settings."
     }
   },
   "entity": {

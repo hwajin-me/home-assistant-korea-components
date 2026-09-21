@@ -1,9 +1,13 @@
 """Calendar platform dispatcher."""
+from .entity_reconfigure import reconcile_entities
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN, CONF_ENTRY_TYPE, ENTRY_WEATHER, ENTRY_SCHOOL, ENTRY_AIRKOREA
 
+
+
+@reconcile_entities("calendar")
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
                             async_add_entities: AddEntitiesCallback) -> None:
     etype = entry.data.get(CONF_ENTRY_TYPE)

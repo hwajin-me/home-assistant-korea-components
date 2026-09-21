@@ -7,7 +7,6 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig
 
 from ..const import CONF_ENTRY_TYPE, ENTRY_ANIMAL_MEDICAL
-from . import CONF_INTERVAL
 from .kakao import KakaoError, async_place, async_search, exact_candidate
 from .services import group_title
 
@@ -53,20 +52,84 @@ class KakaoPlaceFlow:
             "kakao_place_id": place_id,
         }
         if self.context.get("source") == "reconfigure":
+            self._medical_edit_data = data
             entry = self._get_reconfigure_entry()
-            options = dict(entry.options)
-            if data.get(CONF_ENTRY_TYPE) == "pharmacy" and CONF_INTERVAL in data:
-                options[CONF_INTERVAL] = data[CONF_INTERVAL]
-            return self.async_update_reload_and_abort(
-                entry,
-                data_updates=data,
-                title=group_title(data),
-                unique_id=self.unique_id or entry.unique_id,
-                options=options,
+            same = all(
+                entry.data.get(key) == data.get(key)
+                for key in (
+                    "hpid",
+                    "institution_type",
+                    "municipality_code",
+                    "management_number",
+                )
             )
-        return self.async_create_entry(
+            self._medical_edit_values = {
+                "kakao_place_id": place_id,
+                "naver_place_url": (
+                    entry.options.get(
+                        "naver_place_url", entry.data.get("naver_place_url", "")
+                    )
+                    if same
+                    else ""
+                ),
+            }
+            return await self.async_step_medical_links()
+        return self._finish_service_entry(
             title=group_title(data),
             data={CONF_ENTRY_TYPE: ENTRY_ANIMAL_MEDICAL, **data},
+        )
+
+    async def async_step_medical_links(self, user_input=None):
+        """Review both map links before committing any reconfiguration."""
+        from .naver import place_id as naver_place_id
+
+        errors = {}
+        detail = ""
+        if user_input is not None:
+            self._medical_edit_values.update(user_input)
+            kakao = self._medical_edit_values["kakao_place_id"].strip()
+            naver = self._medical_edit_values["naver_place_url"].strip()
+            if not kakao.isascii() or not kakao.isdigit():
+                errors["kakao_place_id"] = "animal_invalid_selection"
+            try:
+                naver = (
+                    f"https://map.naver.com/p/entry/place/{naver_place_id(naver)}"
+                    if naver
+                    else ""
+                )
+            except ValueError:
+                errors["naver_place_url"] = "invalid_naver_url"
+            if not errors:
+                try:
+                    await async_place(async_get_clientsession(self.hass), kakao)
+                except KakaoError as err:
+                    errors["kakao_place_id"] = "animal_kakao_error"
+                    detail = str(err)
+                else:
+                    data = {
+                        **self._medical_edit_data,
+                        "kakao_place_id": kakao,
+                        "naver_place_url": naver,
+                    }
+                    return self._finish_service_entry(
+                        title=group_title(data), data=data
+                    )
+        return self.async_show_form(
+            step_id="medical_links",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "kakao_place_id",
+                        default=self._medical_edit_values["kakao_place_id"],
+                    ): str,
+                    vol.Optional(
+                        "naver_place_url",
+                        default=self._medical_edit_values["naver_place_url"],
+                    ): str,
+                }
+            ),
+            errors=errors,
+            description_placeholders={"error": detail},
         )
 
     async def async_step_animal_kakao(self, user_input=None):

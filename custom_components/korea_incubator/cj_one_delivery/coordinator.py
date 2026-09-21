@@ -78,6 +78,7 @@ class CJOneDeliveryCoordinator(DataUpdateCoordinator[dict[str, DeliveryStatus]])
         self.completed_sensor_statuses: list[DeliveryStatus] = []
         self.completed_statuses: list[DeliveryStatus] = []
         self.loaded_options = dict(entry.options)
+        self.loaded_data = dict(entry.data)
 
     async def _async_update_data(self) -> dict[str, DeliveryStatus]:
         """앱 API에서 최신 데이터를 가져옵니다."""
