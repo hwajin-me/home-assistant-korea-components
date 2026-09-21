@@ -12,11 +12,11 @@ from .calendar import MedicalHoursCalendar
 class MedicalTransitionSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
     _attr_device_class = SensorDeviceClass.TIMESTAMP
-    _attr_icon = "mdi:clock-outline"
 
     def __init__(self, primary, kind):
         super().__init__(primary.coordinator)
         self.kind = kind
+        self._attr_icon = "mdi:clock-start" if kind == "start" else "mdi:clock-end"
         self._calendar = MedicalHoursCalendar(primary.coordinator, primary._entry_data)
         self._attr_unique_id = f"{primary.unique_id}_next_{kind}"
         self._attr_device_info = primary.device_info

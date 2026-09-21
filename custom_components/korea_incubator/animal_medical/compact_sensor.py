@@ -11,6 +11,7 @@ from homeassistant.util import dt as dt_util
 from ..const import DOMAIN
 from .closed_days import upcoming_closed_days
 from .hours import SEOUL, valid_schedule
+from .icons import institution_icon, operating_icon
 from .media import photo_url
 from .schedule_sensor import MedicalTransitionSensor
 
@@ -24,6 +25,16 @@ NAMES = {
     "photos": "사진",
     "updated": "정보 갱신",
     "closed_day": "다음 휴무일",
+}
+
+ICONS = {
+    "location": "mdi:map-marker",
+    "contact": "mdi:phone",
+    "details": "mdi:card-text-outline",
+    "reviews": "mdi:star-outline",
+    "photos": "mdi:image-multiple-outline",
+    "updated": "mdi:update",
+    "closed_day": "mdi:calendar-remove",
 }
 
 
@@ -46,6 +57,14 @@ class MedicalInfoSensor(CoordinatorEntity, SensorEntity):
         attrs = self.primary.extra_state_attributes
         place = (self.coordinator.data or {}).get("_kakao", {})
         return attrs, place.get("summary", {}), place.get("media", {})
+
+    @property
+    def icon(self):
+        if self.kind == "name":
+            return institution_icon(self.primary._entry_data)
+        if self.kind == "hours":
+            return operating_icon(self.primary.native_value)
+        return ICONS[self.kind]
 
     def _closed_days(self):
         days = (self.coordinator.data or {}).get("_kakao", {}).get("schedule", {})

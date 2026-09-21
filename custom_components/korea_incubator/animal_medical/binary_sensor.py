@@ -9,6 +9,8 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .icons import operating_icon
+
 LABELS = {
     "open": "현재 영업 중",
     "break": "현재 휴게 중",
@@ -27,11 +29,21 @@ class MedicalBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self._attr_name = LABELS[kind]
         self._attr_unique_id = f"{primary.unique_id}_binary_{kind}"
         self._attr_device_info = primary.device_info
-        self._attr_icon = "mdi:store-clock"
         if kind in ("hours", "location", "error"):
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
         if kind == "error":
             self._attr_device_class = BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def icon(self):
+        if self.kind in ("open", "break"):
+            return operating_icon(self.primary.native_value)
+        active, inactive = {
+            "hours": ("mdi:clock-check-outline", "mdi:clock-alert-outline"),
+            "location": ("mdi:map-marker-check", "mdi:map-marker-question-outline"),
+            "error": ("mdi:alert-circle-outline", "mdi:check-circle-outline"),
+        }[self.kind]
+        return active if self.is_on else inactive
 
     @property
     def is_on(self):

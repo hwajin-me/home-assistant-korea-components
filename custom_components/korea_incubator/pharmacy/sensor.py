@@ -13,7 +13,6 @@ from .api import weekly_hours
 
 class PharmacySensor(AnimalMedicalSensor):
     _attr_has_entity_name = True
-    _attr_icon = "mdi:pharmacy"
 
     def __init__(self, coordinator, entry_data):
         CoordinatorEntity.__init__(self, coordinator)

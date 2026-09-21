@@ -14,13 +14,13 @@ from ..const import DOMAIN
 from . import ANIMAL_MEDICAL_TYPES
 from .coordinates import point_wgs84, to_wgs84
 from .hours import current_state
+from .icons import operating_icon
 
 
 class AnimalMedicalSensor(CoordinatorEntity, SensorEntity):
     """Recalculate current opening state every minute without polling the API."""
 
     _attr_has_entity_name = True
-    _attr_icon = "mdi:paw"
     _attr_translation_key = "animal_medical_status"
     _attr_name = "현재 운영 상태"
     _attr_device_class = SensorDeviceClass.ENUM
@@ -52,6 +52,10 @@ class AnimalMedicalSensor(CoordinatorEntity, SensorEntity):
             model=ANIMAL_MEDICAL_TYPES[kind]["name"],
             entry_type=DeviceEntryType.SERVICE,
         )
+
+    @property
+    def icon(self):
+        return operating_icon(self.native_value)
 
     @property
     def native_value(self) -> str | None:
