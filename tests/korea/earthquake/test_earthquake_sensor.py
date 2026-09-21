@@ -2,7 +2,10 @@
 
 from unittest.mock import MagicMock, patch
 
-from custom_components.korea_incubator.earthquake.sensor import EarthquakeEvent
+from custom_components.korea_incubator.earthquake.sensor import (
+    EarthquakeEvent,
+    EarthquakeStatusSensor,
+)
 from custom_components.korea_incubator.event import _migrate_earthquake_unique_id
 
 
@@ -14,6 +17,13 @@ def test_unique_id_is_scoped_to_config_entry():
     assert second.unique_id == "korea_incubator_entry-two_earthquake_event"
     assert first.unique_id != second.unique_id
     assert first.device_info["identifiers"] != second.device_info["identifiers"]
+
+
+def test_status_sensor_is_safe_by_default():
+    sensor = EarthquakeStatusSensor("entry-one")
+
+    assert sensor.native_value == "안전"
+    assert sensor.unique_id == "korea_incubator_entry-one_earthquake_status"
 
 
 def test_legacy_unique_id_is_migrated_for_owning_entry():

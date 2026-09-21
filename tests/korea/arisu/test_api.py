@@ -1,5 +1,6 @@
 """Test Arisu API client with both mock and real API calls."""
 
+import json
 import pytest
 import aiohttp
 from datetime import datetime
@@ -15,6 +16,46 @@ from custom_components.korea_incubator.arisu.exceptions import (
 
 class TestArisuApiMock:
     """Test Arisu API with mocked responses."""
+
+    @pytest.mark.parametrize("amount", ["45,000", "0"])
+    def test_redesigned_statement(self, api_client, amount):
+        statement = {
+            "totNapgiAmt": amount,
+            "gojiUseqtyS": "15",
+            "thsmmPointerS": "115",
+            "premmPointerS": "100",
+            "mkey": "123456789",
+            "displayAddress": "테스트 주소",
+            "autoPayFlagNm": "자동납부",
+            "totChenapAmt": "2000",
+            "totMinapAmt": "",
+            "acctNo": "must-not-be-returned",
+        }
+        html = (
+            "<script>var cgInfoData = "
+            + json.dumps(statement)
+            + "; var next = true;</script>"
+        )
+        result = api_client._parse_html_response(html)
+        assert result["success"]
+        assert result["total_amount"] == int(amount.replace(",", ""))
+        assert result["usage_info"] == {
+            "current_usage": 15,
+            "current_reading": 115,
+            "previous_reading": 100,
+        }
+        assert result["customer_info"]["payment_method"] == "자동납부"
+        assert result["arrears_info"] == {"overdue_amount": 2000}
+        assert "must-not-be-returned" not in str(result)
+
+    @pytest.mark.parametrize(
+        "value", ["{}", "[]", "{invalid}", '{"totNapgiAmt":"bad"}']
+    )
+    def test_invalid_statement_json(self, api_client, value):
+        with pytest.raises(ArisuDataError):
+            api_client._parse_html_response(
+                "<script>var cgInfoData = " + value + ";</script>"
+            )
 
     @pytest.fixture(autouse=True)
     def mock_publication_check(self):

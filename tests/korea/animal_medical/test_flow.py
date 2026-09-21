@@ -205,7 +205,8 @@ async def test_missing_name_address_and_status_labels(flow, fetch, record):
     result = await flow.async_step_animal_medical_select({"selection": "3000000:A1"})
     assert result["step_id"] == "animal_kakao"  # Missing name cannot auto-match.
     result = await flow.async_step_animal_kakao({"selection": "123"})
-    assert result["title"] == "A1"
+    assert result["title"] == "동물병원"
+    assert result["data"]["business_name"] == "A1"
 
 
 async def test_reauth_form_and_other_services(flow):

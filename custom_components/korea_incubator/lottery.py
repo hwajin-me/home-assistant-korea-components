@@ -7,6 +7,7 @@ requests are encrypted with a key derived from the game-session JSESSIONID.
 from __future__ import annotations
 
 import base64
+import asyncio
 import datetime as dt
 import json
 import logging
@@ -145,6 +146,124 @@ class LotteryClient:
             return Balance(int(value.get("totalAmt", 0)), int(value.get("crntEntrsAmt", 0)))
         except (TypeError, ValueError) as err:
             raise LotteryError("예치금 정보를 해석하지 못했습니다.") from err
+
+    async def pension_winning_numbers(self) -> dict:
+        """Return the latest Pension Lottery 720+ winning-number record."""
+        data = await self._get_json("pt720/selectPstPt720Info.do")
+        rows = data.get("result", [])
+        if not rows:
+            raise LotteryError("연금복권 당첨번호를 찾지 못했습니다.")
+        row = max(rows, key=lambda item: int(item.get("psltEpsd", 0)))
+        return {
+            "round": int(row["psltEpsd"]),
+            "group": str(row.get("wnBndNo", "")),
+            "number": str(row.get("wnRnkVl", "")),
+            "bonus_number": str(row.get("bnsRnkVl", "")),
+            "draw_date": str(row.get("psltRflYmd", "")),
+        }
+
+    async def pension_purchase_history(
+        self, days: int = 365, wins_only: bool = False
+    ) -> list[dict]:
+        """Read Pension Lottery purchases from the authenticated ledger API."""
+        now = dt.datetime.now()
+        params = {
+            "srchStrDt": (now - dt.timedelta(days=days)).strftime("%Y%m%d"),
+            "srchEndDt": now.strftime("%Y%m%d"),
+            "ltGdsCd": "LP72",
+            "pageNum": 1,
+            "recordCountPerPage": 1000,
+            "_": int(now.timestamp() * 1000),
+        }
+        if wins_only:
+            params["winResult"] = "T"
+        data = await self._get_json_with_login("mypage/selectMyLotteryledger.do", params)
+        records = data.get("list", [])
+        if not isinstance(records, list):
+            raise LotteryError("연금복권 구매내역 응답을 해석하지 못했습니다.")
+        return [
+            {
+                "round": item.get("ltEpsd") or item.get("ltEpsdView"),
+                "purchased_at": item.get("eltOrdrDt"),
+                "result": item.get("ltWnResult"),
+                "prize": int(item.get("ltWnAmt") or 0),
+                "quantity": int(item.get("prchsQty") or 0),
+                "order_no": item.get("ntslOrdrNo"),
+            }
+            for item in records
+        ]
+
+    async def pension_winning_history(self, days: int = 365) -> list[dict]:
+        """Return only winning Pension Lottery ledger records."""
+        return await self.pension_purchase_history(days=days, wins_only=True)
+
+    async def pension_high_prize_history(
+        self, days: int = 365, minimum_prize: int = 5_000_000
+    ) -> list[dict]:
+        """Return wins at or above the configurable high-prize threshold."""
+        return [
+            item
+            for item in await self.pension_winning_history(days=days)
+            if item["prize"] >= minimum_prize
+        ]
+
+    async def lotto_645_winning_numbers(self) -> dict:
+        """Return the latest Lotto 6/45 winning numbers."""
+        data = await self._get_json("lt645/selectPstLt645Info.do")
+        rows = data.get("list", [])
+        if not rows:
+            raise LotteryError("로또 6/45 당첨번호를 찾지 못했습니다.")
+        row = max(rows, key=lambda item: int(item.get("ltEpsd", 0)))
+        numbers = [row.get(f"tm{index}WnNo") for index in range(1, 7)]
+        return {
+            "round": int(row["ltEpsd"]),
+            "numbers": [int(number) for number in numbers],
+            "bonus_number": int(row["bnsWnNo"]),
+            "draw_date": str(row.get("ltRflYmd", "")),
+        }
+
+    async def lotto_645_purchase_history(
+        self, days: int = 365, wins_only: bool = False
+    ) -> list[dict]:
+        """Read Lotto 6/45 purchases from the authenticated ledger API."""
+        now = dt.datetime.now()
+        params = {
+            "srchStrDt": (now - dt.timedelta(days=days)).strftime("%Y%m%d"),
+            "srchEndDt": now.strftime("%Y%m%d"),
+            "ltGdsCd": "LO40",
+            "pageNum": 1,
+            "recordCountPerPage": 1000,
+            "_": int(now.timestamp() * 1000),
+        }
+        if wins_only:
+            params["winResult"] = "T"
+        data = await self._get_json_with_login("mypage/selectMyLotteryledger.do", params)
+        records = data.get("list", [])
+        if not isinstance(records, list):
+            raise LotteryError("로또 6/45 구매내역 응답을 해석하지 못했습니다.")
+        return [
+            {
+                "round": item.get("ltEpsd") or item.get("ltEpsdView"),
+                "purchased_at": item.get("eltOrdrDt"),
+                "result": item.get("ltWnResult"),
+                "prize": int(item.get("ltWnAmt") or 0),
+                "quantity": int(item.get("prchsQty") or 0),
+                "order_no": item.get("ntslOrdrNo"),
+            }
+            for item in records
+        ]
+
+    async def lotto_645_winning_history(self, days: int = 365) -> list[dict]:
+        return await self.lotto_645_purchase_history(days=days, wins_only=True)
+
+    async def lotto_645_high_prize_history(
+        self, days: int = 365, minimum_prize: int = 5_000_000
+    ) -> list[dict]:
+        return [
+            item
+            for item in await self.lotto_645_winning_history(days=days)
+            if item["prize"] >= minimum_prize
+        ]
 
     def _el_session_id(self) -> str:
         cookies = self.session.cookie_jar.filter_cookies(_EL)
@@ -378,9 +497,49 @@ class LotteryCoordinator(DataUpdateCoordinator[dict]):
     async def _async_update_data(self) -> dict:
         try:
             balance = await self.client.balance()
-            return {"balance": balance, "updated": dt.datetime.now().isoformat(timespec="seconds")}
+            (
+                pension_winning,
+                pension_purchases,
+                pension_wins,
+                pension_high_prizes,
+                lotto_winning,
+                lotto_purchases,
+                lotto_wins,
+                lotto_high_prizes,
+            ) = await asyncio.gather(
+                self.client.pension_winning_numbers(),
+                self.client.pension_purchase_history(days=30),
+                self.client.pension_winning_history(),
+                self.client.pension_high_prize_history(),
+                self.client.lotto_645_winning_numbers(),
+                self.client.lotto_645_purchase_history(days=30),
+                self.client.lotto_645_winning_history(),
+                self.client.lotto_645_high_prize_history(),
+            )
+            return {
+                "balance": balance,
+                "winning": pension_winning,
+                "purchases": pension_purchases,
+                "wins": pension_wins,
+                "high_prizes": pension_high_prizes,
+                "lotto_winning": lotto_winning,
+                "lotto_purchases": lotto_purchases,
+                "lotto_wins": lotto_wins,
+                "lotto_high_prizes": lotto_high_prizes,
+                "updated": dt.datetime.now().isoformat(timespec="seconds"),
+            }
         except LotteryError as err:
             raise UpdateFailed(str(err)) from err
+
+
+def lottery_device_info(client: LotteryClient) -> DeviceInfo:
+    """Return the shared Donghaeng Lottery device descriptor."""
+    return DeviceInfo(
+        identifiers={("korea_incubator", f"donghaeng_lottery_{client.username}")},
+        name="동행복권",
+        manufacturer="동행복권",
+        configuration_url=_WWW,
+    )
 
 
 class LotteryBalanceSensor(CoordinatorEntity[LotteryCoordinator], SensorEntity):
@@ -393,7 +552,7 @@ class LotteryBalanceSensor(CoordinatorEntity[LotteryCoordinator], SensorEntity):
     def __init__(self, coordinator: LotteryCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"donghaeng_lottery_{coordinator.client.username}_balance"
-        self._attr_device_info = DeviceInfo(identifiers={("korea_incubator", f"donghaeng_lottery_{coordinator.client.username}")}, name="동행복권", manufacturer="동행복권", configuration_url=_WWW)
+        self._attr_device_info = lottery_device_info(coordinator.client)
 
     @property
     def native_value(self):
@@ -402,3 +561,68 @@ class LotteryBalanceSensor(CoordinatorEntity[LotteryCoordinator], SensorEntity):
     @property
     def extra_state_attributes(self):
         return {"구매 가능 금액": self.coordinator.data["balance"].available, "업데이트": self.coordinator.data["updated"]}
+
+
+class LotteryWinningNumbersSensor(CoordinatorEntity[LotteryCoordinator], SensorEntity):
+    """Latest Pension Lottery 720+ winning number and draw details."""
+
+    _attr_name = "연금복권 720+ 최근 당첨번호"
+    _attr_icon = "mdi:star-circle-outline"
+
+    def __init__(self, coordinator: LotteryCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"donghaeng_lottery_{coordinator.client.username}_pension_winning"
+        self._attr_device_info = lottery_device_info(coordinator.client)
+
+    @property
+    def native_value(self):
+        item = self.coordinator.data["winning"]
+        return f"{item['group']}조 {item['number']}"
+
+    @property
+    def extra_state_attributes(self):
+        item = self.coordinator.data["winning"]
+        return {"회차": item["round"], "추첨일": item["draw_date"], "보너스 번호": item["bonus_number"]}
+
+
+class LotteryHistorySensor(CoordinatorEntity[LotteryCoordinator], SensorEntity):
+    """Expose Pension Lottery ledger records as sensor attributes."""
+
+    def __init__(self, coordinator: LotteryCoordinator, key: str, name: str, icon: str) -> None:
+        super().__init__(coordinator)
+        self._key = key
+        self._attr_name = name
+        self._attr_icon = icon
+        self._attr_unique_id = f"donghaeng_lottery_{coordinator.client.username}_{key}"
+        self._attr_device_info = lottery_device_info(coordinator.client)
+
+    @property
+    def native_value(self):
+        return len(self.coordinator.data[self._key])
+
+    @property
+    def extra_state_attributes(self):
+        records = self.coordinator.data[self._key]
+        return {"records": records[:50], "업데이트": self.coordinator.data["updated"]}
+
+
+class Lotto645WinningNumbersSensor(CoordinatorEntity[LotteryCoordinator], SensorEntity):
+    """Latest Lotto 6/45 winning numbers and draw details."""
+
+    _attr_name = "로또 6/45 최근 당첨번호"
+    _attr_icon = "mdi:star-circle-outline"
+
+    def __init__(self, coordinator: LotteryCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"donghaeng_lottery_{coordinator.client.username}_lotto_645_winning"
+        self._attr_device_info = lottery_device_info(coordinator.client)
+
+    @property
+    def native_value(self):
+        item = self.coordinator.data["lotto_winning"]
+        return " ".join(map(str, item["numbers"]))
+
+    @property
+    def extra_state_attributes(self):
+        item = self.coordinator.data["lotto_winning"]
+        return {"회차": item["round"], "추첨일": item["draw_date"], "보너스 번호": item["bonus_number"]}

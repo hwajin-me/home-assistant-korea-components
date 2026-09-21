@@ -47,12 +47,12 @@ async def async_setup_entry(
     service: str = entry.data.get("service")
 
     if service in ("animal_medical", "pharmacy"):
-        from .animal_medical.binary_sensor import LABELS, MedicalBinarySensor
+        from .animal_medical.binary_sensor import MedicalBinarySensor
         from .animal_medical.sensor import AnimalMedicalSensor
         from .pharmacy.sensor import PharmacySensor
         cls = PharmacySensor if service == "pharmacy" else AnimalMedicalSensor
         primary = cls(data["coordinator"], dict(entry.data))
-        async_add_entities([MedicalBinarySensor(primary, kind) for kind in LABELS])
+        async_add_entities([MedicalBinarySensor(primary, kind) for kind in ("open", "error")])
         return
 
     entities = []
@@ -158,7 +158,7 @@ class SafetyAlertSensor(CoordinatorEntity, BinarySensorEntity):
     def is_on(self) -> bool | None:
         """Return True if the safety alert sensor is on."""
         if not self.coordinator.data:
-            return None
+            return False
 
         raw_alerts = self.coordinator.data.get("parsed_data", {}).get("data", [])
         if not raw_alerts:

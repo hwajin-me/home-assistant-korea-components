@@ -120,8 +120,8 @@ async def test_binary_platform(animal_hass, entry_data, record, service):
     add = MagicMock()
     await async_setup_entry(animal_hass, entry, add)
     entities = add.call_args.args[0]
-    assert len(entities) == 5
-    assert len({e.unique_id for e in entities}) == 5
+    assert len(entities) == 2
+    assert len({e.unique_id for e in entities}) == 2
 
 
 @pytest.mark.asyncio

@@ -22,7 +22,7 @@ class PharmacySensor(AnimalMedicalSensor):
         self._attr_unique_id = f"{DOMAIN}_{identifier}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, identifier)},
-            name="약국",
+            name=(coordinator.data or {}).get("dutyName") or entry_data["business_name"],
             manufacturer="국립중앙의료원",
             model="약국 운영정보",
             entry_type=DeviceEntryType.SERVICE,

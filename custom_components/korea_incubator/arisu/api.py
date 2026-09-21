@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime, timedelta
 from typing import Dict, Any
@@ -201,6 +202,19 @@ class ArisuApiClient:
         try:
             soup = BeautifulSoup(html_content, "html.parser")
 
+            for script in soup.find_all("script"):
+                source = script.get_text()
+                match = re.search(r"\bvar\s+cgInfoData\s*=\s*", source)
+                if match:
+                    try:
+                        statement, _ = json.JSONDecoder().raw_decode(
+                            source[match.end() :]
+                        )
+                    except ValueError as err:
+                        raise ArisuDataError("Invalid Arisu statement JSON") from err
+                    if statement is not None:
+                        return self._parse_statement(statement)
+
             # HAR 파일에서 확인된 구조: totAmt input 찾기
             total_amount_input = soup.find("input", {"id": "totAmt"})
             if not total_amount_input:
@@ -238,6 +252,56 @@ class ArisuApiClient:
             raise
         except Exception as e:
             raise ArisuDataError(f"HTML parsing failed: {e}")
+
+    def _parse_statement(self, statement: Any) -> Dict[str, Any]:
+        """Read the redesigned bill page's JSON, retaining only sensor fields."""
+        if not isinstance(statement, dict):
+            raise ArisuDataError("Invalid Arisu statement object")
+
+        def number(key: str, required: bool = False) -> int | None:
+            value = statement.get(key)
+            if value is None or value == "":
+                if required:
+                    raise ArisuDataError(f"Missing Arisu statement field: {key}")
+                return None
+            text = str(value).strip().replace(",", "")
+            if not re.fullmatch(r"\d+", text):
+                raise ArisuDataError(f"Invalid Arisu statement field: {key}")
+            return int(text)
+
+        usage = {}
+        for target, source in {
+            "current_usage": "gojiUseqtyS",
+            "current_reading": "thsmmPointerS",
+            "previous_reading": "premmPointerS",
+        }.items():
+            value = number(source)
+            if value is not None:
+                usage[target] = value
+        customer = {}
+        for target, source in {
+            "customer_number": "mkey",
+            "address": "displayAddress",
+            "payment_method": "autoPayFlagNm",
+        }.items():
+            value = statement.get(source)
+            if value:
+                customer[target] = str(value)
+        arrears = {}
+        for target, source in {
+            "overdue_amount": "totChenapAmt",
+            "unpaid_amount": "totMinapAmt",
+        }.items():
+            value = number(source)
+            if value is not None:
+                arrears[target] = value
+        return {
+            "success": True,
+            "total_amount": number("totNapgiAmt", required=True),
+            "customer_info": customer,
+            "usage_info": usage,
+            "arrears_info": arrears,
+        }
 
     def _extract_customer_info_from_har(self, soup: BeautifulSoup) -> Dict[str, str]:
         """Extract customer information based on HAR file structure."""

@@ -191,3 +191,118 @@ buy_lotto_645_auto:
           min: 1
           max: 5
           mode: slider
+
+get_pension_720_history:
+  name: 연금복권 720+ 구매/당첨내역 조회
+  description: 연금복권 720+ 구매내역을 조회합니다. wins_only를 켜면 당첨내역만 반환합니다.
+  fields:
+    entity_id:
+      name: 예치금 엔티티
+      required: true
+      selector:
+        entity:
+          domain: sensor
+    days:
+      name: 조회 기간
+      default: 365
+      selector:
+        number:
+          min: 1
+          max: 3650
+          mode: box
+    wins_only:
+      name: 당첨내역만 조회
+      default: false
+      selector:
+        boolean:
+
+get_pension_720_high_prizes:
+  name: 연금복권 720+ 고액 당첨내역 조회
+  description: 지정 금액 이상인 연금복권 720+ 당첨내역을 조회합니다.
+  fields:
+    entity_id:
+      name: 예치금 엔티티
+      required: true
+      selector:
+        entity:
+          domain: sensor
+    days:
+      name: 조회 기간
+      default: 365
+      selector:
+        number:
+          min: 1
+          max: 3650
+          mode: box
+    minimum_prize:
+      name: 고액 당첨 기준 금액
+      default: 5000000
+      selector:
+        number:
+          min: 1
+          mode: box
+
+get_lotto_645_history:
+  name: 로또 6/45 구매/당첨내역 조회
+  description: 로또 6/45 구매내역을 조회합니다. wins_only를 켜면 당첨내역만 반환합니다.
+  fields:
+    entity_id:
+      name: 예치금 엔티티
+      required: true
+      selector:
+        entity:
+          domain: sensor
+    days:
+      name: 조회 기간
+      default: 365
+      selector:
+        number:
+          min: 1
+          max: 3650
+          mode: box
+    wins_only:
+      name: 당첨내역만 조회
+      default: false
+      selector:
+        boolean:
+
+get_lotto_645_high_prizes:
+  name: 로또 6/45 고액 당첨내역 조회
+  description: 지정 금액 이상인 로또 6/45 당첨내역을 조회합니다.
+  fields:
+    entity_id:
+      name: 예치금 엔티티
+      required: true
+      selector:
+        entity:
+          domain: sensor
+    days:
+      name: 조회 기간
+      default: 365
+      selector:
+        number:
+          min: 1
+          max: 3650
+          mode: box
+    minimum_prize:
+      name: 고액 당첨 기준 금액
+      default: 5000000
+      selector:
+        number:
+          min: 1
+          mode: box
+check_medical_closed_day:
+  name: 의료기관 휴무일 조회
+  description: 확인된 날짜별 시간표로 하루 전체 휴무인지 조회합니다. 새 API 요청은 하지 않으며 알 수 없는 날짜는 unknown을 반환합니다. 전날부터 이어지는 영업이 있으면 완전 휴무가 아닙니다.
+  fields:
+    config_entry_id:
+      name: 의료기관 설정 항목
+      required: true
+      selector:
+        config_entry:
+          integration: korea_incubator
+    date:
+      name: 조회 날짜
+      required: true
+      selector:
+        date:

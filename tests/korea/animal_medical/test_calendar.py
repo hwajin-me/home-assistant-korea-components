@@ -171,9 +171,7 @@ async def test_animal_calendar_platform_device_and_address(
     add = MagicMock()
     await async_setup_entry(animal_hass, entry, add)
     entity = add.call_args.args[0][0]
-    assert entity.device_info["name"] == (
-        "동물병원" if kind == "hospital" else "동물약국"
-    )
+    assert entity.device_info["name"] == record["BPLC_NM"]
     assert entity.unique_id.endswith("_opening_calendar")
     assert entity._events()[0].location == "지번주소"
 

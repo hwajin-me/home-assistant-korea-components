@@ -20,7 +20,7 @@ class DisasterMessageSensor(CoordinatorEntity[DisasterCoordinator], SensorEntity
     @property
     def native_value(self):
         if self.coordinator.data is None:
-            return None
+            return "없음"
         if not self.coordinator.data:
             return "없음"
         return self.coordinator.data[0].get("message", "")[:255]
@@ -43,7 +43,7 @@ class DisasterCountSensor(CoordinatorEntity[DisasterCoordinator], SensorEntity):
     @property
     def native_value(self):
         if self.coordinator.data is None:
-            return None
+            return 0
         return len(self.coordinator.data)
 
 class DisasterEvent(CoordinatorEntity[DisasterCoordinator], EventEntity):

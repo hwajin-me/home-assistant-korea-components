@@ -277,7 +277,7 @@ class TestSafetyAlertDeviceMock:
         )
         device_registry = MagicMock()
         legacy_device = MagicMock(id="legacy-device-id")
-        device_registry.async_get_device.return_value = legacy_device
+        device_registry.async_get_device_by_identifier.return_value = legacy_device
 
         with (
             patch(
@@ -319,6 +319,95 @@ class TestSafetyAlertDeviceMock:
                 )
             },
         )
+        device_registry.async_get_device_by_identifier.assert_called_once_with(
+            ("korea_incubator", "safety_alert_1100000000"), "entry-id"
+        )
+
+    def test_migration_removes_stale_legacy_duplicate(self, mock_hass, mock_session):
+        """A partial migration must not leave a duplicate on later reloads."""
+        device = SafetyAlertDevice(
+            mock_hass,
+            "entry-id",
+            "1100000000",
+            "서울특별시 용산구",
+            "1117000000",
+            session=mock_session,
+        )
+        entry = MagicMock(entry_id="entry-id")
+        registry = MagicMock()
+        old_entry = MagicMock(
+            platform="korea_incubator",
+            domain="binary_sensor",
+            entity_id="binary_sensor.safety_alert_legacy",
+            unique_id="korea_safety_alert_1100000000_safety_alert",
+        )
+        new_entry = MagicMock(
+            platform="korea_incubator",
+            domain="binary_sensor",
+            entity_id="binary_sensor.safety_alert",
+            unique_id="korea_safety_alert_1100000000_1117000000_safety_alert",
+        )
+
+        with (
+            patch(
+                "custom_components.korea_incubator.safety_alert.migration.er.async_get",
+                return_value=registry,
+            ),
+            patch(
+                "custom_components.korea_incubator.safety_alert.migration.er.async_entries_for_config_entry",
+                return_value=[old_entry, new_entry],
+            ),
+            patch(
+                "custom_components.korea_incubator.safety_alert.migration.dr.async_get",
+            ),
+        ):
+            migrate_region_unique_ids(mock_hass, entry, device)
+
+        registry.async_remove.assert_called_once_with(
+            "binary_sensor.safety_alert_legacy"
+        )
+        registry.async_update_entity.assert_not_called()
+
+    def test_migration_removes_obsolete_entities_for_legacy_region(
+        self, mock_hass, mock_session
+    ):
+        """Reload also removes stale entries when no region-ID rename is needed."""
+        device = SafetyAlertDevice(
+            mock_hass,
+            "entry-id",
+            "1100000000",
+            "서울특별시",
+            session=mock_session,
+        )
+        entry = MagicMock(entry_id="entry-id")
+        registry = MagicMock()
+        current_entry = MagicMock(
+            platform="korea_incubator",
+            domain="binary_sensor",
+            entity_id="binary_sensor.safety_alert",
+            unique_id="korea_safety_alert_1100000000_safety_alert",
+        )
+        stale_entry = MagicMock(
+            platform="korea_incubator",
+            domain="sensor",
+            entity_id="sensor.safety_alert_old",
+            unique_id="korea_safety_alert_1100000000_obsolete",
+        )
+
+        with (
+            patch(
+                "custom_components.korea_incubator.safety_alert.migration.er.async_get",
+                return_value=registry,
+            ),
+            patch(
+                "custom_components.korea_incubator.safety_alert.migration.er.async_entries_for_config_entry",
+                return_value=[current_entry, stale_entry],
+            ),
+        ):
+            migrate_region_unique_ids(mock_hass, entry, device)
+
+        registry.async_remove.assert_called_once_with("sensor.safety_alert_old")
+        registry.async_update_entity.assert_not_called()
 
 
 class TestSafetyAlertDeviceIntegration:

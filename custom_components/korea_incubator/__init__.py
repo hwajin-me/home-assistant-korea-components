@@ -80,12 +80,12 @@ PLATFORM_MAP = {
         Platform.CALENDAR,
     ],
     ENTRY_KMA_WEATHER: [Platform.WEATHER],
-    ENTRY_EARTHQUAKE: [Platform.EVENT],
+    ENTRY_EARTHQUAKE: [Platform.EVENT, Platform.SENSOR],
     ENTRY_GOODSFLOW: [Platform.SENSOR],
     ENTRY_KAKAOMAP: [Platform.SENSOR],
     ENTRY_CJ_ONE_DELIVERY: [Platform.SENSOR],
     ENTRY_ANIMAL_MEDICAL: [Platform.SENSOR, Platform.CALENDAR, Platform.BINARY_SENSOR],
-    ENTRY_DH_LOTTERY: [Platform.SENSOR],
+    ENTRY_DH_LOTTERY: [Platform.SENSOR, Platform.BUTTON],
 }
 
 
@@ -436,6 +436,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return True
 
     elif service == "pharmacy":
+        from .animal_medical.services import group_title, register_medical_action
+        if entry.title != group_title(entry.data):
+            hass.config_entries.async_update_entry(entry, title=group_title(entry.data))
         from .pharmacy.coordinator import PharmacyCoordinator
         from .pharmacy.services import async_register_pharmacy_service
         from homeassistant.exceptions import ConfigEntryError
@@ -461,10 +464,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         store["unregister_llm"] = await async_setup_llm_api(hass, entry, service)
         async_register_pharmacy_service(hass, api_key, entry.entry_id)
+        register_medical_action(hass, entry, c)
         return True
 
     elif service == ENTRY_ANIMAL_MEDICAL:
         from .animal_medical.coordinator import AnimalMedicalCoordinator
+        from .animal_medical.services import group_title, register_medical_action
+        if entry.title != group_title(entry.data):
+            hass.config_entries.async_update_entry(entry, title=group_title(entry.data))
 
         coordinator = AnimalMedicalCoordinator(
             hass, dict(entry.data), config_entry=entry
@@ -484,6 +491,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN][entry.entry_id]["unregister_llm"] = await async_setup_llm_api(
             hass, entry, service
         )
+        register_medical_action(hass, entry, coordinator)
         return True
 
     elif service == ENTRY_DH_LOTTERY:
@@ -617,6 +625,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry, PLATFORM_MAP.get(service, PLATFORMS)
     ):
         async_cleanup_llm_api(store.get("unregister_llm"))
+        if service in (ENTRY_ANIMAL_MEDICAL, "pharmacy"):
+            from .animal_medical.services import unregister_medical_action
+            unregister_medical_action(hass, entry.entry_id)
         if service == "pharmacy":
             from .pharmacy.services import async_unregister_pharmacy_service
             async_unregister_pharmacy_service(hass, entry.entry_id)
@@ -707,6 +718,34 @@ async def _async_setup_lottery_services(hass: HomeAssistant) -> None:
             persistent_notification.async_create(hass, str(err), "로또 6/45 구매 실패", call.context.id)
             return {"result": "fail", "message": str(err)}
 
+    async def pension_history(call: ServiceCall) -> dict:
+        coordinator = await _find(call)
+        records = await coordinator.client.pension_purchase_history(
+            days=call.data["days"], wins_only=call.data.get("wins_only", False)
+        )
+        return {"records": records}
+
+    async def pension_high_prizes(call: ServiceCall) -> dict:
+        coordinator = await _find(call)
+        records = await coordinator.client.pension_high_prize_history(
+            days=call.data["days"], minimum_prize=call.data["minimum_prize"]
+        )
+        return {"records": records}
+
+    async def lotto_history(call: ServiceCall) -> dict:
+        coordinator = await _find(call)
+        records = await coordinator.client.lotto_645_purchase_history(
+            days=call.data["days"], wins_only=call.data.get("wins_only", False)
+        )
+        return {"records": records}
+
+    async def lotto_high_prizes(call: ServiceCall) -> dict:
+        coordinator = await _find(call)
+        records = await coordinator.client.lotto_645_high_prize_history(
+            days=call.data["days"], minimum_prize=call.data["minimum_prize"]
+        )
+        return {"records": records}
+
     hass.services.async_register(DOMAIN, "refresh_dh_lottery", refresh, schema=vol.Schema({vol.Required("entity_id"): str}))
     hass.services.async_register(
         DOMAIN, "buy_pension_720_auto", buy_pension,
@@ -716,6 +755,43 @@ async def _async_setup_lottery_services(hass: HomeAssistant) -> None:
     hass.services.async_register(
         DOMAIN, "buy_lotto_645_auto", buy_lotto,
         schema=vol.Schema({vol.Required("entity_id"): str, vol.Optional("games", default=5): vol.All(vol.Coerce(int), vol.Range(min=1, max=5))}),
+        supports_response=SupportsResponse.ONLY,
+    )
+    history_schema = vol.Schema(
+        {
+            vol.Required("entity_id"): str,
+            vol.Optional("days", default=365): vol.All(vol.Coerce(int), vol.Range(min=1, max=3650)),
+            vol.Optional("wins_only", default=False): vol.Coerce(bool),
+        }
+    )
+    hass.services.async_register(
+        DOMAIN, "get_pension_720_history", pension_history,
+        schema=history_schema, supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN, "get_pension_720_high_prizes", pension_high_prizes,
+        schema=vol.Schema(
+            {
+                vol.Required("entity_id"): str,
+                vol.Optional("days", default=365): vol.All(vol.Coerce(int), vol.Range(min=1, max=3650)),
+                vol.Optional("minimum_prize", default=5_000_000): vol.All(vol.Coerce(int), vol.Range(min=1)),
+            }
+        ),
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN, "get_lotto_645_history", lotto_history,
+        schema=history_schema, supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN, "get_lotto_645_high_prizes", lotto_high_prizes,
+        schema=vol.Schema(
+            {
+                vol.Required("entity_id"): str,
+                vol.Optional("days", default=365): vol.All(vol.Coerce(int), vol.Range(min=1, max=3650)),
+                vol.Optional("minimum_prize", default=5_000_000): vol.All(vol.Coerce(int), vol.Range(min=1)),
+            }
+        ),
         supports_response=SupportsResponse.ONLY,
     )
     hass.data[marker] = True

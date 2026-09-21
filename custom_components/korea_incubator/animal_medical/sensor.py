@@ -47,7 +47,7 @@ class AnimalMedicalSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = f"{DOMAIN}_{identifier}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, identifier)},
-            name=ANIMAL_MEDICAL_TYPES[kind]["name"],
+            name=(coordinator.data or {}).get("BPLC_NM") or entry_data["business_name"],
             manufacturer="행정안전부",
             model=ANIMAL_MEDICAL_TYPES[kind]["name"],
             entry_type=DeviceEntryType.SERVICE,

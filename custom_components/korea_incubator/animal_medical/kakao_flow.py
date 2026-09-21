@@ -9,6 +9,7 @@ from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig
 from ..const import CONF_ENTRY_TYPE, ENTRY_ANIMAL_MEDICAL
 from . import CONF_INTERVAL
 from .kakao import KakaoError, async_place, async_search, exact_candidate
+from .services import group_title
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,7 +47,11 @@ class KakaoPlaceFlow:
             await async_place(async_get_clientsession(self.hass), place_id)
         except KakaoError as err:
             return self._kakao_form("animal_kakao_error", str(err))
-        data = {**self._kakao_entry, "kakao_place_id": place_id}
+        data = {
+            CONF_ENTRY_TYPE: ENTRY_ANIMAL_MEDICAL,
+            **self._kakao_entry,
+            "kakao_place_id": place_id,
+        }
         if self.context.get("source") == "reconfigure":
             entry = self._get_reconfigure_entry()
             options = dict(entry.options)
@@ -55,12 +60,12 @@ class KakaoPlaceFlow:
             return self.async_update_reload_and_abort(
                 entry,
                 data_updates=data,
-                title=data["business_name"],
+                title=group_title(data),
                 unique_id=self.unique_id or entry.unique_id,
                 options=options,
             )
         return self.async_create_entry(
-            title=data["business_name"],
+            title=group_title(data),
             data={CONF_ENTRY_TYPE: ENTRY_ANIMAL_MEDICAL, **data},
         )
 

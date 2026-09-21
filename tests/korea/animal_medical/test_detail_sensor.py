@@ -35,7 +35,7 @@ def test_animal_device_name_and_all_fields(entry_data, record, kind, label):
     entry_data["institution_type"] = kind
     record["NEW_FIELD"] = "new public information"
     primary = AnimalMedicalSensor(coordinator(record), entry_data)
-    assert primary.device_info["name"] == label
+    assert primary.device_info["name"] == record["BPLC_NM"]
     assert primary.name == "현재 운영 상태"
     available = fields(primary)
     assert set(record) <= {key for source, key in available if source == "public"}
@@ -188,8 +188,8 @@ async def test_pharmacy_platform_routes_all_entities(animal_hass):
     await async_setup_entry(animal_hass, entry, add)
     entities = add.call_args.args[0]
     assert isinstance(entities[0], PharmacySensor)
-    assert len(entities) > 40
+    assert len(entities) == 12
     assert len({tuple(e.device_info["identifiers"]) for e in entities}) == 1
-    assert {"기관명", "전화번호", "도로명주소", "위도", "경도"} <= {
+    assert {"이름", "연락처", "위치", "상세정보"} <= {
         e.name for e in entities
     }

@@ -1,6 +1,7 @@
 """Earthquake sensors + geolocation + event."""
 from __future__ import annotations
 from homeassistant.components.event import EventEntity
+from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.core import callback
@@ -11,6 +12,25 @@ def eq_device(config_entry_id: str):
     return DeviceInfo(identifiers={(DOMAIN, f"earthquake_{config_entry_id}")},
                       name="지진 정보", manufacturer="기상청",
                       model="지진정보", entry_type=DeviceEntryType.SERVICE)
+
+
+class EarthquakeStatusSensor(SensorEntity):
+    """Expose the normal earthquake-monitoring state.
+
+    Event entities have no state until an event has fired, which Home Assistant
+    renders as ``unknown``.  A monitoring service with no active alert is safe,
+    including while its first result is pending, so expose that explicitly.
+    """
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:shield-check"
+    _attr_native_value = "안전"
+    _attr_should_poll = False
+
+    def __init__(self, config_entry_id: str):
+        self._attr_unique_id = f"{DOMAIN}_{config_entry_id}_earthquake_status"
+        self._attr_name = "지진 상태"
+        self._attr_device_info = eq_device(config_entry_id)
 
 class EarthquakeEvent(CoordinatorEntity, EventEntity):
     _attr_has_entity_name = True

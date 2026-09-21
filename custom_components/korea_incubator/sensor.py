@@ -81,14 +81,38 @@ async def async_setup_entry(
     if service == "animal_medical":
         from .animal_medical.sensor import AnimalMedicalSensor
 
-        from .animal_medical.detail_sensor import setup_medical_sensors
-        setup_medical_sensors(entry, async_add_entities, AnimalMedicalSensor(data["coordinator"], dict(entry.data)))
+        from .animal_medical.compact_sensor import setup_compact_sensors
+        setup_compact_sensors(hass, entry, async_add_entities, AnimalMedicalSensor(data["coordinator"], dict(entry.data)))
         return
 
     if service == "dh_lottery":
-        from .lottery import LotteryBalanceSensor
+        from .lottery import (
+            LotteryBalanceSensor,
+            LotteryHistorySensor,
+            Lotto645WinningNumbersSensor,
+            LotteryWinningNumbersSensor,
+        )
 
-        async_add_entities([LotteryBalanceSensor(data["coordinator"])])
+        coordinator = data["coordinator"]
+        async_add_entities(
+            [
+                LotteryBalanceSensor(coordinator),
+                LotteryWinningNumbersSensor(coordinator),
+                Lotto645WinningNumbersSensor(coordinator),
+                LotteryHistorySensor(coordinator, "purchases", "연금복권 720+ 구매내역", "mdi:ticket-confirmation-outline"),
+                LotteryHistorySensor(coordinator, "wins", "연금복권 720+ 당첨내역", "mdi:trophy-outline"),
+                LotteryHistorySensor(coordinator, "high_prizes", "연금복권 720+ 고액 당첨내역", "mdi:cash-multiple"),
+                LotteryHistorySensor(coordinator, "lotto_purchases", "로또 6/45 구매내역", "mdi:ticket-confirmation-outline"),
+                LotteryHistorySensor(coordinator, "lotto_wins", "로또 6/45 당첨내역", "mdi:trophy-outline"),
+                LotteryHistorySensor(coordinator, "lotto_high_prizes", "로또 6/45 고액 당첨내역", "mdi:cash-multiple"),
+            ]
+        )
+        return
+
+    if service == "earthquake":
+        from .earthquake.sensor import EarthquakeStatusSensor
+
+        async_add_entities([EarthquakeStatusSensor(entry.entry_id)])
         return
 
     # Platform-native services do not store a legacy Device object, and transit
@@ -352,6 +376,7 @@ async def async_setup_entry(
                 None,
                 "개",
                 SensorStateClass.MEASUREMENT,
+                default_value=0,
             ),
             KoreaSensor(
                 coordinator,
@@ -362,6 +387,7 @@ async def async_setup_entry(
                 None,
                 None,
                 None,
+                default_value="없음",
             ),
             KoreaSensor(
                 coordinator,
@@ -372,6 +398,7 @@ async def async_setup_entry(
                 None,
                 None,
                 None,
+                default_value="없음",
             ),
             KoreaSensor(
                 coordinator,
@@ -382,6 +409,7 @@ async def async_setup_entry(
                 None,
                 None,
                 None,
+                default_value="없음",
             ),
             KoreaSensor(
                 coordinator,
@@ -1064,14 +1092,14 @@ async def async_setup_entry(
 
     elif service == "pharmacy":
         from .pharmacy.sensor import PharmacySensor
-        from .animal_medical.detail_sensor import setup_medical_sensors
+        from .animal_medical.compact_sensor import setup_compact_sensors
 
         entities = [
             PharmacySensor(
                 data["coordinator"], entry.data
             )
         ]
-        setup_medical_sensors(entry, async_add_entities, entities[0])
+        setup_compact_sensors(hass, entry, async_add_entities, entities[0])
 
     elif service == "airkorea":
         from .airkorea.sensor import (
@@ -1109,6 +1137,7 @@ class KoreaSensor(CoordinatorEntity, SensorEntity):
         icon: Optional[str] = None,
         value_translation: Optional[Callable[[Any], Any]] = None,
         value_transform: Optional[Callable[[Any], Any]] = None,
+        default_value: Any = None,
     ) -> None:
         """Initialize the Korea sensor."""
         super().__init__(coordinator)
@@ -1117,6 +1146,7 @@ class KoreaSensor(CoordinatorEntity, SensorEntity):
         self._value_key: str = value_key
         self._value_translation: Optional[Callable[[Any], Any]] = value_translation
         self._value_transform: Optional[Callable[[Any], Any]] = value_transform
+        self._default_value = default_value
         self._attr_name: str = name
         self._attr_device_class: Optional[SensorDeviceClass] = device_class
         self._attr_native_unit_of_measurement: Optional[str] = unit
@@ -1140,7 +1170,7 @@ class KoreaSensor(CoordinatorEntity, SensorEntity):
     def native_value(self) -> Any:
         """Return the native value of the sensor."""
         if not self.coordinator.data:
-            return None
+            return self._default_value
 
         if self.coordinator.data is not None and self._value_translation:
             # Apply custom value translation if provided
@@ -1150,9 +1180,12 @@ class KoreaSensor(CoordinatorEntity, SensorEntity):
             self._data_key
         )
         if not data_source:
-            return None
+            return self._default_value
 
         raw_value = get_value_from_path(data_source, self._value_key)
+
+        if raw_value is None:
+            return self._default_value
 
         if self._value_transform:
             return self._value_transform(raw_value)

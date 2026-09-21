@@ -73,11 +73,21 @@ async def animal_hass():
     hass.is_stopping = False
     hass.is_running = True
     hass.config_entries = MagicMock()
+    hass.services = MagicMock()
     hass.config_entries.flow.async_progress_by_handler.return_value = []
     hass.config_entries.async_entry_for_domain_unique_id.return_value = None
     hass.config_entries.async_forward_entry_setups = AsyncMock()
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
     return hass
+
+
+@pytest.fixture(autouse=True)
+def compact_registry():
+    with patch(
+        "custom_components.korea_incubator.animal_medical.compact_sensor.er.async_get"
+    ) as get:
+        get.return_value.entities.get_entries_for_config_entry_id.return_value = []
+        yield get.return_value
 
 
 @pytest.fixture
