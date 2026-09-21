@@ -20,6 +20,7 @@ from homeassistant.helpers.update_coordinator import (
 from .arisu.device import ArisuDevice
 from .const import DOMAIN, ENERGY_KILO_WATT_HOUR, CURRENCY_KRW
 from .gasapp.device import GasAppDevice
+from .gasapp.format import parse_charge_amount
 from .goodsflow.device import GoodsFlowDevice
 from .kakaomap.device import KakaoMapDevice
 from .kepco.device import KepcoDevice
@@ -197,7 +198,7 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[-1].requestYm",
+                "history[0].requestYm",
                 "당월 검침일",
                 SensorDeviceClass.DATE,
                 None,
@@ -207,7 +208,7 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[-1].usageQty",
+                "history[0].usageQty",
                 "당월 가스 사용량",
                 SensorDeviceClass.GAS,
                 "m³",
@@ -217,17 +218,18 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[-1].chargeAmtQty",
+                "history[0].chargeAmtQty",
                 "당월 가스 요금",
                 SensorDeviceClass.MONETARY,
                 CURRENCY_KRW,
                 SensorStateClass.TOTAL,
+                value_transform=parse_charge_amount,
             ),
             KoreaSensor(
                 coordinator,
                 device,
                 "current_bill",
-                "history[-2].requestYm",
+                "history[1].requestYm",
                 "지난달 검침일",
                 SensorDeviceClass.DATE,
                 None,
@@ -237,7 +239,7 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[-2].usageQty",
+                "history[1].usageQty",
                 "지난달 가스 사용량",
                 SensorDeviceClass.GAS,
                 "m³",
@@ -247,17 +249,18 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[-2].chargeAmtQty",
+                "history[1].chargeAmtQty",
                 "지난달 가스 요금",
                 SensorDeviceClass.MONETARY,
                 CURRENCY_KRW,
                 SensorStateClass.TOTAL,
+                value_transform=parse_charge_amount,
             ),
             KoreaSensor(
                 coordinator,
                 device,
                 "current_bill",
-                "history[-3].requestYm",
+                "history[2].requestYm",
                 "지지난달 검침일",
                 SensorDeviceClass.DATE,
                 None,
@@ -267,7 +270,7 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[-3].usageQty",
+                "history[2].usageQty",
                 "지지난달 가스 사용량",
                 SensorDeviceClass.GAS,
                 "m³",
@@ -277,11 +280,12 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[-3].chargeAmtQty",
+                "history[2].chargeAmtQty",
                 "지지난달 가스 요금",
                 SensorDeviceClass.MONETARY,
                 CURRENCY_KRW,
                 SensorStateClass.TOTAL,
+                value_transform=parse_charge_amount,
             ),
             KoreaSensor(
                 coordinator,
@@ -1062,6 +1066,7 @@ class KoreaSensor(CoordinatorEntity, SensorEntity):
         state_class: Optional[SensorStateClass],
         icon: Optional[str] = None,
         value_translation: Optional[Callable[[Any], Any]] = None,
+        value_transform: Optional[Callable[[Any], Any]] = None,
     ) -> None:
         """Initialize the Korea sensor."""
         super().__init__(coordinator)
@@ -1069,6 +1074,7 @@ class KoreaSensor(CoordinatorEntity, SensorEntity):
         self._data_key: str = data_key
         self._value_key: str = value_key
         self._value_translation: Optional[Callable[[Any], Any]] = value_translation
+        self._value_transform: Optional[Callable[[Any], Any]] = value_transform
         self._attr_name: str = name
         self._attr_device_class: Optional[SensorDeviceClass] = device_class
         self._attr_native_unit_of_measurement: Optional[str] = unit
@@ -1105,6 +1111,9 @@ class KoreaSensor(CoordinatorEntity, SensorEntity):
             return None
 
         raw_value = get_value_from_path(data_source, self._value_key)
+
+        if self._value_transform:
+            return self._value_transform(raw_value)
 
         # Convert string values to appropriate types for specific device classes
         if raw_value is not None and self._attr_device_class:
