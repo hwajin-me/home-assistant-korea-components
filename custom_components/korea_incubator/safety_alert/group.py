@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from functools import partial
 import inspect
 from types import MappingProxyType, SimpleNamespace
 from collections.abc import Mapping
@@ -79,7 +78,11 @@ def migrate_entries(hass: HomeAssistant, current: ConfigEntry) -> ConfigEntry:
     registry = er.async_get(hass)
     devices = dr.async_get(hass)
     for source in entries:
-        if source.data.get("grouped") or source.disabled_by is not None:
+        if (
+            source.data.get("grouped")
+            or source.data.get("merged_into")
+            or source.disabled_by is not None
+        ):
             continue
         if source.state == ConfigEntryState.LOADED:
             # A reload must not move live entities. They migrate on restart.
@@ -148,7 +151,7 @@ def migrate_entries(hass: HomeAssistant, current: ConfigEntry) -> ConfigEntry:
             hass.config_entries.async_update_entry(
                 source, data={**source.data, "merged_into": parent.entry_id}
             )
-    hass.config_entries.async_update_entry(parent, data=SERVICE_DATA, title="안전알림")
+    flatten_regions(hass, parent)
     # Remove only the empty devices introduced by the previous grouping bug.
     for registered in list(dr.async_entries_for_config_entry(devices, parent.entry_id)):
         if (
@@ -159,6 +162,52 @@ def migrate_entries(hass: HomeAssistant, current: ConfigEntry) -> ConfigEntry:
         ):
             devices.async_remove_device(registered.id)
     return parent
+
+
+def flatten_regions(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Keep region settings in the service and detach the UI subentry groups.
+
+    Save settings first, then move entities and devices before removing each
+    subentry. HA's subentry deletion would otherwise delete its entities too.
+    Repeating these steps after an interrupted upgrade is safe.
+    """
+    regions = dict(entry.data.get("regions", {}))
+    for sub in entry.subentries.values():
+        if sub.subentry_type == "region":
+            regions[sub.subentry_id] = dict(sub.data)
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, **SERVICE_DATA, "regions": regions}, title="안전알림"
+    )
+    registry = er.async_get(hass)
+    devices = dr.async_get(hass)
+    for sub in list(entry.subentries.values()):
+        if sub.subentry_type != "region":
+            continue
+        for entity in list(er.async_entries_for_config_entry(registry, entry.entry_id)):
+            if entity.config_subentry_id == sub.subentry_id:
+                registry.async_update_entity(entity.entity_id, config_subentry_id=None)
+        for device in list(dr.async_entries_for_config_entry(devices, entry.entry_id)):
+            if (
+                "new_config_entry_id"
+                in inspect.signature(devices.async_update_device).parameters
+            ):
+                if device.config_subentry_id != sub.subentry_id:
+                    continue
+                devices.async_update_device(device.id, new_config_subentry_id=None)
+            elif sub.subentry_id in device.config_entries_subentries.get(
+                entry.entry_id, set()
+            ):
+                devices.async_update_device(
+                    device.id,
+                    add_config_entry_id=entry.entry_id,
+                    add_config_subentry_id=None,
+                )
+                devices.async_update_device(
+                    device.id,
+                    remove_config_entry_id=entry.entry_id,
+                    remove_config_subentry_id=sub.subentry_id,
+                )
+        hass.config_entries.async_remove_subentry(entry, sub.subentry_id)
 
 
 async def remove_merged(hass: HomeAssistant) -> None:
@@ -185,8 +234,8 @@ async def setup_group(hass, entry, platforms):
     store = {"regions": [], "coordinators": {}, "region_stores": {}}
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = store
     entry.async_on_unload(entry.add_update_listener(reload_group))
-    for sub in entry.subentries.values():
-        device = make_device(hass, entry.entry_id, sub.data)
+    for key, data in entry.data.get("regions", {}).items():
+        device = make_device(hass, entry.entry_id, data)
 
         async def update(device=device):
             await device.async_update()
@@ -202,12 +251,12 @@ async def setup_group(hass, entry, platforms):
         )
         # A temporarily unavailable region must not hide the other regions.
         await coordinator.async_refresh()
-        store["region_stores"][sub.subentry_id] = {
+        store["region_stores"][key] = {
             "device": device,
             "coordinator": coordinator,
         }
-        store["coordinators"][sub.subentry_id] = coordinator
-        store["regions"].append({"code": sub.subentry_id, "name": sub.title})
+        store["coordinators"][key] = coordinator
+        store["regions"].append({"code": key, "name": data["area_name"]})
     await hass.config_entries.async_forward_entry_setups(entry, platforms)
     from ..llm_api import async_setup_llm_api
 
@@ -221,18 +270,32 @@ async def reload_group(hass, entry):
 
 
 async def setup_platform(hass, entry, add_entities, setup):
-    """Reuse regional entity definitions with explicit subentry ownership."""
-    for sub in entry.subentries.values():
-        store = hass.data[DOMAIN][entry.entry_id]["region_stores"].get(sub.subentry_id)
+    """Add regional devices directly to the service without address groups."""
+    for key, data in entry.data.get("regions", {}).items():
+        store = hass.data[DOMAIN][entry.entry_id]["region_stores"].get(key)
         if store is None:
             # A region added during the initial refresh is picked up by the
             # reload scheduled by the update listener.
             continue
-        proxy = SimpleNamespace(entry_id=sub.subentry_id, data=sub.data)
-        hass.data[DOMAIN][sub.subentry_id] = store
+        proxy = SimpleNamespace(entry_id=key, data=data)
+        hass.data[DOMAIN][key] = store
         try:
-            await setup(
-                hass, proxy, partial(add_entities, config_subentry_id=sub.subentry_id)
-            )
+            await setup(hass, proxy, add_entities)
         finally:
-            hass.data[DOMAIN].pop(sub.subentry_id, None)
+            hass.data[DOMAIN].pop(key, None)
+
+
+def remove_region_device(hass, entry, device) -> bool:
+    """Removing a region device also removes its saved polling configuration."""
+    regions = entry.data.get("regions", {})
+    remaining = {
+        key: data
+        for key, data in regions.items()
+        if (DOMAIN, region_id(data)) not in device.identifiers
+    }
+    if len(remaining) == len(regions):
+        return False
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, "regions": remaining}
+    )
+    return True

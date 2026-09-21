@@ -75,7 +75,10 @@ def primary():
                         "photo_count": 2,
                         "main_photo": "https://t1.daumcdn.net/a.jpg",
                     },
-                    "schedule": {"2026-09-22": OFF, "2026-09-23": None},
+                    "schedule": {
+                        "2026-09-22": {**OFF, "closure_reason": "임시휴무"},
+                        "2026-09-23": None,
+                    },
                 }
             },
             last_refresh=datetime(2026, 9, 21, tzinfo=SEOUL),
@@ -93,9 +96,10 @@ def test_groups(primary):
             "37.5, 127.0",
             "02-123",
             "정보 있음",
-            "영업 중",
-            4.5,
-            2,
+            None,
+            None,
+            None,
+            None,
             primary.coordinator.last_refresh,
             DAY,
         ]
@@ -110,6 +114,9 @@ def test_groups(primary):
         attrs = MedicalInfoSensor(primary, "closed_day").extra_state_attributes
         assert attrs["known_dates"] == ["2026-09-22"]
         assert attrs["unknown_dates"] == ["2026-09-23"]
+        assert attrs["closed_day_details"] == [
+            {"date": "2026-09-22", "reason": "임시휴무"}
+        ]
 
 
 def test_missing_and_long_values(primary):
@@ -121,7 +128,7 @@ def test_missing_and_long_values(primary):
         MedicalInfoSensor(primary, "name").extra_state_attributes["business_name"]
         == "저장된 이름"
     )
-    for kind in ("location", "contact", "photos", "reviews", "closed_day"):
+    for kind in ("location", "contact", "opening", "closing", "breaks", "closed_day"):
         assert MedicalInfoSensor(primary, kind).native_value is None
     assert MedicalInfoSensor(primary, "name").entity_picture is None
     primary.extra_state_attributes["business_name"] = "가" * 300
@@ -154,7 +161,9 @@ async def test_clocks(primary, kind):
         patch.object(entity, "async_write_ha_state") as write,
     ):
         await entity.async_added_to_hass()
-        assert track.call_count == int(kind in ("hours", "closed_day"))
+        assert track.call_count == int(
+            kind in ("hours", "opening", "closing", "breaks", "closed_day")
+        )
         if track.called:
             track.call_args.args[1](None)
             write.assert_called_once()
@@ -192,6 +201,9 @@ async def test_action(animal_hass, primary):
             MagicMock(data=schema({"config_entry_id": "entry", "date": requested}))
         )
         assert response["status"] == expected
+        assert response["closure_reason"] == (
+            "임시휴무" if expected == "closed" else None
+        )
     coord.data["_kakao"]["schedule"] = {"2026-09-22": ON}
     assert (await handler(MagicMock(data={"config_entry_id": "entry", "date": DAY})))[
         "status"

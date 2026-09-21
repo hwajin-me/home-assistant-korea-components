@@ -12,10 +12,11 @@ from custom_components.korea_incubator.const import DOMAIN
 from custom_components.korea_incubator.safety_alert.group import (
     migrate_entries,
     region_id,
+    flatten_regions,
+    remove_region_device,
 )
 from custom_components.korea_incubator.config_flow import (
     KoreaConfigFlow,
-    SafetyAlertRegionFlow,
 )
 
 
@@ -81,20 +82,21 @@ async def test_three_regions_merge_and_retry_preserves_registry_ids(registry_has
     # moved entities when reconciling the parent's own region.
     parent = migrate_entries(hass, originals[1][0])
     assert parent.title == "안전알림"
-    assert len(parent.subentries) == 3
+    assert len(parent.data["regions"]) == 3
+    assert not parent.subentries
     for source, device, entity in originals:
         migrated = er.async_get(hass).async_get(entity.entity_id)
         assert migrated is not None
         assert migrated.unique_id == entity.unique_id
         assert migrated.device_id == device.id
         assert migrated.config_entry_id == parent.entry_id
-        assert migrated.config_subentry_id in parent.subentries
+        assert migrated.config_subentry_id is None
         registered = dr.async_get(hass).async_get(device.id)
         assert registered.config_entries_subentries == {
             parent.entry_id: {migrated.config_subentry_id}
         }
     migrate_entries(hass, originals[2][0])
-    assert len(parent.subentries) == 3
+    assert len(parent.data["regions"]) == 3
     assert len(er.async_get(hass).entities) == 3
     for source, _, _ in originals:
         if source != parent:
@@ -120,7 +122,7 @@ async def test_interrupted_migration_resumes_from_another_source(registry_hass):
             migrate_entries(hass, originals[0][0])
     parent = migrate_entries(hass, originals[2][0])
     assert parent == originals[0][0]
-    assert len(parent.subentries) == 3
+    assert len(parent.data["regions"]) == 3
     for _, _, entity in originals:
         assert registry.async_get(entity.entity_id).config_entry_id == parent.entry_id
 
@@ -172,7 +174,8 @@ async def test_group_platforms_and_failed_region_are_independent(registry_hass):
     ):
         assert await setup_group(hass, parent, [])
     assert sum(len(entities) for entities, _ in added) == 14
-    assert {kw["config_subentry_id"] for _, kw in added} == set(parent.subentries)
+    assert all(kw.get("config_subentry_id") is None for _, kw in added)
+    assert not parent.subentries
     coords = hass.data[DOMAIN][parent.entry_id]["coordinators"]
     assert sorted(c.last_update_success for c in coords.values()) == [False, True]
     area = next(
@@ -197,11 +200,12 @@ async def test_group_platforms_and_failed_region_are_independent(registry_hass):
 
 async def test_removing_region_leaves_other_regions(registry_hass):
     hass = registry_hass
-    first, _, first_entity = add_region(hass, "1")
+    first, first_device, first_entity = add_region(hass, "1")
     _, _, other_entity = add_region(hass, "2")
     parent = migrate_entries(hass, first)
-    sub_id = er.async_get(hass).async_get(first_entity.entity_id).config_subentry_id
-    hass.config_entries.async_remove_subentry(parent, sub_id)
+    assert remove_region_device(hass, parent, first_device)
+    dr.async_get(hass).async_remove_device(first_device.id)
+    assert len(parent.data["regions"]) == 1
     assert er.async_get(hass).async_get(first_entity.entity_id) is None
     assert er.async_get(hass).async_get(other_entity.entity_id) is not None
 
@@ -218,10 +222,18 @@ async def test_modern_device_move_api_and_empty_parent_cleanup(registry_hass):
     moves = []
 
     def modern_update(
-        device_id, *, new_config_entry_id, new_config_subentry_id, via_device_id
+        device_id,
+        *,
+        new_config_entry_id=None,
+        new_config_subentry_id=None,
+        via_device_id=None,
     ):
         moves.append((device_id, new_config_entry_id, new_config_subentry_id))
         old_owner = next(iter(devices.async_get(device_id).config_entries))
+        old_sub = next(
+            iter(devices.async_get(device_id).config_entries_subentries[old_owner])
+        )
+        new_config_entry_id = new_config_entry_id or old_owner
         old_update(
             device_id,
             add_config_entry_id=new_config_entry_id,
@@ -232,15 +244,27 @@ async def test_modern_device_move_api_and_empty_parent_cleanup(registry_hass):
             device_id,
             remove_config_entry_id=old_owner,
             **(
-                {"remove_config_subentry_id": None}
+                {"remove_config_subentry_id": old_sub}
                 if old_owner == new_config_entry_id
                 else {}
             ),
         )
 
-    with patch.object(devices, "async_update_device", modern_update):
+    with (
+        patch.object(devices, "async_update_device", modern_update),
+        patch.object(
+            dr.DeviceEntry,
+            "config_subentry_id",
+            property(
+                lambda device: next(
+                    iter(next(iter(device.config_entries_subentries.values())))
+                )
+            ),
+            create=True,
+        ),
+    ):
         parent = migrate_entries(hass, first)
-    assert len(moves) == 2
+    assert len(moves) == 4
     assert devices.async_get(empty_parent.id) is None
     assert (
         er.async_get(hass).async_get(second_entity.entity_id).device_id
@@ -250,6 +274,48 @@ async def test_modern_device_move_api_and_empty_parent_cleanup(registry_hass):
         er.async_get(hass).async_get(first_entity.entity_id).config_entry_id
         == parent.entry_id
     )
+    assert not parent.subentries
+
+
+@pytest.mark.parametrize("interrupted", [False, True])
+async def test_existing_address_groups_flatten_without_losing_entities(
+    registry_hass, interrupted
+):
+    hass = registry_hass
+    originals = [add_region(hass, code) for code in ("1", "2", "3")]
+    # Recreate the already-deployed subentry layout shown in the screenshot.
+    with patch(
+        "custom_components.korea_incubator.safety_alert.group.flatten_regions",
+        side_effect=lambda h, e: h.config_entries.async_update_entry(
+            e, data={"service": "safety_alert", "grouped": True}
+        ),
+    ):
+        parent = migrate_entries(hass, originals[0][0])
+    assert len(parent.subentries) == 3
+    registry = er.async_get(hass)
+    if interrupted:
+        update = registry.async_update_entity
+
+        def fail_second(entity_id, **kwargs):
+            if entity_id == originals[1][2].entity_id:
+                raise RuntimeError("interrupted flattening")
+            return update(entity_id, **kwargs)
+
+        with patch.object(registry, "async_update_entity", side_effect=fail_second):
+            with pytest.raises(RuntimeError, match="interrupted flattening"):
+                flatten_regions(hass, parent)
+    flatten_regions(hass, parent)
+    flatten_regions(hass, parent)
+    assert not parent.subentries
+    assert len(parent.data["regions"]) == 3
+    for _, device, entity in originals:
+        migrated = registry.async_get(entity.entity_id)
+        assert migrated.unique_id == entity.unique_id
+        assert migrated.device_id == device.id
+        assert migrated.config_subentry_id is None
+        assert dr.async_get(hass).async_get(device.id).config_entries_subentries == {
+            parent.entry_id: {None}
+        }
 
 
 async def test_new_region_added_to_existing_service_and_duplicate_rejected(
@@ -270,18 +336,14 @@ async def test_new_region_added_to_existing_service_and_duplicate_rejected(
     }
     result = await flow._finish_safety_alert(data)
     assert result["reason"] == "region_added"
-    assert len(parent.subentries) == 2
+    assert len(parent.data["regions"]) == 2
     result = await flow._finish_safety_alert(data)
     assert result["reason"] == "already_configured"
-    assert len(parent.subentries) == 2
-    subflow = SafetyAlertRegionFlow()
-    with patch.object(subflow, "_get_entry", return_value=parent):
-        assert (await subflow._finish_safety_alert(data))[
-            "reason"
-        ] == "already_configured"
+    assert len(parent.data["regions"]) == 2
+    assert not parent.subentries
 
 
-async def test_first_region_creates_service_with_subentry(registry_hass):
+async def test_first_region_creates_service_without_subentry(registry_hass):
     flow = KoreaConfigFlow()
     flow.hass = registry_hass
     flow.handler = DOMAIN
@@ -289,9 +351,12 @@ async def test_first_region_creates_service_with_subentry(registry_hass):
     data = {"service": "safety_alert", "area_code": "11", "area_name": "서울"}
     result = await flow._finish_safety_alert(data)
     assert result["title"] == "안전알림"
-    assert result["data"] == {"service": "safety_alert", "grouped": True}
-    assert result["subentries"][0]["data"] == data
-    assert result["subentries"][0]["unique_id"] == "safety_alert_11"
+    assert result["data"] == {
+        "service": "safety_alert",
+        "grouped": True,
+        "regions": {"safety_alert_11": data},
+    }
+    assert not result["subentries"]
 
 
 async def test_legacy_province_only_ids_keep_entity_id(registry_hass):
@@ -307,5 +372,6 @@ async def test_legacy_province_only_ids_keep_entity_id(registry_hass):
     parent = migrate_entries(hass, entry)
     migrated = registry.async_get(entity.entity_id)
     assert migrated.unique_id == entity.unique_id
-    assert migrated.config_subentry_id in parent.subentries
+    assert migrated.config_subentry_id is None
+    assert not parent.subentries
     assert migrated.device_id == device.id

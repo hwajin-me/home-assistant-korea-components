@@ -533,57 +533,6 @@
       "reauth_successful": "API key updated successfully."
     }
   },
-  "config_subentries": {
-    "region": {
-      "title": "Safety Alert region",
-      "step": {
-        "safety_alert": {
-          "title": "安全アラート設定 - 道の選択",
-          "description": "安全アラートを受信する道を選択してください。",
-          "data": {
-            "sido_code": "道コード"
-          },
-          "data_description": {
-            "sido_code": "The province or metropolitan city used to filter safety alerts."
-          }
-        },
-        "safety_alert_sgg": {
-          "title": "安全アラート設定 - 市郡区の選択",
-          "description": "安全アラートを受信する市郡区を選択してください。邑面洞まで細分化したい場合は「邑面洞追加」オプションを選択してください。",
-          "data": {
-            "sgg_code": "市郡区",
-            "sgg_name": "市郡区名"
-          },
-          "data_description": {
-            "sgg_code": "A district returned by the Safety Alert region service.",
-            "sgg_name": "The district name to use when the region list is unavailable."
-          }
-        },
-        "safety_alert_emd": {
-          "title": "安全アラート設定 - 邑面洞の選択",
-          "description": "安全アラートを受信する邑面洞を選択してください。",
-          "data": {
-            "emd_code": "邑面洞",
-            "emd_name": "邑面洞名"
-          },
-          "data_description": {
-            "emd_code": "A sub-district returned by the Safety Alert region service.",
-            "emd_name": "The sub-district name to use when the region list is unavailable."
-          }
-        }
-      },
-      "error": {
-        "cannot_connect": "サーバーに接続できません。({error})",
-        "unknown": "不明なエラーが発生しました。({error})",
-        "no_regions_available": "利用可能な地域がありません。",
-        "no_sgg_available": "選択した道に利用可能な市郡区がありません。",
-        "no_emd_available": "選択した市郡区に利用可能な邑面洞がありません。"
-      },
-      "abort": {
-        "already_configured": "This region is already configured."
-      }
-    }
-  },
   "options": {
     "step": {
       "init": {
@@ -612,13 +561,29 @@
           "web_cookie": "Cookie header copied from a map.kakao.com route request. The captcha token is generated automatically."
         }
       },
+      "medical_naver": {
+        "title": "Select Naver Place",
+        "description": "Search returns up to 10 candidates, not an exhaustive list. Check the name and address before selecting. Change the query to search again. {error}",
+        "data": {
+          "query": "Search query",
+          "selection": "Place"
+        },
+        "data_description": {
+          "query": "Search by institution name and region/address.",
+          "selection": "Select the institution whose name and address match."
+        }
+      },
       "animal_medical_options": {
         "title": "Animal medical refresh settings",
         "description": "Saving fetches fresh API data immediately. Further refreshes follow the interval from the last successful fetch.",
         "data": {
+          "naver_query": "Naver search query (optional)",
+          "naver_place_url": "Naver Place URL (optional)",
           "scan_interval_minutes": "Refresh interval (minutes)"
         },
         "data_description": {
+          "naver_query": "Enter a query to select from up to 10 candidates. Refine with an address or use a place URL when missing.",
+          "naver_place_url": "Paste the matching Naver Map place URL or numeric ID. Blank disables Naver. Access restrictions are reported; no cookies or CAPTCHA bypass are used.",
           "scan_interval_minutes": "1–1440 minutes, default 60. Resumes from the last successful fetch after restart; reload/settings changes fetch immediately."
         }
       }

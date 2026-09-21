@@ -14,6 +14,66 @@ from custom_components.korea_incubator.animal_medical.hours import (
 STAMP = datetime(2026, 9, 21, 10, tzinfo=SEOUL)
 
 
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "임시휴무",
+        "비정기 휴무",
+        "추석 휴무",
+        "추석 연휴 휴진",
+        "설날 휴무",
+        "설 연휴 휴무",
+        "공휴일 휴무",
+        "대체공휴일 휴무",
+        "정기 휴무",
+    ],
+)
+def test_explicit_special_closure(reason):
+    from custom_components.korea_incubator.animal_medical.closed_days import (
+        upcoming_closed_days,
+    )
+
+    result = schedule(
+        hours({"day_of_the_week_desc": "금(9/25)", "off_days_desc": reason}), STAMP
+    )
+    assert result["2026-09-25"] == {
+        "open": None,
+        "breaks": [],
+        "closure_reason": reason,
+    }
+    assert [d.isoformat() for d in upcoming_closed_days(result, STAMP.date())] == [
+        "2026-09-25"
+    ]
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "추석",
+        "추석 정상영업",
+        "추석 휴무 아님",
+        "오후 휴무",
+        "휴무 예정",
+        "휴무 여부 문의",
+    ],
+)
+def test_holiday_text_is_not_proof_of_closure(reason):
+    result = schedule(
+        hours({"day_of_the_week_desc": "금(9/25)", "off_days_desc": reason}), STAMP
+    )
+    assert result["2026-09-25"] is None
+
+
+def test_holiday_opening_and_conflicting_information():
+    assert schedule(hours(day("금(9/25)")), STAMP)["2026-09-25"]["open"] == [600, 1140]
+    assert (
+        schedule(hours({**day("금(9/25)"), "off_days_desc": "추석 휴무"}), STAMP)[
+            "2026-09-25"
+        ]
+        is None
+    )
+
+
 def hours(*days):
     return {"week_from_today": {"week_periods": [{"days": list(days)}]}}
 

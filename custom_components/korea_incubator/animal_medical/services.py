@@ -7,7 +7,7 @@ from homeassistant.helpers import config_validation as cv
 
 from ..const import DOMAIN
 from .closed_days import closed_day_status
-from .hours import valid_schedule
+from .hours import effective_schedule
 
 SERVICE = "check_medical_closed_day"
 STORE = f"{DOMAIN}_medical_hours"
@@ -27,18 +27,21 @@ def register_medical_action(hass, entry, coordinator):
         if coord is None:
             raise ServiceValidationError("선택한 의료기관 설정이 로드되지 않았습니다.")
         requested = call.data["date"]
-        days = (coord.data or {}).get("_kakao", {}).get("schedule", {})
-        if not valid_schedule(days):
-            days = {}
+        days = effective_schedule(coord.data)
         closed = (
             closed_day_status(days, requested) if coord.last_update_success else None
         )
         return {
             "date": requested.isoformat(),
             "is_closed": closed,
+            "closure_reason": (
+                days[requested.isoformat()].get("closure_reason")
+                if closed is True
+                else None
+            ),
             "status": "unknown" if closed is None else "closed" if closed else "open",
             "full_day_only": True,
-            "source": "kakao",
+            "source": "naver+kakao" if (coord.data or {}).get("_naver") else "kakao",
             "known_dates": sorted(
                 day for day, value in days.items() if value is not None
             ),

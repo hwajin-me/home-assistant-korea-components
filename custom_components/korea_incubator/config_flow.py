@@ -9,7 +9,6 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult, AbortFlow
-from types import MappingProxyType
 
 from .arisu.api import ArisuApiClient
 from .animal_medical.config_flow import AnimalMedicalFlow
@@ -88,14 +87,6 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
     """Handle a config flow for Korea integration."""
 
     VERSION = 1
-
-    @classmethod
-    @callback
-    def async_get_supported_subentry_types(cls, config_entry):
-        """Expose region management on the Safety Alert service."""
-        if config_entry.data.get("service") == ENTRY_SAFETY_ALERT:
-            return {"region": SafetyAlertRegionFlow}
-        return {}
 
     def __init__(self):
         """Initialize the config flow."""
@@ -660,24 +651,17 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             None,
         )
         if parent:
-            if any(region_id(sub.data) == identity for sub in parent.subentries.values()):
+            regions = dict(parent.data.get("regions", {}))
+            configured = list(regions.values()) + [sub.data for sub in parent.subentries.values()]
+            if any(region_id(region) == identity for region in configured):
                 return self.async_abort(reason="already_configured")
-            self.hass.config_entries.async_add_subentry(
-                parent,
-                config_entries.ConfigSubentry(
-                    data=MappingProxyType(data), subentry_type="region",
-                    title=data["area_name"], unique_id=identity,
-                ),
-            )
+            regions[identity] = data
+            self.hass.config_entries.async_update_entry(parent, data={**parent.data, "regions": regions})
             return self.async_abort(reason="region_added")
         await self.async_set_unique_id("safety_alert_service")
         self._abort_if_unique_id_configured()
         return self.async_create_entry(
-            title="안전알림", data=SERVICE_DATA,
-            subentries=[{
-                "data": data, "subentry_type": "region",
-                "title": data["area_name"], "unique_id": identity,
-            }],
+            title="안전알림", data={**SERVICE_DATA, "regions": {identity: data}},
         )
 
     def _show_safety_alert_emd_error(
@@ -1608,8 +1592,27 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
         """Saving settings always fetches fresh institution data."""
         from .animal_medical import CONF_INTERVAL, DEFAULT_INTERVAL
         from .animal_medical.config_flow import interval_schema
+        from .animal_medical.naver import place_id
+
+        def naver_url(value):
+            if not value.strip():
+                return ""
+            try:
+                return f"https://map.naver.com/p/entry/place/{place_id(value)}"
+            except ValueError:
+                raise vol.Invalid("Enter a valid Naver Place URL or numeric ID") from None
 
         if user_input is not None:
+            if user_input.get("naver_query", "").strip():
+                self._medical_options = {
+                    key: value for key, value in user_input.items() if key != "naver_query"
+                }
+                self._naver_query = user_input["naver_query"].strip()
+                self._naver_items = []
+                return await self.async_step_medical_naver()
+            user_input = {
+                key: value for key, value in user_input.items() if key != "naver_query"
+            }
             if dict(self._config_entry.options) == user_input:
                 self.hass.config_entries.async_schedule_reload(
                     self._config_entry.entry_id
@@ -1620,8 +1623,24 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
         )
         return self.async_show_form(
             step_id="animal_medical_options",
-            data_schema=vol.Schema(interval_schema(interval)),
+            data_schema=vol.Schema(
+                {
+                    **interval_schema(interval),
+                    vol.Optional("naver_query", default=""): str,
+                    vol.Optional(
+                        "naver_place_url",
+                        default=self._config_entry.options.get(
+                            "naver_place_url", self._config_entry.data.get("naver_place_url", "")
+                        ),
+                    ): naver_url,
+                }
+            ),
         )
+
+    async def async_step_medical_naver(self, user_input=None):
+        from .animal_medical.naver_options import choose
+
+        return await choose(self, user_input)
 
 
 def _cj_one_delivery_options_schema(
@@ -1662,29 +1681,6 @@ async def fetch_stop_data(session: aiohttp.ClientSession, stop_id: str) -> dict:
             return await response.json()
     except Exception:
         return {}
-
-
-class SafetyAlertRegionFlow(config_entries.ConfigSubentryFlow):
-    """Add a region using the same province/city/neighborhood forms."""
-
-    def __init__(self):
-        self._safety_alert_data = {}
-
-    async def async_step_user(self, user_input=None):
-        return await self.async_step_safety_alert(user_input)
-
-    async_step_safety_alert = KoreaConfigFlow.async_step_safety_alert
-    async_step_safety_alert_sgg = KoreaConfigFlow.async_step_safety_alert_sgg
-    async_step_safety_alert_emd = KoreaConfigFlow.async_step_safety_alert_emd
-    _create_safety_alert_entry = KoreaConfigFlow._create_safety_alert_entry
-    _show_safety_alert_emd_error = KoreaConfigFlow._show_safety_alert_emd_error
-
-    async def _finish_safety_alert(self, data):
-        from .safety_alert.group import region_id
-        identity = region_id(data)
-        if any(region_id(sub.data) == identity for sub in self._get_entry().subentries.values()):
-            return self.async_abort(reason="already_configured")
-        return self.async_create_entry(title=data["area_name"], data=data, unique_id=identity)
 
 
 def build_bus_labels(data: dict) -> dict:

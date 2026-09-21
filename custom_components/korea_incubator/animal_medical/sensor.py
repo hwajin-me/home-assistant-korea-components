@@ -13,7 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ..const import DOMAIN
 from . import ANIMAL_MEDICAL_TYPES
 from .coordinates import point_wgs84, to_wgs84
-from .hours import current_state
+from .hours import current_state, effective_schedule
 from .icons import operating_icon
 
 
@@ -59,8 +59,7 @@ class AnimalMedicalSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def native_value(self) -> str | None:
-        place = (self.coordinator.data or {}).get("_kakao", {})
-        return current_state(place.get("schedule", {}))
+        return current_state(effective_schedule(self.coordinator.data))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -75,13 +74,17 @@ class AnimalMedicalSensor(CoordinatorEntity, SensorEntity):
             "location_available": bool(gps),
             "operating_status": data.get("SALS_STTS_NM"),
             "opening_hours_available": state is not None,
+            "opening_hours_source": "naver+kakao" if data.get("_naver") else "kakao",
             "open_now": None if state is None else state == "open",
             "kakao_place_id": place.get("place_id"),
             "kakao_details": place.get("summary"),
             "opening_hours": place.get("open_hours"),
-            "opening_schedule": place.get("schedule"),
-            "opening_hours_updated": place.get("fetched_at"),
-            "opening_hours_error": data.get("_kakao_error"),
+            "opening_schedule": effective_schedule(data),
+            "opening_hours_updated": data.get("_naver", {}).get("fetched_at")
+            or place.get("fetched_at"),
+            "opening_hours_error": data.get("_naver_error")
+            or data.get("_naver", {}).get("hours_error")
+            or data.get("_kakao_error"),
             "business_name": data.get("BPLC_NM"),
             "road_address": data.get("ROAD_NM_ADDR"),
             "lot_number_address": data.get("LOTNO_ADDR"),
@@ -110,7 +113,7 @@ class AnimalMedicalSensor(CoordinatorEntity, SensorEntity):
             "api_record": {
                 key: value
                 for key, value in data.items()
-                if not key.startswith("_kakao")
+                if not key.startswith(("_kakao", "_naver"))
             },
             "last_refresh": (
                 self.coordinator.last_refresh.isoformat()

@@ -7,6 +7,39 @@ from zoneinfo import ZoneInfo
 SEOUL = ZoneInfo("Asia/Seoul")
 
 
+def effective_schedule(record):
+    """Use linked Naver hours first; never hide a failed holiday lookup."""
+    record = record or {}
+    naver = record.get("_naver", {})
+    if record.get("_naver_error") or naver.get("hours_error"):
+        return {}
+    days = record.get("_kakao", {}).get("schedule", {})
+    days = dict(days) if valid_schedule(days) else {}
+    other = naver.get("schedule", {})
+    if valid_schedule(other):
+        days.update(other)
+    return days
+
+
+def format_minute(minute):
+    return (
+        f"{'익일 ' if minute >= 1440 else ''}{minute % 1440 // 60:02}:{minute % 60:02}"
+    )
+
+
+def today_hours(record, now):
+    day = effective_schedule(record).get(now.astimezone(SEOUL).date().isoformat())
+    if day is None:
+        return {"text": None, "opening": None, "closing": None, "breaks": None}
+    opening = day["open"]
+    return {
+        "text": "휴무" if opening is None else " ~ ".join(map(format_minute, opening)),
+        "opening": format_minute(opening[0]) if opening else None,
+        "closing": format_minute(opening[1]) if opening else None,
+        "breaks": [" ~ ".join(map(format_minute, span)) for span in day["breaks"]],
+    }
+
+
 def valid_schedule(days):
     """Validate persisted schedules before they reach minute-level state callbacks."""
     if not isinstance(days, dict):
@@ -97,11 +130,15 @@ def schedule(hours, fetched_at):
                 result[key] = None
                 continue
             on = day.get("on_days")
+            off_description = str(day.get("off_days_desc", "")).strip()
             if not on and re.fullmatch(
-                r"(?:정기\s*)?(?:휴무일|휴무|휴진|휴일)",
-                str(day.get("off_days_desc", "")),
+                r"(?:(?:정기|임시|비정기|추석(?:\s*연휴)?|설날|설(?:\s*연휴)?|명절|공휴일|대체공휴일)\s*)?"
+                r"(?:휴무일|휴무|휴진|휴일)",
+                off_description,
             ):
                 result[key] = {"open": None, "breaks": []}
+                if off_description not in ("휴무일", "휴무", "휴진", "휴일"):
+                    result[key]["closure_reason"] = off_description
                 continue
             if not isinstance(on, dict):
                 result[key] = None

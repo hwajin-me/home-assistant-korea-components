@@ -188,7 +188,7 @@ async def test_pharmacy_platform_routes_all_entities(animal_hass):
     await async_setup_entry(animal_hass, entry, add)
     entities = add.call_args.args[0]
     assert isinstance(entities[0], PharmacySensor)
-    assert len(entities) == 12
+    assert len(entities) == 13
     assert len({tuple(e.device_info["identifiers"]) for e in entities}) == 1
     assert {"이름", "연락처", "위치", "상세정보"} <= {
         e.name for e in entities

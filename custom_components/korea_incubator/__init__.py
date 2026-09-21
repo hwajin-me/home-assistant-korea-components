@@ -614,6 +614,14 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
         hass.data.get(f"{DOMAIN}_animal_started", set()).discard(entry.entry_id)
 
 
+async def async_remove_config_entry_device(hass, config_entry, device_entry) -> bool:
+    """Allow removing an individual alert region from the flat device list."""
+    if config_entry.data.get("service") == ENTRY_SAFETY_ALERT:
+        from .safety_alert.group import remove_region_device
+        return remove_region_device(hass, config_entry, device_entry)
+    return False
+
+
 async def _async_animal_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """A settings update always reloads and fetches fresh API data."""
     await hass.config_entries.async_reload(entry.entry_id)

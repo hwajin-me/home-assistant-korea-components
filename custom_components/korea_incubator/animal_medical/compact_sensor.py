@@ -10,7 +10,8 @@ from homeassistant.util import dt as dt_util
 
 from ..const import DOMAIN
 from .closed_days import upcoming_closed_days
-from .hours import SEOUL, valid_schedule
+from .coordinates import point_wgs84
+from .hours import SEOUL, effective_schedule, today_hours
 from .icons import institution_icon, operating_icon
 from .media import photo_url
 from .schedule_sensor import MedicalTransitionSensor
@@ -20,9 +21,10 @@ NAMES = {
     "location": "위치",
     "contact": "연락처",
     "details": "상세정보",
-    "hours": "운영시간",
-    "reviews": "리뷰",
-    "photos": "사진",
+    "hours": "영업시간",
+    "opening": "영업 시작시간",
+    "closing": "영업 종료시간",
+    "breaks": "휴게시간",
     "updated": "정보 갱신",
     "closed_day": "다음 휴무일",
 }
@@ -31,8 +33,9 @@ ICONS = {
     "location": "mdi:map-marker",
     "contact": "mdi:phone",
     "details": "mdi:card-text-outline",
-    "reviews": "mdi:star-outline",
-    "photos": "mdi:image-multiple-outline",
+    "opening": "mdi:clock-start",
+    "closing": "mdi:clock-end",
+    "breaks": "mdi:coffee-outline",
     "updated": "mdi:update",
     "closed_day": "mdi:calendar-remove",
 }
@@ -54,8 +57,22 @@ class MedicalInfoSensor(CoordinatorEntity, SensorEntity):
             self._attr_device_class = SensorDeviceClass.DATE
 
     def _parts(self):
-        attrs = self.primary.extra_state_attributes
+        attrs = dict(self.primary.extra_state_attributes)
         place = (self.coordinator.data or {}).get("_kakao", {})
+        naver = (self.coordinator.data or {}).get("_naver", {})
+        coordinate = naver.get("coordinate", {})
+        if attrs.get("latitude") is None or attrs.get("longitude") is None:
+            attrs.update(
+                point_wgs84(
+                    {
+                        "lat": coordinate.get("latitude"),
+                        "lon": coordinate.get("longitude"),
+                    }
+                )
+            )
+        attrs["location_available"] = (
+            attrs.get("latitude") is not None and attrs.get("longitude") is not None
+        )
         return attrs, place.get("summary", {}), place.get("media", {})
 
     @property
@@ -67,11 +84,11 @@ class MedicalInfoSensor(CoordinatorEntity, SensorEntity):
         return ICONS[self.kind]
 
     def _closed_days(self):
-        days = (self.coordinator.data or {}).get("_kakao", {}).get("schedule", {})
+        days = effective_schedule(self.coordinator.data)
         return upcoming_closed_days(days, dt_util.now().astimezone(SEOUL).date())
 
     def _native_value(self):
-        attrs, summary, media = self._parts()
+        attrs, summary, _media = self._parts()
         if self.kind == "name":
             return (
                 attrs.get("business_name")
@@ -86,13 +103,12 @@ class MedicalInfoSensor(CoordinatorEntity, SensorEntity):
         if self.kind == "details":
             return attrs.get("operating_status") or summary.get("status") or "정보 있음"
         if self.kind == "hours":
-            return {"open": "영업 중", "closed": "영업 종료", "break": "휴게 중"}.get(
-                self.primary.native_value
-            )
-        if self.kind == "reviews":
-            return media.get("rating")
-        if self.kind == "photos":
-            return media.get("photo_count")
+            return today_hours(self.coordinator.data, dt_util.now())["text"]
+        if self.kind in ("opening", "closing", "breaks"):
+            value = today_hours(self.coordinator.data, dt_util.now())[self.kind]
+            if self.kind == "breaks" and value is not None:
+                return ", ".join(value) or "없음"
+            return value
         if self.kind == "updated":
             return self.coordinator.last_refresh
         return next(iter(self._closed_days()), None)
@@ -109,7 +125,12 @@ class MedicalInfoSensor(CoordinatorEntity, SensorEntity):
         if self.kind != "name":
             return None
         _, summary, media = self._parts()
-        return photo_url(media.get("main_photo") or summary.get("main_photo_url"))
+        naver = (self.coordinator.data or {}).get("_naver", {})
+        return (
+            photo_url(naver.get("main_photo"))
+            or photo_url(media.get("main_photo"))
+            or photo_url(summary.get("main_photo_url"))
+        )
 
     @property
     def extra_state_attributes(self):
@@ -124,15 +145,26 @@ class MedicalInfoSensor(CoordinatorEntity, SensorEntity):
             }
         if self.kind == "location":
             return {
-                key: attrs.get(key)
-                for key in (
-                    "latitude",
-                    "longitude",
-                    "road_address",
-                    "lot_number_address",
-                    "gps_coordinate_system",
-                    "location_available",
-                )
+                "kakao_map_url": media.get("place_url")
+                or (
+                    f"https://place.map.kakao.com/{self.primary._entry_data['kakao_place_id']}"
+                    if self.primary._entry_data.get("kakao_place_id")
+                    else None
+                ),
+                "naver_map_url": (self.coordinator.data or {})
+                .get("_naver", {})
+                .get("place_url"),
+                **{
+                    key: attrs.get(key)
+                    for key in (
+                        "latitude",
+                        "longitude",
+                        "road_address",
+                        "lot_number_address",
+                        "gps_coordinate_system",
+                        "location_available",
+                    )
+                },
             }
         if self.kind == "contact":
             return {
@@ -142,34 +174,30 @@ class MedicalInfoSensor(CoordinatorEntity, SensorEntity):
                 "place_url": media.get("place_url"),
             }
         if self.kind == "details":
-            return {"public_record": attrs["api_record"], "place_record": summary}
-        if self.kind == "hours":
             return {
-                key: attrs.get(key)
-                for key in (
-                    "opening_hours",
-                    "opening_schedule",
-                    "weekly_hours",
-                    "opening_hours_updated",
-                    "opening_hours_error",
-                    "public_notes",
-                )
+                "public_record": attrs["api_record"],
+                "place_record": summary,
+                "naver_record": (self.coordinator.data or {}).get("_naver"),
             }
-        if self.kind == "reviews":
+        if self.kind in ("hours", "opening", "closing", "breaks"):
             return {
-                key: media.get(key)
-                for key in (
-                    "review_count",
-                    "reviews",
-                    "reviews_has_more",
-                    "reviews_restricted",
-                    "place_url",
-                )
-            }
-        if self.kind == "photos":
-            return {
-                key: media.get(key)
-                for key in ("photos", "main_photo", "photos_restricted", "place_url")
+                "date": dt_util.now().astimezone(SEOUL).date().isoformat(),
+                "today": today_hours(self.coordinator.data, dt_util.now()),
+                "naver_hours": (self.coordinator.data or {})
+                .get("_naver", {})
+                .get("hours"),
+                **{
+                    key: attrs.get(key)
+                    for key in (
+                        "opening_hours",
+                        "opening_schedule",
+                        "weekly_hours",
+                        "opening_hours_updated",
+                        "opening_hours_error",
+                        "opening_hours_source",
+                        "public_notes",
+                    )
+                },
             }
         if self.kind == "updated":
             return {
@@ -180,24 +208,31 @@ class MedicalInfoSensor(CoordinatorEntity, SensorEntity):
                     "opening_hours_error",
                 )
             }
-        days = (self.coordinator.data or {}).get("_kakao", {}).get("schedule", {})
-        if not valid_schedule(days):
-            days = {}
+        days = effective_schedule(self.coordinator.data)
         return {
             "closed_dates": [day.isoformat() for day in self._closed_days()],
+            "closed_day_details": [
+                {
+                    "date": day.isoformat(),
+                    "reason": days[day.isoformat()].get("closure_reason"),
+                }
+                for day in self._closed_days()
+            ],
             "known_dates": sorted(
                 day for day, value in days.items() if value is not None
             ),
             "unknown_dates": sorted(
                 day for day, value in days.items() if value is None
             ),
-            "source": "kakao",
+            "source": "naver+kakao"
+            if (self.coordinator.data or {}).get("_naver")
+            else "kakao",
             "full_day_only": True,
         }
 
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
-        if self.kind in ("hours", "closed_day"):
+        if self.kind in ("hours", "opening", "closing", "breaks", "closed_day"):
             self.async_on_remove(
                 async_track_time_change(self.hass, self._clock_tick, second=0)
             )
@@ -218,6 +253,8 @@ def remove_retired_entities(hass, entry, primary):
                 f"{primary.unique_id}_binary_{key}"
                 for key in ("break", "hours", "location")
             }
+            or entity.unique_id
+            in {f"{primary.unique_id}_info_reviews", f"{primary.unique_id}_info_photos"}
         ):
             registry.async_remove(entity.entity_id)
 

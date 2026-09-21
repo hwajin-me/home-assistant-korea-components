@@ -38,7 +38,12 @@ class MedicalTransitionSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        return {"source": "kakao", "includes_break_boundaries": True}
+        return {
+            "source": "naver+kakao"
+            if (self.coordinator.data or {}).get("_naver")
+            else "kakao",
+            "includes_break_boundaries": True,
+        }
 
     async def async_added_to_hass(self):
         await super().async_added_to_hass()

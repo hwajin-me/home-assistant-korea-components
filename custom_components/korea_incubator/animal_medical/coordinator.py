@@ -25,6 +25,8 @@ from .api import (
 )
 from .hours import SEOUL, schedule, valid_schedule
 from .kakao import KakaoError, async_place
+from .naver import NaverError
+from .naver import async_place as async_naver_place
 
 
 class AnimalMedicalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -46,6 +48,9 @@ class AnimalMedicalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             config_entry=config_entry,
         )
         self._entry_data = entry_data
+        self._naver_place = options.get(
+            "naver_place_url", entry_data.get("naver_place_url", "")
+        )
         self._business_name = entry_data["business_name"]
         self.last_refresh = None
         self._restored_data = None
@@ -197,6 +202,18 @@ class AnimalMedicalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     # not leave the current-open sensor falsely reporting open.
                     self.logger.warning("Animal medical Kakao refresh: %s", err)
                     selected["_kakao_error"] = str(err)
+            if self._naver_place:
+                try:
+                    selected["_naver"] = await async_naver_place(
+                        async_get_clientsession(self.hass),
+                        self._naver_place,
+                        dt_util.utcnow(),
+                    )
+                    if error := selected["_naver"].get("hours_error"):
+                        self.logger.warning("Medical Naver hours refresh: %s", error)
+                except (NaverError, ValueError) as err:
+                    self.logger.warning("Medical Naver refresh: %s", err)
+                    selected["_naver_error"] = str(err)
             self.last_refresh = dt_util.utcnow()
             if self._store is not None:
                 try:

@@ -533,57 +533,6 @@
       "reauth_successful": "인증키가 갱신되었습니다."
     }
   },
-  "config_subentries": {
-    "region": {
-      "title": "안전알림 지역",
-      "step": {
-        "safety_alert": {
-          "title": "안전알림 설정 - 시도 선택",
-          "description": "안전 문자를 수신할 시도 또는 광역시를 선택하세요.",
-          "data": {
-            "sido_code": "시도 코드"
-          },
-          "data_description": {
-            "sido_code": "안전 문자를 필터링할 시도 또는 광역시입니다."
-          }
-        },
-        "safety_alert_sgg": {
-          "title": "안전알림 설정 - 시군구 선택",
-          "description": "{sido_name}에서 수신할 시군구를 선택하세요. 목록을 불러오지 못한 경우 이름을 직접 입력할 수 있습니다.",
-          "data": {
-            "sgg_code": "시군구",
-            "sgg_name": "시군구명"
-          },
-          "data_description": {
-            "sgg_code": "안전알림 지역 서비스에서 조회한 시군구입니다.",
-            "sgg_name": "지역 목록을 사용할 수 없을 때 직접 입력할 시군구명입니다."
-          }
-        },
-        "safety_alert_emd": {
-          "title": "안전알림 설정 - 읍면동 선택",
-          "description": "{sgg_name}에서 수신할 읍면동을 선택하세요. 목록을 불러오지 못한 경우 이름을 직접 입력할 수 있습니다.",
-          "data": {
-            "emd_code": "읍면동",
-            "emd_name": "읍면동명"
-          },
-          "data_description": {
-            "emd_code": "안전알림 지역 서비스에서 조회한 읍면동입니다.",
-            "emd_name": "지역 목록을 사용할 수 없을 때 직접 입력할 읍면동명입니다."
-          }
-        }
-      },
-      "error": {
-        "cannot_connect": "서버에 연결할 수 없습니다. ({error})",
-        "unknown": "알 수 없는 오류가 발생했습니다. ({error})",
-        "no_regions_available": "사용 가능한 지역이 없습니다. ({error})",
-        "no_sgg_available": "선택한 시도에 사용 가능한 시군구가 없습니다.",
-        "no_emd_available": "선택한 시군구에 사용 가능한 읍면동이 없습니다."
-      },
-      "abort": {
-        "already_configured": "이 지역은 이미 설정되어 있습니다."
-      }
-    }
-  },
   "options": {
     "step": {
       "init": {
@@ -612,13 +561,29 @@
           "web_cookie": "map.kakao.com 길찾기 요청에서 복사한 Cookie 헤더입니다. captcha token은 자동으로 새로 발급합니다."
         }
       },
+      "medical_naver": {
+        "title": "네이버 장소 선택",
+        "description": "검색 후보는 최대 10개이며 전체 결과가 아닙니다. 이름과 주소를 확인해 선택하세요. 검색어를 바꾸면 다시 검색합니다. {error}",
+        "data": {
+          "query": "검색어",
+          "selection": "기관 선택"
+        },
+        "data_description": {
+          "query": "기관명과 지역·주소로 검색하세요.",
+          "selection": "이름과 주소가 일치하는 기관을 선택하세요."
+        }
+      },
       "animal_medical_options": {
         "title": "동물병원/동물약국 갱신 설정",
         "description": "저장하면 즉시 API를 다시 조회합니다. 이후 마지막 성공한 조회부터 지정한 주기로 갱신합니다.",
         "data": {
+          "naver_query": "네이버 검색어 (선택)",
+          "naver_place_url": "네이버 장소 URL (선택)",
           "scan_interval_minutes": "갱신 주기 (분)"
         },
         "data_description": {
+          "naver_query": "검색어를 입력하면 최대 10개 후보에서 직접 선택합니다. 결과가 없으면 지역·주소를 추가하거나 장소 URL을 입력하세요.",
+          "naver_place_url": "동일한 기관의 네이버지도 장소 URL 또는 숫자 ID를 입력하세요. 비우면 연동을 해제합니다. 접근 제한은 오류로 표시하며 쿠키 저장이나 CAPTCHA 우회는 하지 않습니다.",
           "scan_interval_minutes": "1~1440분, 기본 60분. 재시작해도 마지막 성공한 조회 시각부터 계산하며, 다시 불러오기/설정 변경은 즉시 조회합니다."
         }
       }

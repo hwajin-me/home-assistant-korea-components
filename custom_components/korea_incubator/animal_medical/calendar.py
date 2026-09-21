@@ -10,7 +10,7 @@ from homeassistant.components.calendar import (
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .hours import SEOUL, valid_schedule
+from .hours import SEOUL, effective_schedule
 from .sensor import AnimalMedicalSensor
 
 
@@ -35,8 +35,7 @@ class MedicalHoursCalendar(CoordinatorEntity, CalendarEntity):
         self._business_name = entry_data["business_name"]
 
     def _schedule(self):
-        days = (self.coordinator.data or {}).get("_kakao", {}).get("schedule", {})
-        return days if valid_schedule(days) else {}
+        return effective_schedule(self.coordinator.data)
 
     @property
     def available(self):
@@ -73,7 +72,7 @@ class MedicalHoursCalendar(CoordinatorEntity, CalendarEntity):
                         summary=f"{name} 영업",
                         location=attrs.get("road_address")
                         or attrs.get("lot_number_address"),
-                        description="카카오 날짜별 운영시간 기준입니다. 휴게시간은 제외되며 실제 운영 여부는 기관에 확인하세요.",
+                        description="연결된 지도의 날짜별 운영시간 기준입니다. 휴게시간은 제외되며 실제 운영 여부는 기관에 확인하세요.",
                         uid=f"{self.unique_id}_{date}_{left}_{right}",
                     )
                 )

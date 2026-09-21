@@ -22,7 +22,7 @@ def _number(value, *, maximum=None, integer=False):
 
 
 def photo_url(value):
-    """Allow only public Kakao/Daum media hosts, upgrading CDN links to HTTPS."""
+    """Allow public map media CDNs, including Naver photos returned by Kakao."""
     if not isinstance(value, str) or len(value) > 2048:
         return None
     try:
@@ -37,7 +37,7 @@ def photo_url(value):
             return None
         if not any(
             host == domain or host.endswith("." + domain)
-            for domain in ("daumcdn.net", "kakaocdn.net")
+            for domain in ("daumcdn.net", "kakaocdn.net", "pstatic.net")
         ):
             return None
         return urlunsplit(("https", host, url.path, url.query, ""))
