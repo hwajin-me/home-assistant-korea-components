@@ -74,6 +74,10 @@ class SafetyAlertDevice:
         """Return device information."""
         return DeviceInfo(
             identifiers={(DOMAIN, self._unique_id)},
+            # Keep every selected region under the one Safety Alert service
+            # device in Home Assistant's device hierarchy.  Region IDs remain
+            # distinct, so entities and user customisations never collide.
+            via_device=(DOMAIN, "safety_alert_service"),
             name=self._name,
             manufacturer="행정안전부",
             model="안전알림서비스",

@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.components import persistent_notification
 import voluptuous as vol
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .arisu.device import ArisuDevice
@@ -92,6 +93,20 @@ PLATFORM_MAP = {
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up the Korea platform from a config entry."""
     service: str = entry.data.get("service")
+
+    # Create the shared service device before any regional Safety Alert device
+    # is registered.  This gives the device registry a stable parent and lets
+    # the UI render regions as one service group rather than unrelated cards.
+    if service == ENTRY_SAFETY_ALERT:
+        device_registry = dr.async_get(hass)
+        device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={(DOMAIN, "safety_alert_service")},
+            name="안전알림",
+            manufacturer="행정안전부",
+            model="안전알림서비스",
+            configuration_url="https://www.safekorea.go.kr",
+        )
     device: DeviceType = None
     update_interval: timedelta = timedelta(minutes=20)
 

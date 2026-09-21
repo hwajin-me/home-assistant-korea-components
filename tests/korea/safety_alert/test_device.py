@@ -53,6 +53,9 @@ class TestSafetyAlertDeviceMock:
         assert device_info["name"] == "안전알림 (서울특별시)"
         assert device_info["manufacturer"] == "행정안전부"
         assert device_info["model"] == "안전알림서비스"
+        assert device_info["via_device"] == (
+            "korea_incubator", "safety_alert_service"
+        )
 
     @pytest.mark.asyncio
     async def test_async_update_success(

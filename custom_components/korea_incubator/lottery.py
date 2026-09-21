@@ -115,7 +115,16 @@ class LotteryClient:
                 data = await response.json(content_type=None)
             except Exception as err:
                 raise LotteryError("동행복권 서버가 JSON 응답을 반환하지 않았습니다.") from err
-        return data.get("data", data)
+        if not isinstance(data, dict):
+            raise LotteryError("동행복권 서버 응답 형식이 올바르지 않습니다.")
+        result = data.get("data", data)
+        # The ledger returns {"data": null} for an account with no matching
+        # history.  Treat that as an empty result rather than a setup failure.
+        if result is None:
+            return {}
+        if not isinstance(result, dict):
+            raise LotteryError("동행복권 서버 응답 형식이 올바르지 않습니다.")
+        return result
 
     async def _get_json_with_login(
         self, path: str, params: dict | None = None, retry: int = 1
@@ -178,7 +187,7 @@ class LotteryClient:
         if wins_only:
             params["winResult"] = "T"
         data = await self._get_json_with_login("mypage/selectMyLotteryledger.do", params)
-        records = data.get("list", [])
+        records = data.get("list") or []
         if not isinstance(records, list):
             raise LotteryError("연금복권 구매내역 응답을 해석하지 못했습니다.")
         return [
@@ -238,7 +247,7 @@ class LotteryClient:
         if wins_only:
             params["winResult"] = "T"
         data = await self._get_json_with_login("mypage/selectMyLotteryledger.do", params)
-        records = data.get("list", [])
+        records = data.get("list") or []
         if not isinstance(records, list):
             raise LotteryError("로또 6/45 구매내역 응답을 해석하지 못했습니다.")
         return [
