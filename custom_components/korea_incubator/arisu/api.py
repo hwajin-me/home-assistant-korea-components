@@ -16,81 +16,42 @@ from ..const import LOGGER
 class ArisuApiClient:
     """API client for Arisu integration."""
 
+    BILL_LOOKBACK_MONTHS = 12
+
     def __init__(self, session: aiohttp.ClientSession) -> None:
         """Initialize the Arisu API client."""
         self._session: aiohttp.ClientSession = session
         self._csrf_token: str | None = None
         self._base_url: str = (
-            "https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do"
+            "https://i121.seoul.go.kr/cyber/front/cgcalc/NR_cgJungInfo.do"
         )
         self._main_url: str = (
-            "https://i121.seoul.go.kr/cs/cyber/front/cgcalc/NR_cgJungInfo.do?_m=m1_1"
+            "https://i121.seoul.go.kr/cyber/front/cgcalc/NR_cgJungInfo.do?_m=m1_1_1"
         )
 
     async def async_get_water_bill_data(
         self, customer_number: str, customer_name: str
     ) -> Dict[str, Any]:
-        """Get water bill information from Arisu for current and previous month."""
-        current_date = datetime.now()
-        current_month = current_date.strftime("%Y-%m")
-
-        # 지난달 계산
-        previous_date = current_date - timedelta(days=current_date.day)
-        previous_month = previous_date.strftime("%Y-%m")
-
-        pprevious_date = previous_date - timedelta(days=previous_date.day)
-        pprevious_month = pprevious_date.strftime("%Y-%m")
-
-        LOGGER.debug(
-            f"Trying to get Arisu data for {customer_name} (#{customer_number}): current month={current_month}, previous month={previous_month}"
-        )
-
-        # 현재 월 먼저 시도
-        current_data = await self.async_get_water_bill(
-            customer_number, customer_name, current_month
-        )
-
-        if current_data.get("success", False):
-            LOGGER.debug(
-                f"Successfully got current month data for {customer_name} (#{customer_number})"
+        """Return the newest available statement within the last twelve months."""
+        month = datetime.now().replace(day=1)
+        tried_months = []
+        for _ in range(self.BILL_LOOKBACK_MONTHS):
+            billing_month = month.strftime("%Y-%m")
+            tried_months.append(billing_month)
+            bill = await self.async_get_water_bill(
+                customer_number, customer_name, billing_month
             )
-            current_data["billing_month"] = current_month
-            return current_data
+            if bill.get("success", False):
+                return {**bill, "billing_month": billing_month}
+            if not bill.get("no_bill_data", False):
+                raise ArisuDataError(bill.get("error", "Unrecognized Arisu response"))
+            month = (month - timedelta(days=1)).replace(day=1)
 
-        LOGGER.debug(
-            f"No current month data, trying previous month for {customer_name} (#{customer_number})"
-        )
-        previous_data = await self.async_get_water_bill(
-            customer_number, customer_name, previous_month
-        )
-
-        if previous_data.get("success", False):
-            LOGGER.debug(
-                f"Successfully got previous month data for {customer_name} (#{customer_number})"
-            )
-            previous_data["billing_month"] = previous_month
-            return previous_data
-
-        LOGGER.debug(
-            f"No current month data, trying previous month for {customer_name} (#{pprevious_month})"
-        )
-        pprevious_data = await self.async_get_water_bill(
-            customer_number, customer_name, pprevious_month
-        )
-
-        if pprevious_data.get("success", False):
-            LOGGER.debug(
-                f"Successfully got previous month data for {customer_name} (#{customer_number})"
-            )
-            pprevious_data["billing_month"] = pprevious_month
-            return pprevious_data
-
-        # 정기분 청구서가 없는 것은 통신 오류가 아니라 정상적인 조회 결과다.
         return {
             "success": False,
             "no_bill_data": True,
-            "error": f"No bill data found for {current_month} and {previous_month} {pprevious_month}",
-            "tried_months": [current_month, previous_month, pprevious_month],
+            "error": f"No bill data found for {', '.join(tried_months)}",
+            "tried_months": tried_months,
         }
 
     async def async_get_water_bill(
@@ -109,19 +70,7 @@ class ArisuApiClient:
             form_data = {
                 "searchMkey": customer_number,  # 고객번호 필수로 전송
                 "searchNapgi": billing_month,
-                "searchCsNm": customer_name,
-                "_m": "m1_1",
-                "_csNm": "null",
-                "_mkey": "null",
-                "_napgi": "null",
-                "resultKey": "",
-                "ocrBand1": "",
-                "ocrBand2": "",
-                "levyYear": "",
-                "levyMonth": "0",
-                "levyDay": "0",
-                "epayNo": "",
-                "sujunNm": "",
+                "searchCsNm": re.sub(r"\s+", "", customer_name),
                 "_csrf": self._csrf_token,
             }
 
@@ -160,15 +109,7 @@ class ArisuApiClient:
                     )
 
                 html_content = await response.text()
-                LOGGER.debug(f"Response content: {html_content}")
-
-                if 'id="totAmt"' in html_content and "value=" in html_content:
-                    return self._parse_html_response(html_content)
-                else:
-                    LOGGER.debug(
-                        f"No bill data structure found for customer: {customer_name} (#{customer_number})"
-                    )
-                    return {"success": False, "error": "No bill data structure found"}
+                return self._parse_html_response(html_content)
 
         except (ArisuConnectionError, ArisuDataError):
             raise
@@ -181,6 +122,7 @@ class ArisuApiClient:
 
     async def _init_session(self) -> None:
         """Initialize session by visiting the main page first."""
+        self._csrf_token = None
         try:
             headers = {
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -221,11 +163,18 @@ class ArisuApiClient:
             # HAR 파일에서 확인된 구조: totAmt input 찾기
             total_amount_input = soup.find("input", {"id": "totAmt"})
             if not total_amount_input:
-                return {"success": False, "error": "No bill data found"}
+                if any(
+                    re.search(r"\bvar\s+noResult\s*=\s*true\s*;", script.get_text())
+                    for script in soup.find_all("script")
+                ):
+                    return {"success": False, "no_bill_data": True}
+                raise ArisuDataError(
+                    "Unrecognized Arisu response: neither a bill nor an explicit no-result response"
+                )
 
-            total_amount_value = total_amount_input.get("value", "0")
-            if not total_amount_value or total_amount_value == "0":
-                return {"success": False, "error": "No bill amount found"}
+            total_amount_value = total_amount_input.get("value", "").strip()
+            if not re.fullmatch(r"[\d,]+(?:\s*원)?", total_amount_value):
+                raise ArisuDataError("Invalid Arisu bill amount")
 
             # Extract customer information from the response
             customer_info = self._extract_customer_info_from_har(soup)

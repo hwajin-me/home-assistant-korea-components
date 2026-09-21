@@ -72,7 +72,7 @@ PLATFORM_MAP = {
     ENTRY_KEPCO: [Platform.SENSOR],
     ENTRY_GASAPP: [Platform.SENSOR],
     ENTRY_ARISU: [Platform.SENSOR],
-    ENTRY_PHARMACY: [Platform.SENSOR],
+    ENTRY_PHARMACY: [Platform.SENSOR, Platform.CALENDAR, Platform.BINARY_SENSOR],
     ENTRY_AIRKOREA: [
         Platform.SENSOR,
         Platform.BINARY_SENSOR,
@@ -84,7 +84,7 @@ PLATFORM_MAP = {
     ENTRY_GOODSFLOW: [Platform.SENSOR],
     ENTRY_KAKAOMAP: [Platform.SENSOR],
     ENTRY_CJ_ONE_DELIVERY: [Platform.SENSOR],
-    ENTRY_ANIMAL_MEDICAL: [Platform.SENSOR],
+    ENTRY_ANIMAL_MEDICAL: [Platform.SENSOR, Platform.CALENDAR, Platform.BINARY_SENSOR],
     ENTRY_DH_LOTTERY: [Platform.SENSOR],
 }
 

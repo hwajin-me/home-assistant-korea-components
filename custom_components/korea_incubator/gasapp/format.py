@@ -18,10 +18,15 @@ def parse_charge_amount(value: Any) -> int | None:
     """
     if isinstance(value, bool) or value is None:
         return None
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return int(value)
+    if isinstance(value, (int, float)):
+        try:
+            amount = int(value)
+        except (OverflowError, ValueError):
+            return None
+        # JSON numbers do not retain trailing zeroes: the API's ``410.00``
+        # arrives as ``410.0``.  A non-zero city-gas bill below 1,000 won is
+        # this compact hundred-won format, not a 410-won bill.
+        return amount * 100 if 0 < amount < 1000 else amount
     if not isinstance(value, str):
         return None
 

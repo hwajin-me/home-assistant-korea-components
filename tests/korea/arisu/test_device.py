@@ -109,6 +109,22 @@ class TestArisuDeviceMock:
         assert arisu_device.data["tried_months"] == ["2026-09", "2026-08", "2026-07"]
 
     @pytest.mark.asyncio
+    async def test_no_bill_preserves_last_bill(
+        self, arisu_device, mock_api_client, arisu_mock_response
+    ):
+        mock_api_client.async_get_water_bill_data.side_effect = [
+            arisu_mock_response,
+            {"success": False, "no_bill_data": True, "tried_months": ["2026-09"]},
+            arisu_mock_response,
+        ]
+        await arisu_device.async_update()
+        await arisu_device.async_update()
+        assert arisu_device.data["bill_data"] == arisu_mock_response
+        assert arisu_device.available
+        await arisu_device.async_update()
+        assert not arisu_device.data.get("no_bill_data", False)
+
+    @pytest.mark.asyncio
     async def test_async_update_unknown_api_failure(
         self, arisu_device, mock_api_client
     ):

@@ -12,6 +12,7 @@ from custom_components.korea_incubator.gasapp.format import parse_charge_amount
         ("410.00", 41000),
         ("41,000.00", 41000),
         (41000, 41000),
+        (410.0, 41000),
         ("invalid", None),
     ],
 )

@@ -64,14 +64,14 @@ class ArisuDevice:
     async def async_update(self) -> None:
         """Fetch data from Arisu API."""
         try:
-            # Get water bill data (현재 월과 지난달 자동 조회)
+            # Fetch the latest available statement, including past billing months.
             bill_data: Dict[str, Any] = await self.api_client.async_get_water_bill_data(
                 self.customer_number, self.customer_name
             )
 
             if bill_data.get("no_bill_data", False):
                 self.data = {
-                    "bill_data": {},
+                    "bill_data": self.data.get("bill_data", {}),
                     "no_bill_data": True,
                     "tried_months": bill_data.get("tried_months", []),
                     "last_updated": datetime.now().isoformat(),
@@ -79,7 +79,7 @@ class ArisuDevice:
                 self._available = True
                 self._last_update_success = datetime.now()
                 LOGGER.debug(
-                    "No regular Arisu bill is available for %s; keeping sensors empty",
+                    "No regular Arisu bill is available for %s; retaining the last bill",
                     self.customer_number,
                 )
                 return

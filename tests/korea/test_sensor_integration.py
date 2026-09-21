@@ -93,10 +93,10 @@ class TestSensorIntegration:
         assert "지난달 가스 사용량" in sensor_names
 
         sensors = {entity._attr_name: entity for entity in entities}
-        # GasApp returns history newest first.  The current-month values must
-        # therefore come from index 0, not the final history entry.
-        assert sensors["당월 가스 사용량"].native_value == 25
-        assert sensors["당월 가스 요금"].native_value == 50000
+        # GasApp returns history oldest first, so negative indexes keep the
+        # current-month entities stable while selecting the latest item.
+        assert sensors["당월 가스 사용량"].native_value == 20
+        assert sensors["당월 가스 요금"].native_value == 40000
 
     @pytest.mark.asyncio
     async def test_setup_safety_alert_sensors(

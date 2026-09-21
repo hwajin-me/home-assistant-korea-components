@@ -15,6 +15,51 @@ from custom_components.korea_incubator.arisu.exceptions import (
 class TestArisuApiMock:
     """Test Arisu API with mocked responses."""
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("empty_months", [0, 3, 11, 12])
+    async def test_latest_historical_statement(self, api_client, empty_months):
+        """Search across the year boundary, stopping at the newest bill."""
+        months = ["2026-01"] + [f"2025-{m:02d}" for m in range(12, 1, -1)]
+        empty = {"success": False, "no_bill_data": True}
+        bill = {
+            "success": True,
+            "total_amount": 45000,
+            "usage_info": {"current_usage": 15},
+        }
+        with (
+            patch("custom_components.korea_incubator.arisu.api.datetime") as clock,
+            patch.object(
+                api_client, "async_get_water_bill", new_callable=AsyncMock
+            ) as fetch,
+        ):
+            clock.now.return_value = datetime(2026, 1, 31)
+            fetch.side_effect = [empty] * empty_months + [bill]
+            result = await api_client.async_get_water_bill_data("123456789", "테스트")
+        expected_calls = min(empty_months + 1, 12)
+        assert [call.args[2] for call in fetch.await_args_list] == months[
+            :expected_calls
+        ]
+        if empty_months == 12:
+            assert result["no_bill_data"] is True
+            assert result["tried_months"] == months
+        else:
+            assert result["billing_month"] == months[empty_months]
+            assert result["total_amount"] == 45000
+            assert result["usage_info"]["current_usage"] == 15
+
+    @pytest.mark.asyncio
+    async def test_history_search_does_not_hide_failure(self, api_client):
+        with patch.object(
+            api_client, "async_get_water_bill", new_callable=AsyncMock
+        ) as fetch:
+            fetch.side_effect = [
+                {"success": False, "no_bill_data": True},
+                ArisuConnectionError("HTTP 403"),
+            ]
+            with pytest.raises(ArisuConnectionError, match="HTTP 403"):
+                await api_client.async_get_water_bill_data("123456789", "테스트")
+            assert fetch.await_count == 2
+
     @pytest.fixture
     async def api_client(self, mock_session):
         """Create Arisu API client with mock session."""
@@ -87,7 +132,7 @@ class TestArisuApiMock:
 
         bill_response = AsyncMock()
         bill_response.status = 200
-        bill_response.text.return_value = "<html><body>No data</body></html>"
+        bill_response.text.return_value = "<script>var noResult = true;</script>"
 
         mock_session.get.return_value.__aenter__.return_value = init_response
         mock_session.post.return_value.__aenter__.return_value = bill_response
@@ -164,7 +209,20 @@ class TestArisuApiMock:
         html = '<html><body><input id="totAmt" value="0" /></body></html>'
 
         result = api_client._parse_html_response(html)
-        assert result["success"] is False
+        assert result["success"] is True
+        assert result["total_amount"] == 0
+
+    @pytest.mark.parametrize(
+        "html",
+        [
+            '<form id="searchForm"></form><script>var noResult = null;</script>',
+            "<html>Service unavailable</html>",
+            '<input id="totAmt" value="invalid">',
+        ],
+    )
+    def test_unrecognized_response_is_not_no_bill(self, api_client, html):
+        with pytest.raises(ArisuDataError):
+            api_client._parse_html_response(html)
 
     def test_clean_amount_various_formats(self, api_client):
         """Test amount cleaning with various formats."""

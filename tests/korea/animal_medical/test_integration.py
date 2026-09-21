@@ -29,7 +29,7 @@ async def test_setup_sensor_refresh_unload(animal_hass, entry_data, record, kind
     factory.assert_called_once_with(animal_hass, entry_data, config_entry=entry)
     coordinator.async_config_entry_first_refresh.assert_awaited_once()
     animal_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
-        entry, [Platform.SENSOR]
+        entry, [Platform.SENSOR, Platform.CALENDAR, Platform.BINARY_SENSOR]
     )
     add_entities = MagicMock()
     await setup_sensors(animal_hass, entry, add_entities)
@@ -51,7 +51,7 @@ async def test_setup_sensor_refresh_unload(animal_hass, entry_data, record, kind
     assert await async_unload_entry(animal_hass, entry)
     assert "entry" not in animal_hass.data[DOMAIN]
     animal_hass.config_entries.async_unload_platforms.assert_awaited_once_with(
-        entry, [Platform.SENSOR]
+        entry, [Platform.SENSOR, Platform.CALENDAR, Platform.BINARY_SENSOR]
     )
 
 

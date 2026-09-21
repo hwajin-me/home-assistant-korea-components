@@ -9,6 +9,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
     etype = entry.data.get(CONF_ENTRY_TYPE)
     store = hass.data[DOMAIN][entry.entry_id]
 
+    if etype in ("animal_medical", "pharmacy"):
+        from .animal_medical.calendar import MedicalHoursCalendar
+        async_add_entities([MedicalHoursCalendar(store["coordinator"], dict(entry.data))])
+        return
+
     if etype == ENTRY_WEATHER:
         from .weather.calendar import KMAWeatherCalendar
         async_add_entities([KMAWeatherCalendar(store["coordinator"], ac)

@@ -140,9 +140,12 @@ async def test_place_relevant_details_only():
         "photos": [],
     }
     session = session_for((200, details))
-    assert await async_place(session, "123") == {
+    result = await async_place(session, "123")
+    assert {key: result[key] for key in ("summary", "open_hours")} == {
         key: details[key] for key in ("summary", "open_hours")
     }
+    assert "visitor" not in result
+    assert result["media"]["photos"] == []
     assert "appversion" in session.request.call_args.kwargs["headers"]
 
 

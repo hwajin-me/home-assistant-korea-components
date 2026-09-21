@@ -12,6 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
@@ -38,6 +39,32 @@ DeviceType = Union[
 ]
 
 
+def _remove_reindexed_gasapp_entities(
+    hass: HomeAssistant, entry: ConfigEntry, device: GasAppDevice
+) -> None:
+    """Remove IDs accidentally introduced by the history-index regression.
+
+    Version 1.2.7 briefly changed ``history[-N]`` to ``history[N]``.  As the
+    path is part of this integration's entity unique ID, Home Assistant added
+    a duplicate entity and left the original one unavailable.  The API is
+    oldest-first, so the legacy negative paths are also the correct paths.
+    """
+    try:
+        registry = er.async_get(hass)
+    except KeyError:
+        # Lightweight unit-test Home Assistant doubles do not install a
+        # registry; a real Home Assistant instance always has one.
+        return
+
+    prefix = f"korea_{device.unique_id}_current_bill_history["
+    for entity_entry in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if (
+            entity_entry.platform == DOMAIN
+            and entity_entry.unique_id.startswith(prefix)
+        ):
+            registry.async_remove(entity_entry.entity_id)
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
@@ -54,7 +81,8 @@ async def async_setup_entry(
     if service == "animal_medical":
         from .animal_medical.sensor import AnimalMedicalSensor
 
-        async_add_entities([AnimalMedicalSensor(data["coordinator"], dict(entry.data))])
+        from .animal_medical.detail_sensor import setup_medical_sensors
+        setup_medical_sensors(entry, async_add_entities, AnimalMedicalSensor(data["coordinator"], dict(entry.data)))
         return
 
     if service == "dh_lottery":
@@ -205,12 +233,13 @@ async def async_setup_entry(
         async_add_entities(entities)
 
     elif service == "gasapp":
+        _remove_reindexed_gasapp_entities(hass, entry, device)
         entities = [
             KoreaSensor(
                 coordinator,
                 device,
                 "current_bill",
-                "history[0].requestYm",
+                "history[-1].requestYm",
                 "당월 검침일",
                 SensorDeviceClass.DATE,
                 None,
@@ -220,7 +249,7 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[0].usageQty",
+                "history[-1].usageQty",
                 "당월 가스 사용량",
                 SensorDeviceClass.GAS,
                 "m³",
@@ -230,7 +259,7 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[0].chargeAmtQty",
+                "history[-1].chargeAmtQty",
                 "당월 가스 요금",
                 SensorDeviceClass.MONETARY,
                 CURRENCY_KRW,
@@ -241,7 +270,7 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[1].requestYm",
+                "history[-2].requestYm",
                 "지난달 검침일",
                 SensorDeviceClass.DATE,
                 None,
@@ -251,7 +280,7 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[1].usageQty",
+                "history[-2].usageQty",
                 "지난달 가스 사용량",
                 SensorDeviceClass.GAS,
                 "m³",
@@ -261,7 +290,7 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[1].chargeAmtQty",
+                "history[-2].chargeAmtQty",
                 "지난달 가스 요금",
                 SensorDeviceClass.MONETARY,
                 CURRENCY_KRW,
@@ -272,7 +301,7 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[2].requestYm",
+                "history[-3].requestYm",
                 "지지난달 검침일",
                 SensorDeviceClass.DATE,
                 None,
@@ -282,7 +311,7 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[2].usageQty",
+                "history[-3].usageQty",
                 "지지난달 가스 사용량",
                 SensorDeviceClass.GAS,
                 "m³",
@@ -292,7 +321,7 @@ async def async_setup_entry(
                 coordinator,
                 device,
                 "current_bill",
-                "history[2].chargeAmtQty",
+                "history[-3].chargeAmtQty",
                 "지지난달 가스 요금",
                 SensorDeviceClass.MONETARY,
                 CURRENCY_KRW,
@@ -1035,13 +1064,14 @@ async def async_setup_entry(
 
     elif service == "pharmacy":
         from .pharmacy.sensor import PharmacySensor
+        from .animal_medical.detail_sensor import setup_medical_sensors
 
         entities = [
             PharmacySensor(
                 data["coordinator"], entry.data
             )
         ]
-        async_add_entities(entities)
+        setup_medical_sensors(entry, async_add_entities, entities[0])
 
     elif service == "airkorea":
         from .airkorea.sensor import (

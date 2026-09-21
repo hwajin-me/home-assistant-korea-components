@@ -10,6 +10,8 @@ from urllib.parse import urlencode
 import aiohttp
 from yarl import URL
 
+from .media import public_media
+
 HEADERS = {
     "Referer": "https://map.kakao.com/",
     "Origin": "https://map.kakao.com",
@@ -111,8 +113,13 @@ async def async_place(session, place_id):
     hours = data.get("open_hours") or {}
     if not isinstance(hours, dict):
         raise KakaoError("Kakao opening hours malformed")
-    # Keep relevant details only; never persist reviews, visitors, photos or tokens.
-    return {"summary": summary, "open_hours": hours}
+    media = public_media(data, place_id)
+    summary = (
+        {**summary, "main_photo_url": media["main_photo"]}
+        if "main_photo_url" in summary
+        else summary
+    )
+    return {"summary": summary, "open_hours": hours, "media": media}
 
 
 def _normal(value):

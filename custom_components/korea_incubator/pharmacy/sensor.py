@@ -17,11 +17,12 @@ class PharmacySensor(AnimalMedicalSensor):
 
     def __init__(self, coordinator, entry_data):
         CoordinatorEntity.__init__(self, coordinator)
+        self._entry_data = dict(entry_data)
         identifier = f"pharmacy_{entry_data['hpid']}"
         self._attr_unique_id = f"{DOMAIN}_{identifier}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, identifier)},
-            name=entry_data["business_name"],
+            name="약국",
             manufacturer="국립중앙의료원",
             model="약국 운영정보",
             entry_type=DeviceEntryType.SERVICE,

@@ -69,8 +69,14 @@ class LotteryClient:
         self.session = aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(ssl=False),
             headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
                 "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8",
+                "Connection": "keep-alive",
+                "Cache-Control": "no-cache",
+                "Origin": _WWW,
+                "Referer": f"{_WWW}/login",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
                 "X-Requested-With": "XMLHttpRequest",
             },
         )
@@ -79,9 +85,12 @@ class LotteryClient:
         await self.session.close()
 
     async def login(self) -> None:
+        self.logged_in = False
         try:
             async with self.session.get(f"{_WWW}/login/selectRsaModulus.do") as response:
-                key_data = (await response.json()).get("data", {})
+                if response.status != 200:
+                    raise LotteryError("동행복권 RSA 공개키 요청이 거부되었습니다.")
+                key_data = (await response.json(content_type=None)).get("data", {})
             key = _RSAKey()
             key.set_public(key_data["rsaModulus"], key_data["publicExponent"])
             async with self.session.post(
@@ -90,6 +99,7 @@ class LotteryClient:
             ) as response:
                 if response.status != 200:
                     raise LotteryError("로그인 요청이 거부되었습니다.")
+                await response.read()
             self.logged_in = True
         except LotteryError:
             raise
@@ -106,9 +116,31 @@ class LotteryClient:
                 raise LotteryError("동행복권 서버가 JSON 응답을 반환하지 않았습니다.") from err
         return data.get("data", data)
 
-    async def balance(self) -> Balance:
-        data = await self._get_json("mypage/selectUserMndp.do", {"_": int(dt.datetime.now().timestamp() * 1000)})
+    async def _get_json_with_login(
+        self, path: str, params: dict | None = None, retry: int = 1
+    ) -> dict:
+        """Read an authenticated endpoint and refresh a stale session once."""
+        try:
+            return await self._get_json(path, params)
+        except LotteryError:
+            if retry <= 0:
+                raise
+            _LOGGER.info("Donghaeng Lottery session refresh required for %s", path)
+            await self.login()
+            return await self._get_json_with_login(path, params, retry - 1)
+
+    async def balance(self, retry: int = 1) -> Balance:
+        data = await self._get_json_with_login(
+            "mypage/selectUserMndp.do",
+            {"_": int(dt.datetime.now().timestamp() * 1000)},
+        )
         value = data.get("userMndp", data)
+        if not isinstance(value, dict) or "totalAmt" not in value:
+            if retry > 0:
+                _LOGGER.info("Donghaeng Lottery balance response requires re-login")
+                await self.login()
+                return await self.balance(retry - 1)
+            raise LotteryError("동행복권 예치금 조회 인증이 거부되었습니다.")
         try:
             return Balance(int(value.get("totalAmt", 0)), int(value.get("crntEntrsAmt", 0)))
         except (TypeError, ValueError) as err:

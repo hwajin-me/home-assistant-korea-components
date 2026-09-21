@@ -22,6 +22,7 @@ class AnimalMedicalSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
     _attr_icon = "mdi:paw"
     _attr_translation_key = "animal_medical_status"
+    _attr_name = "현재 운영 상태"
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options: ClassVar[list[str]] = ["open", "closed", "break"]
 
@@ -37,8 +38,8 @@ class AnimalMedicalSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator: Any, entry_data: dict[str, Any]) -> None:
         super().__init__(coordinator)
+        self._entry_data = dict(entry_data)
         kind = entry_data["institution_type"]
-        name = entry_data["business_name"]
         identifier = (
             f"animal_{kind}_{entry_data['municipality_code']}_"
             f"{entry_data['management_number']}"
@@ -46,7 +47,7 @@ class AnimalMedicalSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = f"{DOMAIN}_{identifier}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, identifier)},
-            name=name,
+            name=ANIMAL_MEDICAL_TYPES[kind]["name"],
             manufacturer="행정안전부",
             model=ANIMAL_MEDICAL_TYPES[kind]["name"],
             entry_type=DeviceEntryType.SERVICE,

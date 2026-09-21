@@ -135,7 +135,8 @@ class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow
             try:
                 await client.login()
                 await client.balance()
-            except LotteryError:
+            except LotteryError as err:
+                LOGGER.warning("Donghaeng Lottery setup validation failed: %s", err)
                 errors["base"] = "invalid_login"
             finally:
                 await client.close()

@@ -46,6 +46,15 @@ async def async_setup_entry(
     data: Dict[str, Any] = hass.data[DOMAIN][entry.entry_id]
     service: str = entry.data.get("service")
 
+    if service in ("animal_medical", "pharmacy"):
+        from .animal_medical.binary_sensor import LABELS, MedicalBinarySensor
+        from .animal_medical.sensor import AnimalMedicalSensor
+        from .pharmacy.sensor import PharmacySensor
+        cls = PharmacySensor if service == "pharmacy" else AnimalMedicalSensor
+        primary = cls(data["coordinator"], dict(entry.data))
+        async_add_entities([MedicalBinarySensor(primary, kind) for kind in LABELS])
+        return
+
     entities = []
 
     if service == "safety_alert":
