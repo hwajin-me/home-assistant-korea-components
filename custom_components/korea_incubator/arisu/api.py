@@ -9,7 +9,7 @@ from typing import Dict, Any
 import aiohttp
 from bs4 import BeautifulSoup
 
-from .exceptions import ArisuConnectionError, ArisuDataError
+from .exceptions import ArisuAuthError, ArisuConnectionError, ArisuDataError
 from ..const import LOGGER
 
 
@@ -75,6 +75,7 @@ class ArisuApiClient:
             }
 
             headers = {
+                "X-Requested-With": "XMLHttpRequest",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
                 "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
                 "Cache-Control": "max-age=0",
@@ -91,9 +92,8 @@ class ArisuApiClient:
                 "X-CSRF-TOKEN": self._csrf_token,
             }
 
-            LOGGER.debug(
-                f"Sending Arisu request with customer_number: {customer_number}, customer_name: {customer_name}, billing_month: {billing_month}"
-            )
+            if not await self._check_bill_available(form_data, headers):
+                return {"success": False, "no_bill_data": True}
 
             async with self._session.post(
                 self._base_url,
@@ -111,7 +111,7 @@ class ArisuApiClient:
                 html_content = await response.text()
                 return self._parse_html_response(html_content)
 
-        except (ArisuConnectionError, ArisuDataError):
+        except (ArisuAuthError, ArisuConnectionError, ArisuDataError):
             raise
         except aiohttp.ClientError as e:
             LOGGER.error(f"Arisu API request failed: {e}")
@@ -119,6 +119,47 @@ class ArisuApiClient:
         except Exception as e:
             LOGGER.error(f"Unexpected error in Arisu API request: {e}")
             raise ArisuDataError(f"Unexpected error: {e}")
+
+    async def _check_bill_available(self, form_data: dict, headers: dict) -> bool:
+        """Follow the site's customer validation and monthly publication checks."""
+
+        async def request(path: str) -> dict:
+            async with self._session.post(
+                "https://i121.seoul.go.kr" + path,
+                data=form_data,
+                headers={**headers, "Accept": "application/json"},
+            ) as response:
+                if response.status != 200:
+                    raise ArisuConnectionError(
+                        f"Arisu bill validation HTTP {response.status}: {response.reason}"
+                    )
+                try:
+                    result = await response.json()
+                except (ValueError, aiohttp.ContentTypeError) as err:
+                    raise ArisuDataError(
+                        "Invalid Arisu bill validation response"
+                    ) from err
+                if not isinstance(result, dict):
+                    raise ArisuDataError("Invalid Arisu bill validation response")
+                return result
+
+        customer = await request("/cyber/front/mkey/JR_getCsNmFlag.do")
+        if customer.get("csNmFlag") == "N" or (
+            customer.get("status") == "FAILURE"
+            and customer.get("message") == "조회결과가 없습니다."
+        ):
+            raise ArisuAuthError("Arisu customer number and name do not match")
+        if customer.get("csNmFlag") != "Y":
+            raise ArisuDataError("Missing Arisu customer validation result")
+        if str(customer.get("area")) == "7" or str(customer.get("seq")) == "0000":
+            raise ArisuDataError(
+                "Arisu bills are managed by the building management office"
+            )
+        publication = await request("/cyber/front/cgcalc/JR_getpcaDeciFlag.do")
+        flag = publication.get("pcaDeciFlag")
+        if flag not in ("Y", "N"):
+            raise ArisuDataError("Missing Arisu bill publication result")
+        return flag == "Y"
 
     async def _init_session(self) -> None:
         """Initialize session by visiting the main page first."""
@@ -193,8 +234,9 @@ class ArisuApiClient:
                 "arrears_info": arrears_info,
             }
 
+        except ArisuDataError:
+            raise
         except Exception as e:
-            LOGGER.error(f"Error parsing HTML response: {e}")
             raise ArisuDataError(f"HTML parsing failed: {e}")
 
     def _extract_customer_info_from_har(self, soup: BeautifulSoup) -> Dict[str, str]:

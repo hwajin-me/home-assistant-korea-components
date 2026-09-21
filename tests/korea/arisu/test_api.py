@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 from custom_components.korea_incubator.arisu.api import ArisuApiClient
 from custom_components.korea_incubator.arisu.exceptions import (
+    ArisuAuthError,
     ArisuConnectionError,
     ArisuDataError,
 )
@@ -14,6 +15,27 @@ from custom_components.korea_incubator.arisu.exceptions import (
 
 class TestArisuApiMock:
     """Test Arisu API with mocked responses."""
+
+    @pytest.fixture(autouse=True)
+    def mock_publication_check(self):
+        with patch.object(
+            ArisuApiClient, "_check_bill_available", new_callable=AsyncMock
+        ) as check:
+            check.return_value = True
+            yield check
+
+    @pytest.mark.asyncio
+    async def test_unpublished_bill_skips_html(
+        self, api_client, mock_session, mock_publication_check
+    ):
+        mock_publication_check.return_value = False
+        api_client._csrf_token = "token"
+        with patch.object(api_client, "_init_session", new_callable=AsyncMock):
+            result = await api_client.async_get_water_bill(
+                "123456789", "테스트", "2026-09"
+            )
+        assert result["no_bill_data"] is True
+        mock_session.post.assert_not_called()
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("empty_months", [0, 3, 11, 12])
@@ -270,6 +292,40 @@ class TestArisuApiMock:
 
         # Should handle various inputs gracefully
         assert "success" in result
+
+
+class TestArisuPublicationChecks:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("flag,expected", [("Y", True), ("N", False)])
+    async def test_customer_then_publication(self, mock_session, flag, expected):
+        response = AsyncMock()
+        response.status = 200
+        response.json.side_effect = [{"csNmFlag": "Y"}, {"pcaDeciFlag": flag}]
+        mock_session.post.return_value.__aenter__.return_value = response
+        client = ArisuApiClient(mock_session)
+        assert await client._check_bill_available({}, {}) is expected
+        assert [
+            call.args[0].split("/")[-1] for call in mock_session.post.call_args_list
+        ] == ["JR_getCsNmFlag.do", "JR_getpcaDeciFlag.do"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "result,error",
+        [
+            ({"csNmFlag": "N"}, ArisuAuthError),
+            ({"status": "FAILURE", "message": "조회결과가 없습니다."}, ArisuAuthError),
+            ({"csNmFlag": "Y", "area": "7"}, ArisuDataError),
+            ({}, ArisuDataError),
+        ],
+    )
+    async def test_validation_failure_stops_lookup(self, mock_session, result, error):
+        response = AsyncMock()
+        response.status = 200
+        response.json.return_value = result
+        mock_session.post.return_value.__aenter__.return_value = response
+        with pytest.raises(error):
+            await ArisuApiClient(mock_session)._check_bill_available({}, {})
+        assert mock_session.post.call_count == 1
 
 
 class TestArisuApiIntegration:
