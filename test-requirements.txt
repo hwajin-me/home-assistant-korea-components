@@ -18,5 +18,5 @@ voluptuous>=0.15.2
 pyproj==3.7.2
 
 # Additional testing utilities
-responses>=0.24.0
+responses>=0.26.2
 freezegun>=1.2.0
