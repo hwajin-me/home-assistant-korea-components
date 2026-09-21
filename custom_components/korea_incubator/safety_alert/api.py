@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional
+from typing import Any
 
 import curl_cffi
 from bs4 import BeautifulSoup
 
-from .exceptions import SafetyAlertConnectionError
 from ..const import LOGGER, TZ_ASIA_SEOUL
+from .exceptions import SafetyAlertConnectionError, SafetyAlertDataError
 
 _BASE_URL = "https://www.safekorea.go.kr/safekorea-kor/ctim/cmsg/calamitySms.do"
 _HEADERS = {
@@ -29,9 +29,9 @@ class SafetyAlertApiClient:
     async def async_get_safety_alerts(
         self,
         area_code: str = "1100000000",
-        area_code2: Optional[str] = None,
-        area_code3: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        area_code2: str | None = None,
+        area_code3: str | None = None,
+    ) -> dict[str, Any]:
         """Get safety alerts by scraping calamitySms.do HTML response."""
         end_date = datetime.now(TZ_ASIA_SEOUL)
         start_date = end_date - timedelta(days=7)
@@ -65,20 +65,25 @@ class SafetyAlertApiClient:
                 LOGGER.debug("Safety Alert HTML length: %d", len(html))
                 return self._parse_html(html)
 
-        except SafetyAlertConnectionError:
+        except (SafetyAlertConnectionError, SafetyAlertDataError):
             raise
-        except Exception as e:
+        except (curl_cffi.CurlError, OSError) as e:
             LOGGER.error("Safety Alert API request failed: %s", e)
             raise SafetyAlertConnectionError(f"Request failed: {e}")
 
-    def _parse_html(self, html: str) -> Dict[str, Any]:
+    def _parse_html(self, html: str) -> dict[str, Any]:
         """Parse disaster SMS data from HTML response."""
         soup = BeautifulSoup(html, "html.parser")
-        alerts: List[Dict[str, Any]] = []
+        alerts: list[dict[str, Any]] = []
 
         # 전체 건수
         count_span = soup.select_one("div.board-count span")
-        total_count = int(count_span.get_text(strip=True)) if count_span else 0
+        if count_span is None or soup.select_one("div.board-listarea") is None:
+            raise SafetyAlertDataError("Safety Alert response is not an alert listing")
+        try:
+            total_count = int(count_span.get_text(strip=True).replace(",", ""))
+        except ValueError as err:
+            raise SafetyAlertDataError("Invalid Safety Alert total count") from err
 
         # 웹용 테이블 파싱 (board-listarea)
         rows = soup.select("div.board-listarea table tbody tr")
@@ -116,13 +121,15 @@ class SafetyAlertApiClient:
             if area_match:
                 rcv_area = area_match.group(1).strip()
 
-            alerts.append({
-                "DSSTR_SE_NM": disaster_type,
-                "EMRGNCY_STEP_NM": emrgncy_step,
-                "MSG_CN": msg_content,
-                "RCV_AREA_NM": rcv_area,
-                "REGIST_DT": regist_dt,
-            })
+            alerts.append(
+                {
+                    "DSSTR_SE_NM": disaster_type,
+                    "EMRGNCY_STEP_NM": emrgncy_step,
+                    "MSG_CN": msg_content,
+                    "RCV_AREA_NM": rcv_area,
+                    "REGIST_DT": regist_dt,
+                }
+            )
 
         LOGGER.debug("Parsed %d alerts (total: %d)", len(alerts), total_count)
 

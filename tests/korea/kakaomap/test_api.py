@@ -246,10 +246,6 @@ class TestKakaoMapApiIntegration:
         return KakaoMapApiClient(real_session)
 
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not pytest.config.getoption("--integration", default=False),
-        reason="Integration tests disabled",
-    )
     async def test_real_coordinate_to_address(self, real_api_client):
         """Test real coordinate to address conversion."""
         try:
@@ -263,10 +259,6 @@ class TestKakaoMapApiIntegration:
             pytest.skip(f"Real API test failed (expected): {e}")
 
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not pytest.config.getoption("--integration", default=False),
-        reason="Integration tests disabled",
-    )
     async def test_real_public_transport_route(self, real_api_client):
         """Test real public transport route."""
         try:

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import random
 import re
+import secrets
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any
+from zoneinfo import ZoneInfo
 
-from homeassistant.util import dt as dt_util
-
-from custom_components.korea_incubator.const import TZ_ASIA_SEOUL
+TZ_ASIA_SEOUL = ZoneInfo("Asia/Seoul")
 
 
 class RSAKey:
@@ -70,12 +69,8 @@ def pkcs1pad2(s, n):
 
     # 랜덤 논제로 패딩 (2부터 메시지 앞까지)
     for i in range(2, n - s_len - 1):
-        # 0이 아닌 랜덤 바이트 생성
-        while True:
-            rand_byte = random.randint(1, 255)
-            if rand_byte != 0:
-                ba[i] = rand_byte
-                break
+        # Cryptographically secure, non-zero PKCS#1 v1.5 padding bytes.
+        ba[i] = secrets.randbelow(255) + 1
 
     # PKCS#1 타입 2 헤더
     ba[0] = 0x00
@@ -85,7 +80,7 @@ def pkcs1pad2(s, n):
     return int.from_bytes(ba, "big")
 
 
-def get_value_from_path(data: Dict[str, Any], path: str) -> Any:
+def get_value_from_path(data: dict[str, Any], path: str) -> Any:
     """Get a value from a nested dictionary using a dot-separated path.
 
     Supports array indexing with square brackets, similar to jq:
@@ -147,7 +142,9 @@ def get_value_from_path(data: Dict[str, Any], path: str) -> Any:
     return value
 
 
-def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datetime]:
+def parse_date_value(
+    raw_value: str, current_year: int | None = None
+) -> datetime | None:
     """Parse various date formats into datetime object with timezone information.
 
     Supported formats:
@@ -166,19 +163,23 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
         return None
 
     if current_year is None:
-        current_year = datetime.now().year
+        current_year = datetime.now(TZ_ASIA_SEOUL).year
 
     # Remove extra whitespace
     value = raw_value.strip()
 
-    parsed_dt = None
+    # ISO dates/timestamps, including seconds, fractional seconds and offsets.
+    try:
+        parsed_dt = datetime.fromisoformat(value)
+    except ValueError:
+        parsed_dt = None
 
     # Pattern 1: YYYY-MM-DD
     pattern1 = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})$", value)
-    if pattern1:
+    if pattern1 and parsed_dt is None:
         try:
             year, month, day = map(int, pattern1.groups())
-            parsed_dt = datetime(year, month, day)
+            parsed_dt = datetime(year, month, day, tzinfo=TZ_ASIA_SEOUL)
         except ValueError:
             return None
 
@@ -305,9 +306,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
         )
         if pattern12_1:
             try:
-                year, month, day, hour, minute, second = map(
-                    int, pattern12_1.groups()
-                )
+                year, month, day, hour, minute, second = map(int, pattern12_1.groups())
                 parsed_dt = datetime(
                     year, month, day, hour, minute, second, tzinfo=TZ_ASIA_SEOUL
                 )
@@ -322,7 +321,7 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
         )
         if pattern13:
             try:
-                year, month, day, hour, minute, second, microsecond = map(
+                year, month, day, hour, minute, second, _microsecond = map(
                     int, pattern13.groups()
                 )
                 parsed_dt = datetime(
@@ -332,14 +331,16 @@ def parse_date_value(raw_value: str, current_year: int = None) -> Optional[datet
                     hour,
                     minute,
                     second,
-                    microsecond=0,
+                    microsecond=int(pattern13.group(7)[:6].ljust(6, "0")),
                     tzinfo=TZ_ASIA_SEOUL,
                 )
             except ValueError:
                 return None
 
-    # Add timezone information using Home Assistant's default timezone
+    # Dates are Korean calendar dates; do not shift them to the HA host timezone.
     if parsed_dt:
-        return dt_util.as_local(parsed_dt)
+        if parsed_dt.tzinfo is None:
+            return parsed_dt.replace(tzinfo=TZ_ASIA_SEOUL)
+        return parsed_dt.astimezone(TZ_ASIA_SEOUL)
 
     return None

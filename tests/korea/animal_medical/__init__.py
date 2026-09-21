@@ -1,0 +1,1 @@
+"""Animal medical integration tests."""

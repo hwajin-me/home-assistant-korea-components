@@ -339,10 +339,6 @@ class TestSafetyAlertDeviceIntegration:
         )
 
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not pytest.config.getoption("--integration", default=False),
-        reason="Integration tests disabled",
-    )
     async def test_real_device_update(self, real_safety_alert_device):
         """Test real device update."""
         try:
@@ -359,10 +355,6 @@ class TestSafetyAlertDeviceIntegration:
             pytest.skip(f"Real API test failed (expected): {e}")
 
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not pytest.config.getoption("--integration", default=False),
-        reason="Integration tests disabled",
-    )
     async def test_real_device_invalid_area_code(self, mock_hass, real_session):
         """Test real device with invalid area code."""
         device = SafetyAlertDevice(

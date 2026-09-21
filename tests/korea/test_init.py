@@ -1,17 +1,40 @@
 """Test Korea integration initialization and setup."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-import aiohttp
 
-from custom_components.korea_incubator import async_setup_entry, async_unload_entry
-from custom_components.korea_incubator.const import DOMAIN, PLATFORMS
+import pytest
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+
+from custom_components.korea_incubator import (
+    PLATFORM_MAP,
+    async_setup_entry,
+    async_unload_entry,
+)
+from custom_components.korea_incubator.const import DOMAIN, PLATFORMS
 
 
 class TestKoreaIntegrationSetup:
     """Test Korea integration setup and initialization."""
+
+    @pytest.fixture(autouse=True)
+    def setup_dependencies(self):
+        """Mock HA scheduling, session ownership and unrelated LLM registration."""
+        coordinator = MagicMock()
+        coordinator.async_config_entry_first_refresh = AsyncMock()
+        with (
+            patch(
+                "custom_components.korea_incubator.DataUpdateCoordinator",
+                return_value=coordinator,
+            ),
+            patch(
+                "custom_components.korea_incubator.async_setup_llm_api",
+                new_callable=AsyncMock,
+            ),
+            patch("custom_components.korea_incubator.aiohttp.ClientSession"),
+            patch("custom_components.korea_incubator.curl_cffi.AsyncSession"),
+            patch("custom_components.korea_incubator.migrate_region_unique_ids"),
+        ):
+            yield coordinator
 
     @pytest.fixture
     def mock_entry_kepco(self, kepco_config_data):
@@ -196,7 +219,9 @@ class TestKoreaIntegrationSetup:
             result = await async_unload_entry(mock_hass, mock_entry_kepco)
 
             assert result is True
-            mock_unload.assert_called_once_with(mock_entry_kepco, PLATFORMS)
+            mock_unload.assert_awaited_once_with(
+                mock_entry_kepco, PLATFORM_MAP["kepco"]
+            )
 
     @pytest.mark.asyncio
     async def test_platforms_loaded(self, mock_hass, mock_entry_kepco):
@@ -208,13 +233,13 @@ class TestKoreaIntegrationSetup:
             mock_device.async_update = AsyncMock()
             mock_device_class.return_value = mock_device
 
-            with patch("custom_components.korea_incubator.curl_cffi.AsyncSession"):
-                with patch.object(
-                    mock_hass.config_entries, "async_forward_entry_setups"
-                ) as mock_forward:
-                    await async_setup_entry(mock_hass, mock_entry_kepco)
-
-                    mock_forward.assert_called_once_with(mock_entry_kepco, PLATFORMS)
+            with patch.object(
+                mock_hass.config_entries, "async_forward_entry_setups"
+            ) as mock_forward:
+                await async_setup_entry(mock_hass, mock_entry_kepco)
+                mock_forward.assert_awaited_once_with(
+                    mock_entry_kepco, PLATFORM_MAP["kepco"]
+                )
 
     @pytest.mark.asyncio
     async def test_coordinator_creation(self, mock_hass, mock_entry_kepco):
@@ -226,26 +251,25 @@ class TestKoreaIntegrationSetup:
             mock_device.async_update = AsyncMock()
             mock_device_class.return_value = mock_device
 
-            with patch("custom_components.korea_incubator.curl_cffi.AsyncSession"):
-                with patch(
-                    "custom_components.korea_incubator.DataUpdateCoordinator"
-                ) as mock_coordinator_class:
-                    mock_coordinator = MagicMock()
-                    mock_coordinator.async_config_entry_first_refresh = AsyncMock()
-                    mock_coordinator_class.return_value = mock_coordinator
-
-                    await async_setup_entry(mock_hass, mock_entry_kepco)
-
-                    # Verify coordinator was created and configured
-                    mock_coordinator_class.assert_called_once()
-                    mock_coordinator.async_config_entry_first_refresh.assert_called_once()
+            with patch(
+                "custom_components.korea_incubator.DataUpdateCoordinator"
+            ) as mock_coordinator_class:
+                mock_coordinator = MagicMock()
+                mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+                mock_coordinator_class.return_value = mock_coordinator
+                await async_setup_entry(mock_hass, mock_entry_kepco)
+                mock_coordinator_class.assert_called_once()
+                assert (
+                    mock_coordinator_class.call_args.kwargs["config_entry"]
+                    is mock_entry_kepco
+                )
+                mock_coordinator.async_config_entry_first_refresh.assert_awaited_once()
 
     @pytest.mark.parametrize(
         "service", ["kepco", "gasapp", "safety_alert", "goodsflow", "arisu", "kakaomap"]
     )
     def test_all_services_supported(self, service):
         """Test that all services are recognized in setup."""
-        from custom_components.korea_incubator import async_setup_entry
 
         # This test verifies the service names are properly handled
         # The actual implementation check is done in the setup function

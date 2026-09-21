@@ -1,6 +1,6 @@
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q --strict-markers --disable-warnings"
+addopts = "-ra --strict-markers --import-mode=importlib"
 testpaths = [
     "tests",
 ]
@@ -8,12 +8,16 @@ python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
 markers = [
+    "unit: marks tests as unit tests without network access",
     "integration: marks tests as integration tests requiring real API access",
     "slow: marks tests as slow running",
     "asyncio: marks tests as async tests",
 ]
 asyncio_mode = "auto"
 filterwarnings = [
+    "error::RuntimeWarning",
+    "error::ResourceWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
 ]

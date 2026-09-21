@@ -136,15 +136,15 @@ class TestArisuApiMock:
 
         bill_response = AsyncMock()
         bill_response.status = 200
-        bill_response.text.return_value = "Invalid HTML"
+        bill_response.text.return_value = '<input id="totAmt" value="invalid">'
 
         mock_session.get.return_value.__aenter__.return_value = init_response
         mock_session.post.return_value.__aenter__.return_value = bill_response
 
         with patch(
-            "custom_components.korea_incubator.arisu.api.BeautifulSoup"
+            "custom_components.korea_incubator.arisu.api.ArisuApiClient._parse_html_response"
         ) as mock_soup:
-            mock_soup.side_effect = Exception("Parsing failed")
+            mock_soup.side_effect = ArisuDataError("Parsing failed")
 
             with pytest.raises(ArisuDataError):
                 await api_client.async_get_water_bill_data("042389659", "홍길동")
@@ -230,10 +230,6 @@ class TestArisuApiIntegration:
         return ArisuApiClient(real_session)
 
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not pytest.config.getoption("--integration", default=False),
-        reason="Integration tests disabled",
-    )
     async def test_real_api_invalid_credentials(self, real_api_client):
         """Test real API with invalid credentials."""
         result = await real_api_client.async_get_water_bill_data("999999999", "테스트")
@@ -242,10 +238,6 @@ class TestArisuApiIntegration:
         assert result["success"] is False
 
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not pytest.config.getoption("--integration", default=False),
-        reason="Integration tests disabled",
-    )
     async def test_real_api_connection(self, real_api_client):
         """Test real API connection."""
         try:
@@ -265,10 +257,6 @@ class TestArisuApiIntegration:
             pytest.skip(f"Real API test failed (expected): {e}")
 
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not pytest.config.getoption("--integration", default=False),
-        reason="Integration tests disabled",
-    )
     async def test_real_session_initialization(self, real_api_client):
         """Test real session initialization."""
         try:

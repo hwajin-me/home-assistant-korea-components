@@ -31,7 +31,7 @@ API_NAMES: dict[str, str] = {
     ENTRY_KEPCO: "한국 공공데이터: 한전 전기 사용량",
     ENTRY_GASAPP: "한국 공공데이터: 도시가스 요금",
     ENTRY_ARISU: "한국 공공데이터: 아리수 수도 요금",
-    ENTRY_PHARMACY: "한국 공공데이터: 운영중인 약국",
+    ENTRY_PHARMACY: "한국 공공데이터: 선택한 약국 운영정보",
     ENTRY_EARTHQUAKE: "한국 공공데이터: 최근 지진",
 }
 

@@ -20,7 +20,8 @@ class TestGoodsFlowDeviceMock:
     @pytest.fixture
     def mock_api_client(self):
         """Create mock API client."""
-        return AsyncMock()
+        from custom_components.korea_incubator.goodsflow.api import GoodsFlowApiClient
+        return AsyncMock(spec=GoodsFlowApiClient)
 
     @pytest.fixture
     async def goodsflow_device(self, mock_hass, mock_session, mock_api_client):
@@ -206,10 +207,6 @@ class TestGoodsFlowDeviceIntegration:
         return GoodsFlowDevice(mock_hass, "test_entry_id", "test_token", real_session)
 
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not pytest.config.getoption("--integration", default=False),
-        reason="Integration tests disabled",
-    )
     async def test_real_device_update_auth_failure(self, real_goodsflow_device):
         """Test real device update with invalid token."""
         with pytest.raises(UpdateFailed):

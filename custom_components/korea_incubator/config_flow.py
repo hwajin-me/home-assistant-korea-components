@@ -11,6 +11,7 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
 from .arisu.api import ArisuApiClient
+from .animal_medical.config_flow import AnimalMedicalFlow
 from .arisu.exceptions import ArisuAuthError, ArisuConnectionError, ArisuDataError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
@@ -24,6 +25,8 @@ from .const import (
     ENTRY_AIRKOREA,
     ENTRY_ARISU,
     ENTRY_CJ_ONE_DELIVERY,
+    ENTRY_ANIMAL_MEDICAL,
+    ENTRY_DH_LOTTERY,
     ENTRY_DISASTER,
     ENTRY_EARTHQUAKE,
     ENTRY_FUEL,
@@ -76,7 +79,10 @@ def _flow_error_message(error: Exception | str, fallback: str) -> str:
     return message[:500]
 
 
-class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+from .pharmacy.config_flow import PharmacyFlow
+
+
+class KoreaConfigFlow(PharmacyFlow, AnimalMedicalFlow, config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Korea integration."""
 
     VERSION = 1
@@ -86,6 +92,10 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._safety_alert_data = {}
         self._cj_phone_number = ""
         self._cj_auth_session: AuthSession | None = None
+        self._animal_medical_data: dict[str, Any] = {}
+        self._animal_medical_page = 1
+        self._animal_medical_total = 0
+        self._animal_medical_results: list[dict[str, Any]] = []
 
     async def async_step_user(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle the initial step."""
@@ -105,10 +115,41 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "school",
                 "disaster",
                 "pharmacy",
+                "animal_medical",
                 "airkorea",
                 "kma_weather",
                 "earthquake",
+                "dh_lottery",
             ],
+        )
+
+    async def async_step_dh_lottery(
+        self, user_input: Optional[Dict[str, Any]] = None
+    ):
+        """Configure a Donghaeng Lottery account."""
+        errors: Dict[str, str] = {}
+        if user_input is not None:
+            from .lottery import LotteryClient, LotteryError
+
+            client = LotteryClient(user_input[CONF_USERNAME], user_input[CONF_PASSWORD])
+            try:
+                await client.login()
+                await client.balance()
+            except LotteryError:
+                errors["base"] = "invalid_login"
+            finally:
+                await client.close()
+            if not errors:
+                await self.async_set_unique_id(f"dh_lottery_{user_input[CONF_USERNAME]}")
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(
+                    title=f"동행복권 ({user_input[CONF_USERNAME]})",
+                    data={"service": ENTRY_DH_LOTTERY, **user_input},
+                )
+        return self.async_show_form(
+            step_id="dh_lottery",
+            data_schema=vol.Schema({vol.Required(CONF_USERNAME): str, vol.Required(CONF_PASSWORD): str}),
+            errors=errors,
         )
 
     async def async_step_cj_one_delivery(
@@ -1263,46 +1304,9 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     # ══════════ 약국 ══════════
+
     async def async_step_pharmacy(self, user_input=None) -> FlowResult:
-        sido_opts = [
-            "서울특별시",
-            "부산광역시",
-            "대구광역시",
-            "인천광역시",
-            "광주광역시",
-            "대전광역시",
-            "울산광역시",
-            "세종특별자치시",
-            "경기도",
-            "강원특별자치도",
-            "충청북도",
-            "충청남도",
-            "전북특별자치도",
-            "전라남도",
-            "경상북도",
-            "경상남도",
-            "제주특별자치도",
-        ]
-        if user_input is not None:
-            return self.async_create_entry(
-                title="약국 정보",
-                data={
-                    CONF_ENTRY_TYPE: ENTRY_PHARMACY,
-                    "api_key": user_input["api_key"],
-                    "q0": user_input["q0"],
-                    "q1": user_input.get("q1", ""),
-                },
-            )
-        return self.async_show_form(
-            step_id="pharmacy",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("api_key"): str,
-                    vol.Required("q0", default="서울특별시"): vol.In(sido_opts),
-                    vol.Optional("q1", default=""): str,
-                }
-            ),
-        )
+        return await PharmacyFlow.async_step_pharmacy(self, user_input)
 
     # ══════════ 에어코리아 ══════════
     async def async_step_airkorea(self, user_input=None) -> FlowResult:
@@ -1466,6 +1470,8 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input: Optional[Dict[str, Any]] = None):
         """Manage the options."""
         service = self._config_entry.data.get("service")
+        if service in (ENTRY_ANIMAL_MEDICAL, ENTRY_PHARMACY):
+            return await self.async_step_animal_medical_options(user_input)
         if service == ENTRY_CJ_ONE_DELIVERY:
             if user_input is not None:
                 return self.async_create_entry(title="", data=user_input)
@@ -1543,6 +1549,26 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
                     ),
                 )
             return self.async_abort(reason=f"no_options_{service}")
+
+
+    async def async_step_animal_medical_options(self, user_input=None):
+        """Saving settings always fetches fresh institution data."""
+        from .animal_medical import CONF_INTERVAL, DEFAULT_INTERVAL
+        from .animal_medical.config_flow import interval_schema
+
+        if user_input is not None:
+            if dict(self._config_entry.options) == user_input:
+                self.hass.config_entries.async_schedule_reload(
+                    self._config_entry.entry_id
+                )
+            return self.async_create_entry(title="", data=user_input)
+        interval = self._config_entry.options.get(
+            CONF_INTERVAL, self._config_entry.data.get(CONF_INTERVAL, DEFAULT_INTERVAL)
+        )
+        return self.async_show_form(
+            step_id="animal_medical_options",
+            data_schema=vol.Schema(interval_schema(interval)),
+        )
 
 
 def _cj_one_delivery_options_schema(

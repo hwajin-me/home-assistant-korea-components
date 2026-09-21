@@ -1,6 +1,9 @@
 name: "Release"
 
 on:
+  push:
+    branches:
+      - "master"
   release:
     types:
       - "published"
@@ -8,8 +11,75 @@ on:
 permissions: {}
 
 jobs:
+  automatic-release:
+    name: "Release manifest version"
+    if: github.event_name == 'push'
+    runs-on: "ubuntu-latest"
+    concurrency:
+      group: "automatic-release"
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: "Checkout the pushed commit"
+        uses: "actions/checkout@v6.0.2"
+        with:
+          fetch-depth: 0
+
+      - name: "Read and check the manifest version"
+        id: version
+        shell: bash
+        run: |
+          version=$(jq -er '.version | select(type == "string" and length > 0)' custom_components/korea_incubator/manifest.json)
+          tag="v${version}"
+          git check-ref-format "refs/tags/${tag}"
+          if [[ "$version" == *$'\n'* || "$version" == *$'\r'* ]]; then
+            echo "::error::Manifest version must be a single line"
+            exit 1
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+          # Fail on API errors instead of treating them as a missing release.
+          releases=$(gh api --paginate "repos/${GH_REPO}/releases" --jq '.[].tag_name')
+          if grep -Fxq -- "$tag" <<< "$releases"; then
+            echo "Release ${tag} already exists; skipping."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Never move an existing tag or package a different commit for it.
+          if git show-ref --verify --quiet "refs/tags/${tag}"; then
+            if [[ "$(git rev-list -n 1 "$tag")" != "$GITHUB_SHA" ]]; then
+              echo "::error::Tag ${tag} already points to another commit; bump the manifest version."
+              exit 1
+            fi
+          fi
+
+      - name: "ZIP the integration directory"
+        if: steps.version.outputs.exists != 'true'
+        working-directory: custom_components/korea_incubator
+        shell: bash
+        run: zip -r "$RUNNER_TEMP/korea_incubator.zip" . -x '*/__pycache__/*' '*.pyc'
+
+      # GITHUB_TOKEN-created releases do not trigger the published workflow,
+      # so attach the ZIP here as part of creating the release.
+      - name: "Create the tag and release with ZIP"
+        if: steps.version.outputs.exists != 'true'
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          gh release create "$RELEASE_TAG" "$RUNNER_TEMP/korea_incubator.zip" \
+            --target "$GITHUB_SHA" \
+            --title "$RELEASE_TAG" \
+            --generate-notes
+
   release:
     name: "Release"
+    if: github.event_name == 'release'
     runs-on: "ubuntu-latest"
     permissions:
       contents: write
@@ -24,6 +94,6 @@ jobs:
           zip korea_incubator.zip -r ./
 
       - name: "Upload the ZIP file to the release"
-        uses: "softprops/action-gh-release@v2.5.0"
+        uses: "softprops/action-gh-release@v2"
         with:
-          files: ${{ github.workspace }}/custom_components/korea_incubator/korea_incubator.zip
+          files: "${{ github.workspace }}/custom_components/korea_incubator/korea_incubator.zip"

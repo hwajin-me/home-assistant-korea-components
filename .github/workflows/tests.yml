@@ -1,0 +1,24 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/setup-python@v6.2.0
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install test dependencies
+        run: python -m pip install -r test-requirements.txt homeassistant==2026.2.3
+      - name: Offline regression suite
+        run: python -m pytest tests --cov=custom_components.korea_incubator --cov-branch --cov-report=term-missing --cov-report=xml -W error::RuntimeWarning -W error::ResourceWarning
+      - name: Medical and pharmacy full branch coverage
+        run: python -m pytest tests/korea/animal_medical --cov=custom_components.korea_incubator.animal_medical --cov=custom_components.korea_incubator.pharmacy --cov=custom_components.korea_incubator.llm_api.pharmacy_tool --cov-branch --cov-fail-under=100

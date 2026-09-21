@@ -1,10 +1,47 @@
 """Test configuration and fixtures for Korea integration tests."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+from urllib.parse import urlsplit
+
 import aiohttp
+import pytest
+from curl_cffi import AsyncSession, Session
 
 from custom_components.korea_incubator.const import DOMAIN
+
+
+@pytest.fixture(autouse=True)
+def prevent_external_requests(request, monkeypatch):
+    """Unit tests may use loopback servers, never real accounts or public APIs."""
+    if request.node.get_closest_marker("integration") and request.config.getoption(
+        "--integration"
+    ):
+        return
+    aio_request = aiohttp.ClientSession._request
+    curl_request = AsyncSession.request
+    sync_request = Session.request
+
+    def check(url):
+        if urlsplit(str(url)).hostname not in {"127.0.0.1", "localhost", "::1"}:
+            pytest.fail(
+                "External HTTP request in a unit test; mock the transport or mark integration"
+            )
+
+    async def aio_guard(self, method, str_or_url, **kwargs):
+        check(str_or_url)
+        return await aio_request(self, method, str_or_url, **kwargs)
+
+    async def curl_guard(self, method, url, **kwargs):
+        check(url)
+        return await curl_request(self, method, url, **kwargs)
+
+    def sync_guard(self, method, url, **kwargs):
+        check(url)
+        return sync_request(self, method, url, **kwargs)
+
+    monkeypatch.setattr(aiohttp.ClientSession, "_request", aio_guard)
+    monkeypatch.setattr(AsyncSession, "request", curl_guard)
+    monkeypatch.setattr(Session, "request", sync_guard)
 
 
 def pytest_addoption(parser):
@@ -46,6 +83,8 @@ def mock_hass():
     """Create a mock Home Assistant instance."""
     hass = MagicMock()
     hass.data = {DOMAIN: {}}
+    hass.config_entries.async_forward_entry_setups = AsyncMock()
+    hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
     return hass
 
 

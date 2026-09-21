@@ -1,11 +1,11 @@
 import json
 
 from bs4 import BeautifulSoup
-from curl_cffi import AsyncSession
+from curl_cffi import AsyncSession, CurlError
 
-from .exceptions import KepcoAuthError
 from ..const import LOGGER
 from ..utils import RSAKey
+from .exceptions import KepcoAuthError
 
 
 class KepcoApiClient:
@@ -25,7 +25,6 @@ class KepcoApiClient:
         result = await self._session.get(url=url)
         result.raise_for_status()
         LOGGER.debug(f"Intro page response status: {result.status_code}")
-        LOGGER.debug(f"Intro page response headers: {result.headers}")
         html_text = result.text
 
         soup = BeautifulSoup(html_text, "html.parser")
@@ -39,17 +38,20 @@ class KepcoApiClient:
                 "Failed to get RSA modulus, exponent or SESSID from intro page HTML."
             )
 
-        rsa_modulus = rsa_modulus_tag.get("value").strip()
-        rsa_exponent = rsa_exponent_tag.get("value").strip()
-        sessid = sessid_tag.get("value").strip()
-
-        LOGGER.debug(f"Return KEPCO value {rsa_modulus}, {rsa_exponent}, {sessid}")
+        rsa_modulus = (rsa_modulus_tag.get("value") or "").strip()
+        rsa_exponent = (rsa_exponent_tag.get("value") or "").strip()
+        sessid = (sessid_tag.get("value") or "").strip()
+        if not all((rsa_modulus, rsa_exponent, sessid)):
+            raise KepcoAuthError("Empty RSA parameters or SESSID")
 
         return rsa_modulus, rsa_exponent, sessid
 
     async def async_login(self, username, password):
         self.set_credentials(username, password)
         self.last_error = None
+        if not username or not password:
+            self.last_error = "Username and password are required"
+            return False
         try:
             (
                 rsa_modulus,
@@ -60,8 +62,10 @@ class KepcoApiClient:
             LOGGER.error(f"KEPCO Login failed: {e}")
             self.last_error = str(e)
             return False
-
-        LOGGER.debug(f"KEPCO Login Request with {username} and {password}")
+        except (CurlError, OSError) as err:
+            self.last_error = f"KEPCO session request failed ({type(err).__name__})"
+            LOGGER.warning(self.last_error)
+            return False
 
         try:
             rsa_key = RSAKey()
@@ -73,14 +77,10 @@ class KepcoApiClient:
             if not encrypted_username_hex or not encrypted_password_hex:
                 raise ValueError("RSA encryption failed")
 
-        except Exception as e:
+        except (ValueError, TypeError, OverflowError) as e:
             LOGGER.error(f"RSA encryption failed: {e}")
             self.last_error = f"RSA encryption failed: {e}"
             return False
-
-        LOGGER.debug(
-            f"KEPCO ID/PW: {encrypted_username_hex} / {encrypted_password_hex}, Session ID: {sessid}"
-        )
 
         user_id = f"{sessid}_{encrypted_username_hex}"
         user_pw = f"{sessid}_{encrypted_password_hex}"
@@ -106,57 +106,30 @@ class KepcoApiClient:
                 allow_redirects=True,
             )
             LOGGER.debug(f"Login response status: {response.status_code}")
-            LOGGER.debug(f"Login response headers: {response.headers}")
-            text = response.text
-            LOGGER.debug(f"Login response body: {text}")
-            if response.status_code == 200:
-                # 최종적으로 도달한 URL이 confirmInfo.do 이거나, 로그인 성공을 나타내는 페이지인지 확인
-                if "confirmInfo.do" in str(response.url):
-                    return True
-            LOGGER.error(
-                f"KEPCO Login failed with status {response.status_code}: {text}"
-            )
-            response_text = " ".join(str(text).split())[:500]
-            self.last_error = (
-                f"HTTP {response.status_code}: {response_text}"
-                if response_text
-                else f"HTTP {response.status_code}: login rejected"
-            )
+            if response.status_code == 200 and "confirmInfo.do" in str(response.url):
+                return True
+            self.last_error = f"HTTP {response.status_code}: login rejected"
+            LOGGER.warning("KEPCO %s", self.last_error)
             return False
-        except Exception as e:
-            LOGGER.error(f"Login request failed: {e}")
-            self.last_error = f"Login request failed: {e}"
+        except (CurlError, OSError) as e:
+            self.last_error = f"Login request failed ({type(e).__name__})"
+            LOGGER.warning("KEPCO %s", self.last_error)
             return False
 
     async def _request(self, method, url, **kwargs):
-        try:
+        for attempt in range(2):
             response = await self._session.request(method, url, **kwargs)
-            LOGGER.debug(
-                f"API request to {url} response status: {response.status_code}"
+            redirected_to_login = (
+                str(response.url).split("?", 1)[0].endswith(("/login", "/intro.do"))
             )
-            LOGGER.debug(f"API request to {url} response headers: {response.headers}")
-            LOGGER.debug(f"API request to {url} response body: {response.text}")
+            if response.status_code in (401, 403) or redirected_to_login:
+                if attempt == 0 and await self.async_login(
+                    self._username, self._password
+                ):
+                    continue
+                raise KepcoAuthError("KEPCO session expired; authentication failed")
+            response.raise_for_status()
             return json.loads(response.text)
-        except Exception as e:
-            LOGGER.error(f"API call to {url} failed", e)
-            LOGGER.warning("API call failed with 401, attempting re-login.")
-            if await self.async_login(self._username, self._password):
-                LOGGER.info("Re-login successful, retrying original request.")
-                try:
-                    response = await self._session.request(method, url, **kwargs)
-                    LOGGER.debug(
-                        f"API request to {url} response status: {response.status_code}"
-                    )
-                    LOGGER.debug(
-                        f"API request to {url} response headers: {response.headers}"
-                    )
-                    return json.loads(response.text)
-                except Exception as retry_e:
-                    LOGGER.error(f"Retry request failed: {retry_e}", retry_e)
-                    raise KepcoAuthError(f"Retry failed: {retry_e}", retry_e)
-            else:
-                LOGGER.error("KEPCO Re-login failed.")
-            raise  # Re-raise if not 401 or re-login failed
 
     async def async_get_recent_usage(self):
         url = "https://pp.kepco.co.kr:8030/low/main/recent_usage.do"

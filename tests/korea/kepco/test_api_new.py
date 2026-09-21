@@ -1,244 +1,126 @@
+"""RSA HTML parsing and real PKCS#1 decryption of login payloads."""
+
+import logging
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-import aiohttp
-from unittest.mock import AsyncMock, patch, MagicMock
+from Crypto.Cipher import PKCS1_v1_5
 from Crypto.PublicKey import RSA
+
 from custom_components.korea_incubator.kepco.api import KepcoApiClient
 from custom_components.korea_incubator.kepco.exceptions import KepcoAuthError
+from custom_components.korea_incubator.utils import RSAKey, pkcs1pad2
+
+
+@pytest.fixture(scope="module")
+def private_key():
+    return RSA.generate(1024)
 
 
 @pytest.fixture
-async def api_client():
-    async with aiohttp.ClientSession() as session:
-        yield KepcoApiClient(session)
-
-
-@pytest.mark.asyncio
-async def test_async_get_session_and_rsa_key():
-    """세션 및 RSA 키 획득 테스트"""
-    async with aiohttp.ClientSession() as session:
-        api_client = KepcoApiClient(session)
-
-        # Mock HTML response
-        mock_html = """
-        <html>
-            <input type="hidden" id="RSAModulus" value="d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3">
-            <input type="hidden" id="RSAExponent" value="10001">
-            <input type="hidden" id="SESSID" value="test_sessid_12345">
-        </html>
-        """
-
-        # Mock response object
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.text = AsyncMock(return_value=mock_html)
-        mock_response.headers = MagicMock()
-        mock_response.headers.getall.return_value = [
-            "JSESSIONID=test_jsessionid; Path=/; HttpOnly"
-        ]
-        mock_response.raise_for_status = MagicMock()
-
-        # Mock session.get
-        with patch.object(session, "get") as mock_get:
-            mock_get.return_value.__aenter__.return_value = mock_response
-
-            (
-                jsessionid,
-                rsa_modulus,
-                rsa_exponent,
-                sessid,
-            ) = await api_client.async_get_session_and_rsa_key()
-
-            assert jsessionid == "test_jsessionid"
-            assert (
-                rsa_modulus
-                == "d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3"
-            )
-            assert rsa_exponent == "10001"
-            assert sessid == "test_sessid_12345"
-
-
-@pytest.mark.asyncio
-async def test_rsa_key_creation():
-    """RSA 키 생성 테스트"""
-    async with aiohttp.ClientSession() as session:
-        api_client = KepcoApiClient(session)
-        rsa_modulus = "d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3"
-        rsa_exponent = "10001"
-
-        key = api_client._create_rsa_key(rsa_modulus, rsa_exponent)
-
-        assert isinstance(key, RSA.RsaKey)
-        assert key.e == int(rsa_exponent, 16)
-        assert key.n == int(rsa_modulus, 16)
-
-
-@pytest.mark.asyncio
-async def test_rsa_encryption():
-    """RSA 암호화 테스트"""
-    async with aiohttp.ClientSession() as session:
-        api_client = KepcoApiClient(session)
-        # 테스트용 작은 RSA 키 (실제로는 KEPCO에서 받은 키를 사용)
-        rsa_modulus = "d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3"
-        rsa_exponent = "10001"
-
-        key = api_client._create_rsa_key(rsa_modulus, rsa_exponent)
-        test_text = "test_username"
-
-        encrypted_hex = api_client._encrypt_with_rsa(key, test_text)
-
-        # 암호화된 결과가 hex 문자열인지 확인
-        assert isinstance(encrypted_hex, str)
-        assert len(encrypted_hex) > 0
-        # hex 문자열인지 확인
-        bytes.fromhex(encrypted_hex)
-
-
-@pytest.mark.asyncio
-async def test_prepare_encrypted_credentials():
-    """암호화된 인증 정보 준비 테스트"""
-    async with aiohttp.ClientSession() as session:
-        api_client = KepcoApiClient(session)
-        username = "test_user"
-        password = "test_password"
-        rsa_modulus = "d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3"
-        rsa_exponent = "10001"
-        sessid = "test_session_12345"
-
-        user_id, user_pw = api_client._prepare_encrypted_credentials(
-            username, password, rsa_modulus, rsa_exponent, sessid
+def login_client(private_key):
+    session = MagicMock()
+    html = f'<input id="RSAModulus" value="{private_key.n:x}"><input id="RSAExponent" value="{private_key.e:x}"><input id="SESSID" value="session-secret">'
+    session.get = AsyncMock(return_value=MagicMock(status_code=200, text=html))
+    session.post = AsyncMock(
+        return_value=MagicMock(
+            status_code=200, url="https://pp.kepco.co.kr:8030/confirmInfo.do"
         )
+    )
+    return KepcoApiClient(session)
 
-        # 결과 형식 확인
-        assert user_id.startswith(f"{sessid}_")
-        assert user_pw.startswith(f"{sessid}_")
 
-        # 암호화된 부분 추출
-        encrypted_username = user_id[len(sessid) + 1 :]
-        encrypted_password = user_pw[len(sessid) + 1 :]
+async def test_session_and_rsa_key(login_client, private_key):
+    assert await login_client.async_get_session_and_rsa_key() == (
+        f"{private_key.n:x}",
+        f"{private_key.e:x}",
+        "session-secret",
+    )
+    login_client._session.get.return_value.raise_for_status.assert_called_once()
 
-        # hex 문자열인지 확인
-        bytes.fromhex(encrypted_username)
-        bytes.fromhex(encrypted_password)
 
-        # 두 번 호출했을 때 다른 결과가 나오는지 확인 (RSA 패딩 때문에)
-        user_id2, user_pw2 = api_client._prepare_encrypted_credentials(
-            username, password, rsa_modulus, rsa_exponent, sessid
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<html></html>",
+        '<input id="RSAModulus"><input id="RSAExponent" value="10001"><input id="SESSID" value="s">',
+    ],
+)
+async def test_missing_rsa_fields(login_client, html):
+    login_client._session.get.return_value.text = html
+    with pytest.raises(KepcoAuthError):
+        await login_client.async_get_session_and_rsa_key()
+    assert await login_client.async_login("u", "p") is False
+
+
+@pytest.mark.parametrize("text", ["test_username", "비밀번호🙂"])
+def test_rsa_encryption_roundtrip(private_key, text):
+    key = RSAKey()
+    key.set_public(f"{private_key.n:x}", f"{private_key.e:x}")
+    ciphertext = bytes.fromhex(key.encrypt(text)).rjust(
+        private_key.size_in_bytes(), b"\x00"
+    )
+    assert PKCS1_v1_5.new(private_key).decrypt(ciphertext, b"bad") == text.encode()
+    assert key.encrypt(text) != key.encrypt(text)
+
+
+def test_rsa_invalid_and_oversized():
+    with pytest.raises(ValueError):
+        RSAKey().set_public("", "10001")
+    with pytest.raises(ValueError, match="Message too long"):
+        pkcs1pad2("x" * 100, 64)
+
+
+async def test_login_payload_and_no_secrets_logged(login_client, private_key, caplog):
+    caplog.set_level(logging.DEBUG)
+    assert await login_client.async_login("secret-user", "secret-password") is True
+    form = login_client._session.post.call_args.kwargs["data"]
+    for name, plaintext in (("USER_ID", "secret-user"), ("USER_PW", "secret-password")):
+        prefix, encoded = form[name].split("_", 1)
+        assert prefix == "session-secret"
+        encrypted = bytes.fromhex(encoded).rjust(private_key.size_in_bytes(), b"\x00")
+        assert (
+            PKCS1_v1_5.new(private_key).decrypt(encrypted, b"bad") == plaintext.encode()
         )
-        assert user_id != user_id2  # RSA 패딩으로 인해 매번 다른 결과
-        assert user_pw != user_pw2
+    for secret in ("secret-user", "secret-password", "session-secret", form["USER_ID"]):
+        assert secret not in caplog.text
 
 
-@pytest.mark.asyncio
-async def test_async_login_success():
-    """성공적인 로그인 테스트"""
-    async with aiohttp.ClientSession() as session:
-        api_client = KepcoApiClient(session)
-
-        # Mock async_get_session_and_rsa_key
-        with patch.object(api_client, "async_get_session_and_rsa_key") as mock_session:
-            mock_session.return_value = (
-                "test_jsessionid",
-                "d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3",
-                "10001",
-                "test_sessid_12345",
-            )
-
-            # Mock login POST response
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.url = "https://pp.kepco.co.kr:8030/confirmInfo.do"
-            mock_response.text = AsyncMock(return_value="로그인 성공")
-            mock_response.headers = {}
-
-            with patch.object(session, "post") as mock_post:
-                mock_post.return_value.__aenter__.return_value = mock_response
-
-                result = await api_client.async_login("test_user", "test_password")
-                assert result is True
-
-
-@pytest.mark.asyncio
-async def test_async_login_failure():
-    """실패한 로그인 테스트"""
-    async with aiohttp.ClientSession() as session:
-        api_client = KepcoApiClient(session)
-
-        # Mock async_get_session_and_rsa_key
-        with patch.object(api_client, "async_get_session_and_rsa_key") as mock_session:
-            mock_session.return_value = (
-                "test_jsessionid",
-                "d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c2d4e6f8a0b2c4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3",
-                "10001",
-                "test_sessid_12345",
-            )
-
-            # Mock failed login POST response (no confirmInfo.do in URL)
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.url = "https://pp.kepco.co.kr:8030/login"
-            mock_response.text = AsyncMock(return_value="로그인 실패")
-            mock_response.headers = {}
-
-            with patch.object(session, "post") as mock_post:
-                mock_post.return_value.__aenter__.return_value = mock_response
-
-                result = await api_client.async_login("test_user", "wrong_password")
-                assert result is False
+@pytest.mark.parametrize(
+    "failure", ["intro", "rsa", "encrypt", "post", "rejected", "http"]
+)
+async def test_login_failures(login_client, failure):
+    if failure == "intro":
+        login_client._session.get.side_effect = TimeoutError("sensitive body")
+    elif failure == "rsa":
+        login_client._session.get.return_value.text = '<input id="RSAModulus" value="bad-key"><input id="RSAExponent" value="1"><input id="SESSID" value="s">'
+    elif failure == "post":
+        login_client._session.post.side_effect = TimeoutError("sensitive body")
+    elif failure == "rejected":
+        login_client._session.post.return_value.url = (
+            "https://pp.kepco.co.kr:8030/login"
+        )
+    elif failure == "http":
+        login_client._session.post.return_value.status_code = 503
+    if failure == "encrypt":
+        with patch(
+            "custom_components.korea_incubator.kepco.api.RSAKey.encrypt",
+            return_value=None,
+        ):
+            assert await login_client.async_login("user", "password") is False
+    else:
+        assert await login_client.async_login("user", "password") is False
+    assert login_client.last_error
+    assert "sensitive body" not in login_client.last_error
 
 
-@pytest.mark.asyncio
-async def test_async_login_missing_rsa_data():
-    """RSA 정보가 누락된 경우 테스트"""
-    async with aiohttp.ClientSession() as session:
-        api_client = KepcoApiClient(session)
-
-        # Mock session method to raise KepcoAuthError
-        with patch.object(api_client, "async_get_session_and_rsa_key") as mock_session:
-            mock_session.side_effect = KepcoAuthError("Failed to get RSA data")
-
-            result = await api_client.async_login("test_user", "test_password")
-            assert result is False
-
-
-@pytest.mark.asyncio
-async def test_async_get_recent_usage():
-    """최근 사용량 조회 테스트"""
-    async with aiohttp.ClientSession() as session:
-        api_client = KepcoApiClient(session)
-
-        # Mock _request method
-        expected_data = {"result": {"F_AP_QT": "123.45", "KWH_BILL": "678"}}
-        with patch.object(api_client, "_request") as mock_request:
-            mock_request.return_value = expected_data
-
-            data = await api_client.async_get_recent_usage()
-            assert data["result"]["F_AP_QT"] == "123.45"
-            assert data["result"]["KWH_BILL"] == "678"
-
-
-@pytest.mark.asyncio
-async def test_async_get_usage_info():
-    """사용량 정보 조회 테스트"""
-    async with aiohttp.ClientSession() as session:
-        api_client = KepcoApiClient(session)
-
-        # Mock _request method
-        expected_data = {
-            "result": {"BILL_LAST_MONTH": "10000", "PREDICT_TOTAL_CHARGE_REV": "15000"}
-        }
-        with patch.object(api_client, "_request") as mock_request:
-            mock_request.return_value = expected_data
-
-            data = await api_client.async_get_usage_info()
-            assert data["result"]["BILL_LAST_MONTH"] == "10000"
-            assert data["result"]["PREDICT_TOTAL_CHARGE_REV"] == "15000"
-
-
-@pytest.mark.asyncio
-async def test_set_credentials():
-    """인증 정보 설정 테스트"""
-    async with aiohttp.ClientSession() as session:
-        api_client = KepcoApiClient(session)
-        api_client.set_credentials("test_user", "test_password")
-        assert api_client._username == "test_user"
-        assert api_client._password == "test_password"
+async def test_rejected_login_does_not_expose_reflected_body(login_client, caplog):
+    caplog.set_level(logging.DEBUG)
+    login_client._session.post.return_value.url = "https://pp.kepco.co.kr:8030/login"
+    login_client._session.post.return_value.text = (
+        "private-user private-password session-secret"
+    )
+    assert await login_client.async_login("private-user", "private-password") is False
+    for secret in ("private-user", "private-password", "session-secret"):
+        assert secret not in caplog.text
+        assert secret not in login_client.last_error

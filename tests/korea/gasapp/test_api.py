@@ -2,7 +2,7 @@
 
 import pytest
 import aiohttp
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from custom_components.korea_incubator.gasapp.api import GasAppApiClient
 from custom_components.korea_incubator.gasapp.exceptions import (
@@ -39,6 +39,7 @@ class TestGasAppApiMock:
     ):
         """Test successful credential validation."""
         mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
         mock_response.status = 200
         mock_response.json.return_value = gasapp_mock_response
         mock_session.request.return_value.__aenter__.return_value = mock_response
@@ -50,6 +51,7 @@ class TestGasAppApiMock:
     async def test_validate_credentials_failure(self, api_client, mock_session):
         """Test credential validation failure."""
         mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
         mock_response.status = 401
         mock_response.reason = "Unauthorized"
         mock_session.request.return_value.__aenter__.return_value = mock_response
@@ -63,6 +65,7 @@ class TestGasAppApiMock:
     ):
         """Test successful home data retrieval."""
         mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
         mock_response.status = 200
         mock_response.json.return_value = gasapp_mock_response
         mock_session.request.return_value.__aenter__.return_value = mock_response
@@ -76,6 +79,7 @@ class TestGasAppApiMock:
     async def test_get_home_data_auth_error(self, api_client, mock_session):
         """Test home data with authentication error."""
         mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
         mock_response.status = 401
         mock_response.reason = "Unauthorized"
         mock_session.request.return_value.__aenter__.return_value = mock_response
@@ -87,6 +91,7 @@ class TestGasAppApiMock:
     async def test_get_home_data_forbidden(self, api_client, mock_session):
         """Test home data with forbidden error."""
         mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
         mock_response.status = 403
         mock_response.reason = "Forbidden"
         mock_session.request.return_value.__aenter__.return_value = mock_response
@@ -108,6 +113,7 @@ class TestGasAppApiMock:
     ):
         """Test successful bill history retrieval."""
         mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
         mock_response.status = 200
         mock_response.json.return_value = gasapp_mock_response
         mock_session.request.return_value.__aenter__.return_value = mock_response
@@ -120,6 +126,7 @@ class TestGasAppApiMock:
     async def test_get_bill_history_no_data(self, api_client, mock_session):
         """Test bill history with no data."""
         mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
         mock_response.status = 200
         mock_response.json.return_value = {"cards": {}}
         mock_session.request.return_value.__aenter__.return_value = mock_response
@@ -133,6 +140,7 @@ class TestGasAppApiMock:
     ):
         """Test successful current bill retrieval."""
         mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
         mock_response.status = 200
         mock_response.json.return_value = gasapp_mock_response
         mock_session.request.return_value.__aenter__.return_value = mock_response

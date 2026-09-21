@@ -210,10 +210,6 @@ class TestKakaoMapDeviceIntegration:
         )
 
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not pytest.config.getoption("--integration", default=False),
-        reason="Integration tests disabled",
-    )
     async def test_real_device_update(self, real_kakaomap_device):
         """Test real device update."""
         try:

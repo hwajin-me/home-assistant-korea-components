@@ -60,3 +60,10 @@ def test_all_steps_and_fields_have_descriptions() -> None:
                     f"{filename}: {section}.{step_id} field descriptions differ: "
                     f"{description_keys ^ data_keys}"
                 )
+
+
+def test_lottery_login_error_uses_home_assistant_config_error_section() -> None:
+    for filename in ("strings.json", "translations/en.json", "translations/ko.json"):
+        config = _load(INTEGRATION_DIR / filename)["config"]
+        assert config["error"]["invalid_login"]
+        assert "error" not in config["step"]["dh_lottery"]

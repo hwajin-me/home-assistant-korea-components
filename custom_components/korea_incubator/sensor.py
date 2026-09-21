@@ -51,6 +51,18 @@ async def async_setup_entry(
         await async_setup_cj_sensors(hass, entry, async_add_entities)
         return
 
+    if service == "animal_medical":
+        from .animal_medical.sensor import AnimalMedicalSensor
+
+        async_add_entities([AnimalMedicalSensor(data["coordinator"], dict(entry.data))])
+        return
+
+    if service == "dh_lottery":
+        from .lottery import LotteryBalanceSensor
+
+        async_add_entities([LotteryBalanceSensor(data["coordinator"])])
+        return
+
     # Platform-native services do not store a legacy Device object, and transit
     # has multiple coordinators rather than one shared coordinator.
     coordinator: DataUpdateCoordinator = data.get("coordinator")
@@ -1026,7 +1038,7 @@ async def async_setup_entry(
 
         entities = [
             PharmacySensor(
-                data["coordinator"], entry.data["q0"], entry.data.get("q1", "")
+                data["coordinator"], entry.data
             )
         ]
         async_add_entities(entities)
@@ -1134,7 +1146,7 @@ class KoreaSensor(CoordinatorEntity, SensorEntity):
                     return None
                 # If it's already a datetime object, return it as-is
                 elif isinstance(raw_value, datetime):
-                    return raw_value
+                    return parse_date_value(raw_value.isoformat())
 
             elif (
                 self._attr_device_class == SensorDeviceClass.MONETARY

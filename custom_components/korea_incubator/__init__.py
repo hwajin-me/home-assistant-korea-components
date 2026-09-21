@@ -7,7 +7,9 @@ import aiohttp
 import curl_cffi
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.components import persistent_notification
+import voluptuous as vol
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -33,6 +35,8 @@ from .const import (
     ENTRY_GOODSFLOW,
     ENTRY_KAKAOMAP,
     ENTRY_CJ_ONE_DELIVERY,
+    ENTRY_ANIMAL_MEDICAL,
+    ENTRY_DH_LOTTERY,
 )
 from .llm_api import async_cleanup_llm_api, async_setup_llm_api
 from .gasapp.device import GasAppDevice
@@ -80,6 +84,8 @@ PLATFORM_MAP = {
     ENTRY_GOODSFLOW: [Platform.SENSOR],
     ENTRY_KAKAOMAP: [Platform.SENSOR],
     ENTRY_CJ_ONE_DELIVERY: [Platform.SENSOR],
+    ENTRY_ANIMAL_MEDICAL: [Platform.SENSOR],
+    ENTRY_DH_LOTTERY: [Platform.SENSOR],
 }
 
 
@@ -432,20 +438,70 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     elif service == "pharmacy":
         from .pharmacy.coordinator import PharmacyCoordinator
         from .pharmacy.services import async_register_pharmacy_service
+        from homeassistant.exceptions import ConfigEntryError
 
         api_key = entry.data["api_key"]
-        c = PharmacyCoordinator(
-            hass, api_key, entry.data["q0"], entry.data.get("q1", "")
-        )
+        if not entry.data.get("hpid"):
+            raise ConfigEntryError(translation_domain=DOMAIN, translation_key="pharmacy_selection_required")
+        c = PharmacyCoordinator(hass, dict(entry.data), config_entry=entry)
+        startup_entries = hass.data.setdefault(f"{DOMAIN}_animal_started", set())
+        restore = not hass.is_running and entry.entry_id not in startup_entries
+        startup_entries.add(entry.entry_id)
+        if restore:
+            await c.async_restore()
         await c.async_config_entry_first_refresh()
+        entry.async_on_unload(entry.add_update_listener(_async_animal_options_updated))
+        from .pharmacy.migration import remove_legacy_count
+        remove_legacy_count(hass, entry)
         store = {"coordinator": c}
-        async_register_pharmacy_service(hass, api_key)
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = store
         await hass.config_entries.async_forward_entry_setups(
             entry, PLATFORM_MAP.get(service, [])
         )
         store["unregister_llm"] = await async_setup_llm_api(hass, entry, service)
+        async_register_pharmacy_service(hass, api_key, entry.entry_id)
+        return True
+
+    elif service == ENTRY_ANIMAL_MEDICAL:
+        from .animal_medical.coordinator import AnimalMedicalCoordinator
+
+        coordinator = AnimalMedicalCoordinator(
+            hass, dict(entry.data), config_entry=entry
+        )
+        startup_entries = hass.data.setdefault(f"{DOMAIN}_animal_started", set())
+        restore = not hass.is_running and entry.entry_id not in startup_entries
+        startup_entries.add(entry.entry_id)
+        if restore:
+            await coordinator.async_restore()
+        await coordinator.async_config_entry_first_refresh()
+        entry.async_on_unload(entry.add_update_listener(_async_animal_options_updated))
+        hass.data.setdefault(DOMAIN, {})
+        hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator}
+        await hass.config_entries.async_forward_entry_setups(
+            entry, PLATFORM_MAP.get(service, [])
+        )
+        hass.data[DOMAIN][entry.entry_id]["unregister_llm"] = await async_setup_llm_api(
+            hass, entry, service
+        )
+        return True
+
+    elif service == ENTRY_DH_LOTTERY:
+        from .lottery import LotteryClient, LotteryCoordinator, LotteryError
+
+        client = LotteryClient(entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD])
+        try:
+            await client.login()
+            coordinator = LotteryCoordinator(hass, client)
+            await coordinator.async_config_entry_first_refresh()
+        except Exception as err:
+            await client.close()
+            LOGGER.error("Donghaeng Lottery setup failed: %s", err)
+            return False
+        hass.data.setdefault(DOMAIN, {})
+        hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator, "device": client}
+        await _async_setup_lottery_services(hass)
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORM_MAP[service])
         return True
 
     elif service == "airkorea":
@@ -519,6 +575,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass,
         LOGGER,
         name=f"{DOMAIN}_{service}",
+        config_entry=entry,
         update_method=async_update_data,
         update_interval=update_interval,
     )
@@ -555,17 +612,34 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     service = entry.data.get("service")
     store = hass.data.get(DOMAIN, {}).get(entry.entry_id, {}) or {}
-    async_cleanup_llm_api(store.get("unregister_llm"))
 
     if unload_ok := await hass.config_entries.async_unload_platforms(
         entry, PLATFORM_MAP.get(service, PLATFORMS)
     ):
+        async_cleanup_llm_api(store.get("unregister_llm"))
+        if service == "pharmacy":
+            from .pharmacy.services import async_unregister_pharmacy_service
+            async_unregister_pharmacy_service(hass, entry.entry_id)
         data: Dict[str, Any] = hass.data[DOMAIN].pop(entry.entry_id)
         # Close the device session
         if device := data.get("device"):
             await device.async_close_session()
 
     return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove persisted animal medical data when its entry is deleted."""
+    if entry.data.get("service") in (ENTRY_ANIMAL_MEDICAL, "pharmacy"):
+        from homeassistant.helpers.storage import Store
+
+        await Store(hass, 1, f"{DOMAIN}.{entry.data['service']}.{entry.entry_id}").async_remove()
+        hass.data.get(f"{DOMAIN}_animal_started", set()).discard(entry.entry_id)
+
+
+async def _async_animal_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """A settings update always reloads and fetches fresh API data."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def _async_cj_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -582,3 +656,66 @@ async def _async_kakaomap_options_updated(
 ) -> None:
     """Reload KakaoMap after its REST API key changes."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def _async_setup_lottery_services(hass: HomeAssistant) -> None:
+    """Register account-targeted lottery services once per Home Assistant instance."""
+    marker = f"{DOMAIN}_lottery_services"
+    if hass.data.get(marker):
+        return
+
+    from .lottery import LotteryError
+
+    async def _find(call: ServiceCall):
+        entity_id = call.data["entity_id"]
+        from homeassistant.helpers import entity_registry as er
+
+        registry_entry = er.async_get(hass).async_get(entity_id)
+        if not registry_entry:
+            raise LotteryError("동행복권 예치금 엔티티를 찾지 못했습니다.")
+        data = hass.data.get(DOMAIN, {}).get(registry_entry.config_entry_id)
+        if not data or "coordinator" not in data:
+            raise LotteryError("동행복권 설정 항목을 찾지 못했습니다.")
+        return data["coordinator"]
+
+    async def refresh(call: ServiceCall) -> None:
+        coordinator = await _find(call)
+        await coordinator.async_request_refresh()
+
+    async def buy_pension(call: ServiceCall) -> dict:
+        coordinator = None
+        try:
+            coordinator = await _find(call)
+            tickets = await coordinator.client.buy_pension_auto(call.data["games"])
+            await coordinator.async_request_refresh()
+            message = "\n".join(f"{ticket['round']}회 {ticket['group']}조 {ticket['number']}" for ticket in tickets)
+            persistent_notification.async_create(hass, message, "연금복권 720+ 자동 구매", call.context.id)
+            return {"result": "success", "tickets": tickets}
+        except Exception as err:
+            persistent_notification.async_create(hass, str(err), "연금복권 720+ 구매 실패", call.context.id)
+            return {"result": "fail", "message": str(err)}
+
+    async def buy_lotto(call: ServiceCall) -> dict:
+        try:
+            coordinator = await _find(call)
+            result = await coordinator.client.buy_lotto_645_auto(call.data["games"])
+            await coordinator.async_request_refresh()
+            games = result.get("arrGameChoiceNum", [])
+            persistent_notification.async_create(hass, "\n".join(games), "로또 6/45 자동 구매", call.context.id)
+            return {"result": "success", "value": result}
+        except Exception as err:
+            persistent_notification.async_create(hass, str(err), "로또 6/45 구매 실패", call.context.id)
+            return {"result": "fail", "message": str(err)}
+
+    hass.services.async_register(DOMAIN, "refresh_dh_lottery", refresh, schema=vol.Schema({vol.Required("entity_id"): str}))
+    hass.services.async_register(
+        DOMAIN, "buy_pension_720_auto", buy_pension,
+        schema=vol.Schema({vol.Required("entity_id"): str, vol.Optional("games", default=5): vol.All(vol.Coerce(int), vol.Range(min=1, max=5))}),
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN, "buy_lotto_645_auto", buy_lotto,
+        schema=vol.Schema({vol.Required("entity_id"): str, vol.Optional("games", default=5): vol.All(vol.Coerce(int), vol.Range(min=1, max=5))}),
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.data[marker] = True

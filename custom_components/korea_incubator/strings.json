@@ -17,11 +17,25 @@
           "school": "School Information (Meals/Academic Schedule)",
           "disaster": "Disaster Information (National Disaster and Safety Portal)",
           "pharmacy": "Pharmacy Information (Public Data)",
+          "animal_medical": "Animal Hospital / Pharmacy (Public Data)",
           "airkorea": "AirKorea (Air Quality)",
           "kma_weather": "KMA Weather Forecast",
-          "earthquake": "Earthquake Information"
+          "earthquake": "Earthquake Information",
+          "dh_lottery": "Donghaeng Lottery"
         },
         "description": "Choose the Korean service to add. Each service is configured independently."
+      },
+      "dh_lottery": {
+        "title": "Donghaeng Lottery Login",
+        "description": "Sign in with your Donghaeng Lottery account. An available deposit is required for purchases.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        },
+        "data_description": {
+          "username": "The login ID for your Donghaeng Lottery account.",
+          "password": "The password for your Donghaeng Lottery account."
+        }
       },
       "kepco": {
         "title": "KEPCO Login",
@@ -325,13 +339,49 @@
         "data": {
           "api_key": "Key",
           "q0": "Province",
-          "q1": "City"
+          "q1": "City",
+          "name": "Pharmacy name (optional)",
+          "road_address": "Road-name address (optional)",
+          "scan_interval_minutes": "Refresh interval (minutes)"
         },
-        "description": "Configure pharmacy information for a province and an optional city or district.",
+        "description": "Search and select one pharmacy, then link Kakao opening hours. Address filtering applies to each result page.",
         "data_description": {
           "api_key": "The service key issued for the pharmacy-information API on the Public Data Portal.",
           "q0": "Province or metropolitan city to search.",
-          "q1": "Optional city or district name used to narrow the results."
+          "q1": "Optional city or district name used to narrow the results.",
+          "name": "Pharmacy name sent to the API.",
+          "road_address": "Filter addresses on the current page. Check further pages if no matches appear.",
+          "scan_interval_minutes": "1–1440 minutes since the last successful refresh. Preserved across restarts; reload always refreshes."
+        }
+      },
+      "animal_medical": {
+        "title": "Animal hospital or pharmacy",
+        "description": "Search by road-name address (default) or open municipality code, then automatically search for its Kakao place. Licensing details and opening hours refresh at the configured interval; current opening status is recalculated every minute in Korean time.",
+        "data": {
+          "api_key": "Public Data API key",
+          "institution_type": "Institution type",
+          "search_method": "Search method",
+          "road_address": "Road-name address",
+          "municipality_code": "Open municipality code",
+          "scan_interval_minutes": "Refresh interval (minutes)"
+        },
+        "data_description": {
+          "api_key": "A key approved for the selected animal hospital or pharmacy API. Encoded and decoded keys are accepted.",
+          "institution_type": "Choose animal hospitals or animal pharmacies.",
+          "search_method": "Road-name address is the default search method.",
+          "road_address": "Address text to match, such as 서울특별시 중구 세종대로.",
+          "municipality_code": "Seven-digit open municipality code. Consult the API's municipality-code reference. [Administrative codes](https://www.code.go.kr/etc/codeFullDown.do) (not a legal-dong code).",
+          "scan_interval_minutes": "1–1440 minutes, default 60. Resumes from the last successful fetch after restart; reload/settings changes fetch immediately."
+        }
+      },
+      "animal_medical_select": {
+        "title": "Select an institution",
+        "description": "{total} results — page {page} of {pages}. Select Next/Previous to browse, or select an institution to add it.",
+        "data": {
+          "selection": "Institution / page navigation"
+        },
+        "data_description": {
+          "selection": "Choose a listed institution to add it, or a paging item to load another page."
         }
       },
       "airkorea": {
@@ -399,9 +449,56 @@
           "radius_km": "Maximum distance from the reference location, in kilometers.",
           "min_magnitude": "Smallest earthquake magnitude to include."
         }
+      },
+      "animal_kakao": {
+        "title": "Link Kakao place",
+        "description": "Page {page}/{pages}. A unique name and address/phone match is selected automatically. Otherwise select a candidate or edit the query. Uses unofficial Kakao endpoints; missing hours mean unknown current state. {error}",
+        "data": {
+          "query": "Search query",
+          "selection": "Place / page navigation"
+        },
+        "data_description": {
+          "query": "Changing the generated query starts a new search from page one.",
+          "selection": "Check the address and phone to distinguish institutions with the same name."
+        }
+      },
+      "reconfigure": {
+        "title": "Relink Kakao place",
+        "description": "Refresh the institution record and search Kakao again. {error}"
+      },
+      "animal_medical_reauth": {
+        "title": "Update Public Data API key",
+        "description": "Enter a valid key approved for the selected animal hospital/pharmacy API.",
+        "data": {
+          "api_key": "Public Data API key"
+        },
+        "data_description": {
+          "api_key": "Replace the key while retaining the selected institution."
+        }
+      },
+      "pharmacy_select": {
+        "title": "Select pharmacy",
+        "description": "Page {page}/{pages}. Address filtering applies to this page. {error}",
+        "data": {
+          "selection": "Pharmacy or page"
+        },
+        "data_description": {
+          "selection": "Choose a pharmacy or navigate previous/next pages."
+        }
+      },
+      "pharmacy_reauth": {
+        "title": "Reauthenticate pharmacy API",
+        "description": "{error}",
+        "data": {
+          "api_key": "Key"
+        },
+        "data_description": {
+          "api_key": "The service key issued for the pharmacy-information API on the Public Data Portal."
+        }
       }
     },
     "error": {
+      "invalid_login": "Could not sign in or retrieve the account balance.",
       "auth": "Authentication failed. ({error})",
       "invalid_auth": "Invalid credentials. ({error})",
       "cannot_connect": "Failed to connect to the server. ({error})",
@@ -415,14 +512,24 @@
       "invalid_api_key": "Invalid API key. ({error})",
       "no_schools_found": "No schools matched the search.",
       "no_selection": "Select at least one item.",
+      "required_search_value": "Enter a value for the selected search method.",
       "no_stops_found": "Could not find the bus stop.",
       "no_stations_found": "Could not find monitoring station information.",
       "invalid_phone_number": "Enter a valid 10- or 11-digit mobile phone number.",
-      "invalid_verification_code": "The verification code is invalid or expired. ({error})"
+      "invalid_verification_code": "The verification code is invalid or expired. ({error})",
+      "animal_invalid_auth": "The key is invalid or is not approved for this API. ({error})",
+      "animal_cannot_connect": "Could not retrieve API data. Check the input and try again. ({error})",
+      "animal_invalid_code": "Enter a seven-digit open municipality code.",
+      "animal_no_results": "No selectable results. Change the search criteria.",
+      "animal_invalid_selection": "Select an institution or navigation item from the current page.",
+      "animal_kakao_error": "Kakao request failed. Retry the search. ({error})",
+      "animal_kakao_no_results": "No Kakao places found. Edit the institution name or region."
     },
     "abort": {
       "already_configured": "This account or service is already configured.",
-      "invalid_auth": "The verification session expired. Start setup again."
+      "invalid_auth": "The verification session expired. Start setup again.",
+      "animal_reauth_unsupported": "This service does not support this key recovery flow.",
+      "reauth_successful": "API key updated successfully."
     }
   },
   "options": {
@@ -451,6 +558,16 @@
         "data_description": {
           "api_key": "The REST API key from your Kakao Developers application.",
           "web_cookie": "Cookie header copied from a map.kakao.com route request. The captcha token is generated automatically."
+        }
+      },
+      "animal_medical_options": {
+        "title": "Animal medical refresh settings",
+        "description": "Saving fetches fresh API data immediately. Further refreshes follow the interval from the last successful fetch.",
+        "data": {
+          "scan_interval_minutes": "Refresh interval (minutes)"
+        },
+        "data_description": {
+          "scan_interval_minutes": "1–1440 minutes, default 60. Resumes from the last successful fetch after restart; reload/settings changes fetch immediately."
         }
       }
     },
@@ -498,6 +615,14 @@
       },
       "disaster_message": {
         "name": "Alert"
+      },
+      "animal_medical_status": {
+        "name": "Current opening status",
+        "state": {
+          "open": "Open",
+          "closed": "Closed",
+          "break": "Break"
+        }
       }
     },
     "calendar": {
@@ -507,6 +632,25 @@
       "school_class": {
         "name": "Schedule"
       }
+    }
+  },
+  "selector": {
+    "animal_type": {
+      "options": {
+        "hospital": "Animal hospital",
+        "pharmacy": "Animal pharmacy"
+      }
+    },
+    "animal_search": {
+      "options": {
+        "road_address": "Road-name address",
+        "municipality_code": "Open municipality code"
+      }
+    }
+  },
+  "exceptions": {
+    "pharmacy_selection_required": {
+      "message": "Regional pharmacy count sensors are no longer supported. Use Reconfigure in the integration menu to select one pharmacy."
     }
   }
 }

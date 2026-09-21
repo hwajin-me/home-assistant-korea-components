@@ -21,7 +21,9 @@ class TestKepcoDeviceMock:
     @pytest.fixture
     async def kepco_device(self, mock_hass, mock_session, mock_api_client):
         """Create KEPCO device with mocked dependencies."""
-        session = aiohttp.ClientSession()
+        from curl_cffi import AsyncSession
+        session = MagicMock(spec=AsyncSession)
+        session.close = AsyncMock()
         device = KepcoDevice(
             mock_hass, "test_entry", "test_user", "test_password", session
         )
@@ -112,21 +114,23 @@ class TestKepcoDeviceMock:
     @pytest.mark.asyncio
     async def test_async_close_session(self, kepco_device):
         """Test session closure."""
-        kepco_device.session.closed = False
+        session = kepco_device.session
 
         await kepco_device.async_close_session()
 
-        kepco_device.session.close.assert_called_once()
+        session.close.assert_awaited_once()
         assert kepco_device.session is None
 
     @pytest.mark.asyncio
     async def test_async_close_session_already_closed(self, kepco_device):
         """Test session closure when already closed."""
-        kepco_device.session.closed = True
+        session = kepco_device.session
+        await kepco_device.async_close_session()
+        kepco_device.session = None
 
         await kepco_device.async_close_session()
 
-        kepco_device.session.close.assert_not_called()
+        session.close.assert_awaited_once()
 
 
 class TestKepcoDeviceIntegration:
@@ -149,10 +153,6 @@ class TestKepcoDeviceIntegration:
         )
 
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not pytest.config.getoption("--integration", default=False),
-        reason="Integration tests disabled",
-    )
     async def test_real_device_update_auth_failure(self, real_kepco_device):
         """Test real device update with invalid credentials."""
         with pytest.raises(UpdateFailed):
@@ -177,8 +177,9 @@ class TestKepcoDeviceIntegration:
         assert device.password == password
         # Device should still be created but will fail on API calls
 
-    def test_device_data_structure(self, kepco_device, kepco_mock_response):
+    def test_device_data_structure(self, mock_hass, mock_session, kepco_mock_response):
         """Test device data structure integrity."""
+        kepco_device = KepcoDevice(mock_hass, "test_entry", "test_user", "test_password", mock_session)
         kepco_device.data = kepco_mock_response
 
         # Test data structure

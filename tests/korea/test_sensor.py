@@ -137,7 +137,7 @@ class TestKoreaSensor:
         assert sensor._attr_device_class == SensorDeviceClass.MONETARY
         assert sensor._attr_native_unit_of_measurement == "KRW"
         assert sensor._attr_state_class == SensorStateClass.TOTAL
-        assert sensor._attr_unique_id == "kepco_test_usage_info_result_BILL_LAST_MONTH"
+        assert sensor._attr_unique_id == "korea_kepco_test_usage_info_result_BILL_LAST_MONTH"
 
     def test_native_value_monetary(self, mock_coordinator, mock_device):
         sensor = KoreaSensor(
