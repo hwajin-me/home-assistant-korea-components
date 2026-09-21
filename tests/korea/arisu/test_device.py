@@ -2,7 +2,7 @@
 
 import pytest
 import aiohttp
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from datetime import datetime
 
 from custom_components.korea_incubator.arisu.device import ArisuDevice
@@ -92,14 +92,33 @@ class TestArisuDeviceMock:
         assert arisu_device.available is False
 
     @pytest.mark.asyncio
-    async def test_async_update_api_failure(self, arisu_device, mock_api_client):
-        """Test update with API returning failure."""
+    async def test_async_update_no_regular_bill(self, arisu_device, mock_api_client):
+        """Treat an unavailable regular bill as a successful, empty update."""
         mock_api_client.async_get_water_bill_data.return_value = {
             "success": False,
+            "no_bill_data": True,
             "error": "No data found",
+            "tried_months": ["2026-09", "2026-08", "2026-07"],
         }
 
-        with pytest.raises(UpdateFailed, match="No data found"):
+        await arisu_device.async_update()
+
+        assert arisu_device.available is True
+        assert arisu_device.data["bill_data"] == {}
+        assert arisu_device.data["no_bill_data"] is True
+        assert arisu_device.data["tried_months"] == ["2026-09", "2026-08", "2026-07"]
+
+    @pytest.mark.asyncio
+    async def test_async_update_unknown_api_failure(
+        self, arisu_device, mock_api_client
+    ):
+        """Keep unexpected API failures unavailable."""
+        mock_api_client.async_get_water_bill_data.return_value = {
+            "success": False,
+            "error": "Invalid response",
+        }
+
+        with pytest.raises(UpdateFailed, match="Invalid response"):
             await arisu_device.async_update()
 
         assert arisu_device.available is False
@@ -215,7 +234,7 @@ class TestArisuDeviceIntegration:
             # Should have valid data structure even if unsuccessful
             assert "bill_data" in real_arisu_device.data
 
-        except UpdateFailed as e:
+        except UpdateFailed:
             # Expected to fail with test credentials
             assert real_arisu_device.available is False
 

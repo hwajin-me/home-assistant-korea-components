@@ -95,6 +95,7 @@ class TestArisuApiMock:
         result = await api_client.async_get_water_bill_data("042389659", "홍길동")
 
         assert result["success"] is False
+        assert result["no_bill_data"] is True
         assert "No bill data found" in result["error"]
 
     @pytest.mark.asyncio

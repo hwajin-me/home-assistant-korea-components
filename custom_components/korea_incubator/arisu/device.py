@@ -69,6 +69,21 @@ class ArisuDevice:
                 self.customer_number, self.customer_name
             )
 
+            if bill_data.get("no_bill_data", False):
+                self.data = {
+                    "bill_data": {},
+                    "no_bill_data": True,
+                    "tried_months": bill_data.get("tried_months", []),
+                    "last_updated": datetime.now().isoformat(),
+                }
+                self._available = True
+                self._last_update_success = datetime.now()
+                LOGGER.debug(
+                    "No regular Arisu bill is available for %s; keeping sensors empty",
+                    self.customer_number,
+                )
+                return
+
             if not bill_data.get("success", False):
                 raise ArisuDataError(bill_data.get("error", "Unknown error"))
 
@@ -90,7 +105,9 @@ class ArisuDevice:
 
         except (ArisuConnectionError, ArisuDataError) as err:
             self._available = False
-            LOGGER.warning(f"Could not fetch Arisu data for {self.customer_number}: {err}")
+            LOGGER.warning(
+                f"Could not fetch Arisu data for {self.customer_number}: {err}"
+            )
             raise UpdateFailed(f"Error communicating with Arisu API: {err}")
 
         except Exception as err:

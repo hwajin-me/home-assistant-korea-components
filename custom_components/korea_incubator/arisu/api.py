@@ -82,12 +82,13 @@ class ArisuApiClient:
             LOGGER.debug(
                 f"Successfully got previous month data for {customer_name} (#{customer_number})"
             )
-            pprevious_data["billing_month"] = previous_month
+            pprevious_data["billing_month"] = pprevious_month
             return pprevious_data
 
-        # 둘 다 실패하면 오류 반환
+        # 정기분 청구서가 없는 것은 통신 오류가 아니라 정상적인 조회 결과다.
         return {
             "success": False,
+            "no_bill_data": True,
             "error": f"No bill data found for {current_month} and {previous_month} {pprevious_month}",
             "tried_months": [current_month, previous_month, pprevious_month],
         }

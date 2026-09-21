@@ -326,9 +326,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders=error_info,
         )
 
-    async def async_step_goodsflow(
-        self, user_input: Optional[Dict[str, Any]] = None
-    ):
+    async def async_step_goodsflow(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle GoodsFlow configuration."""
         errors: Dict[str, str] = {}
         error_info: Dict[str, str] = {}
@@ -629,7 +627,9 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         user_input["customer_number"], user_input["customer_name"]
                     )
 
-                    if bill_data.get("success", False):
+                    if bill_data.get("success", False) or bill_data.get(
+                        "no_bill_data", False
+                    ):
                         unique_id = f"arisu_{user_input['customer_number']}"
                         await self.async_set_unique_id(unique_id)
                         self._abort_if_unique_id_configured()
@@ -1028,9 +1028,7 @@ class KoreaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
                 else:
                     configs = [
-                        {"sido_code": s, "fuel_code": f}
-                        for s in sidos
-                        for f in fuels
+                        {"sido_code": s, "fuel_code": f} for s in sidos for f in fuels
                     ]
                     return self.async_create_entry(
                         title="유가정보",
