@@ -1,6 +1,11 @@
 {
   "config": {
     "step": {
+      "medical_facility": {
+        "title": "Select institution",
+        "description": "Select the institution to edit.",
+        "data": {"facility": "Select institution"}
+      },
       "user": {
         "title": "Select Service",
         "menu_options": {
@@ -560,6 +565,8 @@
       "invalid_time": "Enter valid HH:MM times with the start before the end."
     },
     "abort": {
+      "medical_added": "The institution was added to the service group.",
+      "medical_type_mismatch": "Use Add entry for an institution of a different type.",
       "already_configured": "This account or service is already configured.",
       "region_added": "The region was added to Safety Alert.",
       "invalid_auth": "The verification session expired. Start setup again.",
@@ -579,6 +586,11 @@
       "no_selection": "Select at least one item."
     },
     "step": {
+      "medical_facility_options": {
+        "title": "Select institution",
+        "description": "Select the institution to edit.",
+        "data": {"facility": "Select institution"}
+      },
       "init": {
         "title": "Options",
         "description": "Edit the settings available for this service. Only fields supported by the selected service are shown.",

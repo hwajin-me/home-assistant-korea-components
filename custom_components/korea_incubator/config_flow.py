@@ -70,6 +70,7 @@ from .safety_alert.region_api import SafetyAlertRegionApiClient
 from .pharmacy.config_flow import PharmacyFlow
 from .public_data import configured_data_go_kr_api_key
 from .reconfigure import ServiceReconfigureFlow
+from .animal_medical.group_flow import MedicalGroupFlow
 
 
 def _flow_error_message(error: Exception | str, fallback: str) -> str:
@@ -81,6 +82,7 @@ def _flow_error_message(error: Exception | str, fallback: str) -> str:
 
 
 class KoreaConfigFlow(
+    MedicalGroupFlow,
     ServiceReconfigureFlow,
     PharmacyFlow,
     AnimalMedicalFlow,
@@ -1760,6 +1762,8 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input: Optional[Dict[str, Any]] = None):
         """Validate and save supported options; connection settings use reconfigure."""
+        if self._config_entry.data.get("medical_group"):
+            return await self.async_step_medical_facility_options(user_input)
         service = self._config_entry.data.get("service")
         if service in (ENTRY_ANIMAL_MEDICAL, ENTRY_PHARMACY):
             return await self.async_step_animal_medical_options(user_input)
@@ -1886,6 +1890,22 @@ class KoreaOptionsFlow(config_entries.OptionsFlow):
             errors=errors,
             description_placeholders={"error": detail[:500]},
         )
+
+    async def async_step_medical_facility_options(self, user_input=None):
+        from .animal_medical.group_flow import facility_form
+        from .animal_medical.group import FacilityEntry
+        parent = self._config_entry
+        if user_input is None or user_input["facility"] not in parent.data["facilities"]:
+            return facility_form(self, parent, "medical_facility_options")
+        self._config_entry = FacilityEntry(parent, user_input["facility"])
+        return await self.async_step_animal_medical_options()
+
+    def async_create_entry(self, *, title, data, **kwargs):
+        from .animal_medical.group import FacilityEntry, save_facility
+        if isinstance(self._config_entry, FacilityEntry):
+            save_facility(self.hass, self._config_entry, options=data)
+            data = dict(self._config_entry.parent.options)
+        return super().async_create_entry(title=title, data=data, **kwargs)
 
     async def async_step_kakaomap(self, user_input=None):
         """Handle submissions from the KakaoMap options form."""

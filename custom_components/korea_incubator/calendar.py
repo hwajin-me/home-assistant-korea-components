@@ -12,6 +12,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
                             async_add_entities: AddEntitiesCallback) -> None:
     etype = entry.data.get(CONF_ENTRY_TYPE)
     store = hass.data[DOMAIN][entry.entry_id]
+    if entry.data.get("medical_group"):
+        from .animal_medical.group import setup_platform
+        setup_platform(hass, entry, async_add_entities, "calendar")
+        return
 
     if etype in ("animal_medical", "pharmacy"):
         from .animal_medical.calendar import MedicalHoursCalendar

@@ -139,11 +139,11 @@ async def test_options_override_initial_interval(animal_hass, entry_data, memory
     assert make_coordinator(animal_hass, entry_data, 25).interval_minutes == 25
 
 
-async def test_boot_only_restore_and_reload_forces_fetch(animal_hass, entry_data):
-    entry = MagicMock(entry_id="entry", data=entry_data)
+async def test_boot_only_restore_and_reload_forces_fetch(animal_hass, entry_data, group_entry):
+    entry = group_entry(MagicMock(entry_id="entry", data=entry_data))
     coordinator = MagicMock()
     coordinator.async_restore = AsyncMock()
-    coordinator.async_config_entry_first_refresh = AsyncMock()
+    coordinator.async_refresh = AsyncMock()
     animal_hass.is_running = False
     with patch(f"{MODULE}.AnimalMedicalCoordinator", return_value=coordinator):
         assert await async_setup_entry(animal_hass, entry)
@@ -151,7 +151,7 @@ async def test_boot_only_restore_and_reload_forces_fetch(animal_hass, entry_data
         animal_hass.is_running = True
         assert await async_setup_entry(animal_hass, entry)
     coordinator.async_restore.assert_awaited_once()
-    assert coordinator.async_config_entry_first_refresh.await_count == 3
+    assert coordinator.async_refresh.await_count == 3
     entry.add_update_listener.assert_called_with(_async_animal_options_updated)
     animal_hass.config_entries.async_reload = AsyncMock()
     await _async_animal_options_updated(animal_hass, entry)

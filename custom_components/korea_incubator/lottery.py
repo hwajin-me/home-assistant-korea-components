@@ -198,6 +198,7 @@ class LotteryClient:
                 "prize": int(item.get("ltWnAmt") or 0),
                 "quantity": int(item.get("prchsQty") or 0),
                 "order_no": item.get("ntslOrdrNo"),
+                "barcode": item.get("gmInfo"),
             }
             for item in records
         ]
@@ -215,6 +216,45 @@ class LotteryClient:
             for item in await self.pension_winning_history(days=days)
             if item["prize"] >= minimum_prize
         ]
+
+    async def pension_unsettled_games(self) -> list[dict]:
+        """Return one record per un-drawn Pension Lottery game number."""
+        games: list[dict] = []
+        for purchase in await self.pension_purchase_history(days=30):
+            if purchase["result"] != "미추첨" or not purchase["order_no"]:
+                continue
+            try:
+                data = await self._get_json_with_login(
+                    "mypage/lottery720select.do",
+                    {
+                        "ntslOrdrNo": purchase["order_no"],
+                        "_": int(dt.datetime.now().timestamp() * 1000),
+                    },
+                )
+            except LotteryError:
+                _LOGGER.warning("연금복권 구매번호 상세 조회에 실패했습니다.")
+                continue
+            details = data.get("list") or []
+            if not isinstance(details, list):
+                _LOGGER.warning("연금복권 구매번호 상세 응답 형식이 올바르지 않습니다.")
+                continue
+            for index, detail in enumerate(details, start=1):
+                if not isinstance(detail, dict):
+                    continue
+                raw_number = str(detail.get("ltGmInfoCn") or "")
+                match = re.search(r"([1-5])\s*조\s*[:：]?\s*(\d{6})", raw_number)
+                if not match:
+                    continue
+                games.append(
+                    {
+                        "game_id": f"pension_{purchase['order_no']}_{index}",
+                        "round": purchase["round"],
+                        "purchased_at": purchase["purchased_at"],
+                        "group": match.group(1),
+                        "number": match.group(2),
+                    }
+                )
+        return games
 
     async def lotto_645_winning_numbers(self) -> dict:
         """Return the latest Lotto 6/45 winning numbers."""
@@ -258,6 +298,7 @@ class LotteryClient:
                 "prize": int(item.get("ltWnAmt") or 0),
                 "quantity": int(item.get("prchsQty") or 0),
                 "order_no": item.get("ntslOrdrNo"),
+                "barcode": item.get("gmInfo"),
             }
             for item in records
         ]
@@ -273,6 +314,58 @@ class LotteryClient:
             for item in await self.lotto_645_winning_history(days=days)
             if item["prize"] >= minimum_prize
         ]
+
+    async def lotto_645_unsettled_games(self) -> list[dict]:
+        """Return one record per un-drawn Lotto 6/45 game from ticket details."""
+        games: list[dict] = []
+        for purchase in await self.lotto_645_purchase_history(days=30):
+            if (
+                purchase["result"] != "미추첨"
+                or not purchase["order_no"]
+                or not purchase["barcode"]
+            ):
+                continue
+            try:
+                data = await self._get_json_with_login(
+                    "mypage/lotto645TicketDetail.do",
+                    {
+                        "ntslOrdrNo": purchase["order_no"],
+                        "barcd": purchase["barcode"],
+                        "_": int(dt.datetime.now().timestamp() * 1000),
+                    },
+                )
+            except LotteryError:
+                _LOGGER.warning("로또 6/45 구매번호 상세 조회에 실패했습니다.")
+                continue
+            ticket = data.get("ticket") or {}
+            if not isinstance(ticket, dict):
+                _LOGGER.warning("로또 6/45 영수증 상세 응답 형식이 올바르지 않습니다.")
+                continue
+            details = ticket.get("game_dtl") or []
+            if not isinstance(details, list):
+                _LOGGER.warning("로또 6/45 게임 상세 응답 형식이 올바르지 않습니다.")
+                continue
+            for index, detail in enumerate(details, start=1):
+                if not isinstance(detail, dict):
+                    continue
+                numbers = detail.get("num") or []
+                if len(numbers) != 6:
+                    continue
+                try:
+                    game_numbers = [int(number) for number in numbers]
+                except (TypeError, ValueError):
+                    continue
+                games.append(
+                    {
+                        "game_id": f"lotto_{purchase['order_no']}_{index}",
+                        "round": purchase["round"],
+                        "purchased_at": purchase["purchased_at"],
+                        "slot": detail.get("idx", index),
+                        "selection": detail.get("type"),
+                        "numbers": game_numbers,
+                    }
+                )
+        return games
 
     def _el_session_id(self) -> str:
         cookies = self.session.cookie_jar.filter_cookies(_EL)
@@ -515,6 +608,8 @@ class LotteryCoordinator(DataUpdateCoordinator[dict]):
                 lotto_purchases,
                 lotto_wins,
                 lotto_high_prizes,
+                pension_unsettled_games,
+                lotto_unsettled_games,
             ) = await asyncio.gather(
                 self.client.pension_winning_numbers(),
                 self.client.pension_purchase_history(days=30),
@@ -524,6 +619,8 @@ class LotteryCoordinator(DataUpdateCoordinator[dict]):
                 self.client.lotto_645_purchase_history(days=30),
                 self.client.lotto_645_winning_history(),
                 self.client.lotto_645_high_prize_history(),
+                self.client.pension_unsettled_games(),
+                self.client.lotto_645_unsettled_games(),
             )
             return {
                 "balance": balance,
@@ -535,6 +632,8 @@ class LotteryCoordinator(DataUpdateCoordinator[dict]):
                 "lotto_purchases": lotto_purchases,
                 "lotto_wins": lotto_wins,
                 "lotto_high_prizes": lotto_high_prizes,
+                "pension_unsettled_games": pension_unsettled_games,
+                "lotto_unsettled_games": lotto_unsettled_games,
                 "updated": dt.datetime.now().isoformat(timespec="seconds"),
             }
         except LotteryError as err:
@@ -635,3 +734,66 @@ class Lotto645WinningNumbersSensor(CoordinatorEntity[LotteryCoordinator], Sensor
     def extra_state_attributes(self):
         item = self.coordinator.data["lotto_winning"]
         return {"회차": item["round"], "추첨일": item["draw_date"], "보너스 번호": item["bonus_number"]}
+
+
+class LotteryUnsettledGameSensor(CoordinatorEntity[LotteryCoordinator], SensorEntity):
+    """Expose one un-drawn purchased game as one sensor entity."""
+
+    _attr_icon = "mdi:ticket-confirmation-outline"
+
+    def __init__(
+        self, coordinator: LotteryCoordinator, lottery_type: str, game_id: str
+    ) -> None:
+        super().__init__(coordinator)
+        self._lottery_type = lottery_type
+        self._game_id = game_id
+        self._key = f"{lottery_type}_unsettled_games"
+        self._attr_unique_id = (
+            f"donghaeng_lottery_{coordinator.client.username}_{game_id}"
+        )
+        self._attr_device_info = lottery_device_info(coordinator.client)
+        game = self._game
+        if lottery_type == "pension":
+            self._attr_name = f"연금복권 720+ {game['round']}회 {game['group']}조"
+        else:
+            self._attr_name = f"로또 6/45 {game['round']}회 게임 {game['slot']}"
+
+    @property
+    def _game(self) -> dict:
+        for game in self.coordinator.data.get(self._key, []):
+            if game.get("game_id") == self._game_id:
+                return game
+        return {}
+
+    @property
+    def available(self) -> bool:
+        """A ticket is unavailable once it is no longer an un-drawn purchase."""
+        return bool(self._game)
+
+    @property
+    def native_value(self):
+        game = self._game
+        if not game:
+            return None
+        if self._lottery_type == "pension":
+            return f"{game['group']}조 {game['number']}"
+        return " ".join(map(str, game["numbers"]))
+
+    @property
+    def extra_state_attributes(self):
+        game = self._game
+        if not game:
+            return {"업데이트": self.coordinator.data.get("updated")}
+        attributes = {
+            "회차": game["round"],
+            "구매일시": game["purchased_at"],
+            "업데이트": self.coordinator.data.get("updated"),
+        }
+        if self._lottery_type == "pension":
+            attributes["조"] = game["group"]
+            attributes["번호"] = game["number"]
+        else:
+            attributes["게임"] = game["slot"]
+            attributes["선택방식"] = game.get("selection")
+            attributes["번호"] = game["numbers"]
+        return attributes

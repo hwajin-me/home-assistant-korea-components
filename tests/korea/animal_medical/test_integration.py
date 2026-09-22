@@ -6,28 +6,28 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from homeassistant.config_entries import ConfigEntryState
 
-pytestmark = pytest.mark.asyncio
 from homeassistant.const import Platform
-from homeassistant.exceptions import ConfigEntryNotReady
 
 from custom_components.korea_incubator import async_setup_entry, async_unload_entry
 from custom_components.korea_incubator.animal_medical.sensor import AnimalMedicalSensor
 from custom_components.korea_incubator.const import DOMAIN
 from custom_components.korea_incubator.sensor import async_setup_entry as setup_sensors
 
+pytestmark = pytest.mark.asyncio
+
 COORD = "custom_components.korea_incubator.animal_medical.coordinator.AnimalMedicalCoordinator"
 
 
 @pytest.mark.parametrize("kind", ["hospital", "pharmacy"])
-async def test_setup_sensor_refresh_unload(animal_hass, entry_data, record, kind):
+async def test_setup_sensor_refresh_unload(animal_hass, entry_data, record, kind, group_entry):
     entry_data["institution_type"] = kind
-    entry = MagicMock(data=entry_data, entry_id="entry")
+    entry = group_entry(MagicMock(data=entry_data, entry_id="entry"))
     coordinator = MagicMock(data=record, last_update_success=True)
-    coordinator.async_config_entry_first_refresh = AsyncMock()
+    coordinator.async_refresh = AsyncMock()
     with patch(COORD, return_value=coordinator) as factory:
         assert await async_setup_entry(animal_hass, entry)
-    factory.assert_called_once_with(animal_hass, entry_data, config_entry=entry)
-    coordinator.async_config_entry_first_refresh.assert_awaited_once()
+    factory.assert_called_once_with(animal_hass, entry_data, config_entry=entry, options={}, storage_id="entry")
+    coordinator.async_refresh.assert_awaited_once()
     animal_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
         entry, [Platform.SENSOR, Platform.CALENDAR, Platform.BINARY_SENSOR]
     )
@@ -63,16 +63,14 @@ async def test_unload_failure_retains_store(animal_hass, entry_data):
     assert "entry" in animal_hass.data[DOMAIN]
 
 
-async def test_setup_failure_does_not_register_entities(animal_hass, entry_data):
-    entry = MagicMock(data=entry_data, entry_id="entry")
-    coordinator = MagicMock()
-    coordinator.async_config_entry_first_refresh = AsyncMock(
-        side_effect=ConfigEntryNotReady()
-    )
-    with patch(COORD, return_value=coordinator), pytest.raises(ConfigEntryNotReady):
-        await async_setup_entry(animal_hass, entry)
-    animal_hass.config_entries.async_forward_entry_setups.assert_not_awaited()
-    assert "entry" not in animal_hass.data.get(DOMAIN, {})
+async def test_unavailable_facility_still_registers_entities(animal_hass, entry_data, group_entry):
+    entry = group_entry(MagicMock(data=entry_data, entry_id="entry"))
+    coordinator = MagicMock(last_update_success=False)
+    coordinator.async_refresh = AsyncMock()
+    with patch(COORD, return_value=coordinator):
+        assert await async_setup_entry(animal_hass, entry)
+    animal_hass.config_entries.async_forward_entry_setups.assert_awaited_once()
+    assert animal_hass.data[DOMAIN]["entry"]["facilities"]["entry"] == coordinator
 
 
 async def test_sensor_before_data(entry_data):
@@ -85,7 +83,7 @@ async def test_sensor_before_data(entry_data):
 
 
 async def test_search_second_page_to_real_coordinator_refresh(
-    flow, animal_hass, record, memory_store
+    flow, animal_hass, record, memory_store, group_entry
 ):
     """A selected second-page result must refresh from narrowed page one."""
     responses = [
@@ -131,8 +129,9 @@ async def test_search_second_page_to_real_coordinator_refresh(
             state=ConfigEntryState.SETUP_IN_PROGRESS,
             pref_disable_polling=False,
         )
+        group_entry(entry)
         assert await async_setup_entry(animal_hass, entry)
-        coordinator = animal_hass.data[DOMAIN]["entry"]["coordinator"]
+        coordinator = animal_hass.data[DOMAIN]["entry"]["facilities"]["entry"]
         assert coordinator.data["SALS_STTS_NM"] == "폐업"
         params = [c.kwargs["params"] for c in session.get.call_args_list]
         assert [p["pageNo"] for p in params] == ["1", "2", "1"]

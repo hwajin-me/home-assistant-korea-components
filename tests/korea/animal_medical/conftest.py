@@ -73,12 +73,25 @@ async def animal_hass():
     hass.is_stopping = False
     hass.is_running = True
     hass.config_entries = MagicMock()
+    hass.async_create_task.side_effect = asyncio.create_task
     hass.services = MagicMock()
     hass.config_entries.flow.async_progress_by_handler.return_value = []
     hass.config_entries.async_entry_for_domain_unique_id.return_value = None
     hass.config_entries.async_forward_entry_setups = AsyncMock()
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
     return hass
+
+
+@pytest.fixture
+def group_entry():
+    """Prepare an already-migrated entry for runtime-only tests."""
+    def prepare(entry):
+        data = dict(entry.data)
+        entry.data = {**data, "medical_group": True, "facilities": {
+            entry.entry_id: {"data": data, "options": {}, "unique_id": None}
+        }}
+        return entry
+    return prepare
 
 
 @pytest.fixture(autouse=True)

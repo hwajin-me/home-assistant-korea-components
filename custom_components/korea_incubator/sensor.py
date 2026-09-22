@@ -75,6 +75,10 @@ async def async_setup_entry(
     """Set up Korea sensors from a config entry."""
     data: Dict[str, Any] = hass.data[DOMAIN][entry.entry_id]
     service: str = entry.data.get("service")
+    if entry.data.get("medical_group"):
+        from .animal_medical.group import setup_platform
+        setup_platform(hass, entry, async_add_entities, "sensor")
+        return
     if service == "safety_alert" and entry.data.get("grouped"):
         from .safety_alert.group import setup_platform
         await setup_platform(hass, entry, async_add_entities, async_setup_entry)
@@ -97,6 +101,7 @@ async def async_setup_entry(
         from .lottery import (
             LotteryBalanceSensor,
             LotteryHistorySensor,
+            LotteryUnsettledGameSensor,
             Lotto645WinningNumbersSensor,
             LotteryWinningNumbersSensor,
         )
@@ -115,6 +120,34 @@ async def async_setup_entry(
                 LotteryHistorySensor(coordinator, "lotto_high_prizes", "로또 6/45 고액 당첨내역", "mdi:cash-multiple"),
             ]
         )
+
+        added_game_ids: set[str] = set()
+
+        def async_add_unsettled_game_sensors() -> None:
+            """Add a sensor for every currently un-drawn purchased game.
+
+            The lottery API returns ticket details only after purchase, so the
+            entity set needs to grow when the coordinator refreshes after a
+            successful purchase.
+            """
+            entities = []
+            for lottery_type, key in (
+                ("pension", "pension_unsettled_games"),
+                ("lotto", "lotto_unsettled_games"),
+            ):
+                for game in coordinator.data.get(key, []):
+                    game_id = game.get("game_id")
+                    if not game_id or game_id in added_game_ids:
+                        continue
+                    added_game_ids.add(game_id)
+                    entities.append(
+                        LotteryUnsettledGameSensor(coordinator, lottery_type, game_id)
+                    )
+            if entities:
+                async_add_entities(entities)
+
+        async_add_unsettled_game_sensors()
+        entry.async_on_unload(coordinator.async_add_listener(async_add_unsettled_game_sensors))
         return
 
     if service == "earthquake":

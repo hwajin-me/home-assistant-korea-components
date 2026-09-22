@@ -35,8 +35,10 @@ class AnimalMedicalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     service_name = "animal_medical"
     record_name_key = "BPLC_NM"
 
-    def __init__(self, hass, entry_data: dict[str, Any], *, config_entry=None) -> None:
-        options = dict(config_entry.options) if config_entry is not None else {}
+    def __init__(self, hass, entry_data: dict[str, Any], *, config_entry=None,
+                 options=None, storage_id=None) -> None:
+        if options is None:
+            options = dict(config_entry.options) if config_entry is not None else {}
         self.interval_minutes = options.get(
             CONF_INTERVAL, entry_data.get(CONF_INTERVAL, DEFAULT_INTERVAL)
         )
@@ -55,7 +57,7 @@ class AnimalMedicalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.last_refresh = None
         self._restored_data = None
         self._store = (
-            Store(hass, 1, f"{DOMAIN}.{self.service_name}.{config_entry.entry_id}")
+            Store(hass, 1, f"{DOMAIN}.{self.service_name}.{storage_id or config_entry.entry_id}")
             if config_entry is not None
             else None
         )

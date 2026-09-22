@@ -1,6 +1,11 @@
 {
   "config": {
     "step": {
+      "medical_facility": {
+        "title": "의료기관 선택",
+        "description": "설정을 변경할 의료기관을 선택하세요.",
+        "data": {"facility": "의료기관 선택"}
+      },
       "user": {
         "title": "서비스 선택",
         "menu_options": {
@@ -560,6 +565,8 @@
       "invalid_time": "시작 시각이 종료 시각보다 빠른 HH:MM 형식의 유효한 시간을 입력하세요."
     },
     "abort": {
+      "medical_added": "서비스 그룹에 의료기관이 추가되었습니다.",
+      "medical_type_mismatch": "기관 유형이 다른 경우 항목 추가로 등록하세요.",
       "already_configured": "이 계정 또는 서비스는 이미 설정되어 있습니다.",
       "region_added": "안전알림에 지역이 추가되었습니다.",
       "invalid_auth": "인증 세션이 만료되었습니다. 설정을 다시 시작하세요.",
@@ -579,6 +586,11 @@
       "no_selection": "최소 하나 이상의 항목을 선택하세요."
     },
     "step": {
+      "medical_facility_options": {
+        "title": "의료기관 선택",
+        "description": "설정을 변경할 의료기관을 선택하세요.",
+        "data": {"facility": "의료기관 선택"}
+      },
       "init": {
         "title": "옵션",
         "description": "이 서비스에서 제공하는 설정을 변경합니다. 선택한 서비스에서 지원하는 필드만 표시됩니다.",

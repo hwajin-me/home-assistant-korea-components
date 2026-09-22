@@ -95,6 +95,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         from .safety_alert.group import setup_group
         return await setup_group(hass, entry, PLATFORM_MAP[service])
 
+    if service == ENTRY_ANIMAL_MEDICAL:
+        from .animal_medical.group import setup
+        return await setup(hass, entry, PLATFORM_MAP[service])
+
     device: DeviceType = None
     update_interval: timedelta = timedelta(minutes=20)
 
@@ -439,32 +443,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         register_medical_action(hass, entry, c)
         return True
 
-    elif service == ENTRY_ANIMAL_MEDICAL:
-        from .animal_medical.coordinator import AnimalMedicalCoordinator
-        from .animal_medical.services import group_title, register_medical_action
-        if entry.title != group_title(entry.data):
-            hass.config_entries.async_update_entry(entry, title=group_title(entry.data))
-
-        coordinator = AnimalMedicalCoordinator(
-            hass, dict(entry.data), config_entry=entry
-        )
-        startup_entries = hass.data.setdefault(f"{DOMAIN}_animal_started", set())
-        restore = not hass.is_running and entry.entry_id not in startup_entries
-        startup_entries.add(entry.entry_id)
-        if restore:
-            await coordinator.async_restore()
-        await coordinator.async_config_entry_first_refresh()
-        entry.async_on_unload(entry.add_update_listener(_async_animal_options_updated))
-        hass.data.setdefault(DOMAIN, {})
-        hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator}
-        await hass.config_entries.async_forward_entry_setups(
-            entry, PLATFORM_MAP.get(service, [])
-        )
-        hass.data[DOMAIN][entry.entry_id]["unregister_llm"] = await async_setup_llm_api(
-            hass, entry, service
-        )
-        register_medical_action(hass, entry, coordinator)
-        return True
 
     elif service == ENTRY_DH_LOTTERY:
         from .lottery import LotteryClient, LotteryCoordinator, LotteryError
@@ -598,6 +576,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async_cleanup_llm_api(store.get("unregister_llm"))
         if service in (ENTRY_ANIMAL_MEDICAL, "pharmacy"):
             from .animal_medical.services import unregister_medical_action
+            for key in store.get("facilities", {}):
+                unregister_medical_action(hass, key)
             unregister_medical_action(hass, entry.entry_id)
         if service == "pharmacy":
             from .pharmacy.services import async_unregister_pharmacy_service
@@ -612,8 +592,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Remove persisted animal medical data when its entry is deleted."""
+    if entry.data.get("merged_into"):
+        return
     if entry.data.get("service") in (ENTRY_ANIMAL_MEDICAL, "pharmacy"):
         from homeassistant.helpers.storage import Store
+
+        for key in entry.data.get("facilities", {}):
+            await Store(hass, 1, f"{DOMAIN}.{entry.data['service']}.{key}").async_remove()
 
         await Store(hass, 1, f"{DOMAIN}.{entry.data['service']}.{entry.entry_id}").async_remove()
         hass.data.get(f"{DOMAIN}_animal_started", set()).discard(entry.entry_id)
@@ -621,6 +606,9 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_remove_config_entry_device(hass, config_entry, device_entry) -> bool:
     """Allow removing an individual alert region from the flat device list."""
+    if config_entry.data.get("medical_group"):
+        from .animal_medical.group import remove_device
+        return remove_device(hass, config_entry, device_entry)
     if config_entry.data.get("service") == ENTRY_SAFETY_ALERT:
         from .safety_alert.group import remove_region_device
         return remove_region_device(hass, config_entry, device_entry)

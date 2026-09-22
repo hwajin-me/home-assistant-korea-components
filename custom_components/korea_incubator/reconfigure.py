@@ -137,6 +137,13 @@ class ServiceReconfigureFlow:
 
     def _check_service_unique_id(self):
         entry = getattr(self, "_reconfigure_entry", None)
+        from .animal_medical.group import FacilityEntry
+        for saved in self._async_current_entries():
+            for key, member in saved.data.get("facilities", {}).items():
+                if member.get("unique_id") == self.unique_id and not (
+                    isinstance(entry, FacilityEntry) and entry.parent == saved and entry.key == key
+                ):
+                    raise AbortFlow("already_configured")
         if entry is None:
             return self._abort_if_unique_id_configured()
         existing = self.hass.config_entries.async_entry_for_domain_unique_id(
@@ -164,6 +171,10 @@ class ServiceReconfigureFlow:
     def _finish_service_entry(self, *, title, data, options=None):
         entry = getattr(self, "_reconfigure_entry", None)
         if entry is None:
+            if data.get(CONF_ENTRY_TYPE) == "animal_medical":
+                from .animal_medical.group import add_facility
+                if result := add_facility(self, data, options):
+                    return result
             # A reconfigured entry may still own its original device identity.
             # Adding that original institution/token again must not attach the
             # new entry to those retained entities.
@@ -243,6 +254,12 @@ class ServiceReconfigureFlow:
             if self.context.get("source") == "reauth"
             else "reconfigure_successful"
         )
+        from .animal_medical.group import FacilityEntry, save_facility
+        if isinstance(entry, FacilityEntry):
+            if data["institution_type"] != entry.parent.data["institution_type"]:
+                return self.async_abort(reason="medical_type_mismatch")
+            save_facility(self.hass, entry, **updates)
+            return self.async_abort(reason=reason)
         if entry.update_listeners:
             # Connection-data listeners reload once, including CJ and medical entries.
             changed = self.hass.config_entries.async_update_entry(entry, **updates)
