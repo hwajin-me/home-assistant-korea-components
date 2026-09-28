@@ -238,23 +238,29 @@ class LotteryClient:
             if not isinstance(details, list):
                 _LOGGER.warning("연금복권 구매번호 상세 응답 형식이 올바르지 않습니다.")
                 continue
-            for index, detail in enumerate(details, start=1):
+            for detail_index, detail in enumerate(details, start=1):
                 if not isinstance(detail, dict):
                     continue
                 raw_number = str(detail.get("ltGmInfoCn") or "")
-                match = re.search(r"([1-5])\s*조\s*[:：]?\s*(\d{6})", raw_number)
-                if not match:
-                    continue
-                games.append(
-                    {
-                        "game_id": f"pension_{purchase['order_no']}_{index}",
-                        "order_no": purchase["order_no"],
-                        "round": purchase["round"],
-                        "purchased_at": purchase["purchased_at"],
-                        "group": match.group(1),
-                        "number": match.group(2),
-                    }
-                )
+                # One detail row can represent a five-set purchase.  Preserve
+                # every 1~5 group rather than only the first regex match.
+                for game_index, match in enumerate(
+                    re.finditer(r"([1-5])\s*조\s*[:：]?\s*(\d{6})", raw_number),
+                    start=1,
+                ):
+                    games.append(
+                        {
+                            "game_id": (
+                                f"pension_{purchase['order_no']}_"
+                                f"{detail_index}_{game_index}"
+                            ),
+                            "order_no": purchase["order_no"],
+                            "round": purchase["round"],
+                            "purchased_at": purchase["purchased_at"],
+                            "group": match.group(1),
+                            "number": match.group(2),
+                        }
+                    )
         return games
 
     async def lotto_645_winning_numbers(self) -> dict:
@@ -588,6 +594,26 @@ class LotteryClient:
                 f"연금복권 예치금 확인 실패: {result.get('resultMsg', '구매 가능 금액을 확인하세요.') }"
             )
 
+    async def _check_pension_number(
+        self, round_no: int, group: str, number: str
+    ) -> None:
+        """Run the game page's number-verification step before making an order."""
+        result = await self._pension_step(
+            "/checkVerifyNo.do",
+            [
+                ("ROUND", str(round_no)),
+                ("SEL_NO", number),
+                ("BUY_CNT", "1"),
+                ("AUTO_SEL_SET", "S"),
+                ("SEL_CLASS", group),
+                ("BUY_TYPE", "A"),
+                ("ACCS_TYPE", "01"),
+            ],
+        )
+        if result is None or str(result.get("resultCode", "100")) != "100":
+            message = result.get("resultMsg", "번호 구매 가능 여부를 확인하세요.") if result else "번호 구매 가능 여부를 확인하세요."
+            raise LotteryError(f"연금복권 번호 검증 실패: {message}")
+
     async def buy_pension_auto(self, games: int) -> list[dict[str, str | int]]:
         """Buy 1–5 pension tickets with server-assigned numbers.
 
@@ -629,6 +655,7 @@ class LotteryClient:
             group = assigned.get("selClsNo", group).split(",")[0]
             if not re.fullmatch(r"\d{6}", number):
                 raise LotteryError("자동 선택된 연금복권 번호 형식이 올바르지 않습니다.")
+            await self._check_pension_number(round_no, group, number)
             order = await self._pension_step("/makeOrderNo.do", [("ROUND", str(round_no)), ("SEL_NO", number), ("BUY_CNT", "1"), ("AUTO_SEL_SET", "S"), ("SEL_CLASS", group), ("BUY_TYPE", "A"), ("ACCS_TYPE", "01")])
             if order.get("resultCode") != "100" or not order.get("orderNo"):
                 raise LotteryError(f"연금복권 주문 생성 실패: {order.get('resultMsg', '')}")
@@ -957,10 +984,16 @@ class LotteryLatestPurchasedGamesSensor(
     @property
     def extra_state_attributes(self):
         games = self._games
-        return {
+        attributes = {
             "게임 수": len(games),
             "회차": games[0].get("round") if games else None,
             "구매일시": games[0].get("purchased_at") if games else None,
             "games": games,
             "업데이트": self.coordinator.data.get("updated"),
         }
+        if self._lottery_type == "pension":
+            by_group = {str(game["group"]): game["number"] for game in games}
+            attributes.update(
+                {f"{group}조": by_group.get(str(group)) for group in range(1, 6)}
+            )
+        return attributes

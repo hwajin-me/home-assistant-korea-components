@@ -91,6 +91,12 @@ class PensionAutoPurchaseButton(ButtonEntity):
             tickets = await self._coordinator.client.buy_pension_auto(self._games)
             await self._coordinator.async_request_refresh()
         except LotteryError:
+            # The final payment endpoint can have completed despite a failed
+            # response. Refresh the read-only ledger before surfacing it.
+            try:
+                await self._coordinator.async_request_refresh()
+            except Exception:
+                pass
             raise
         except Exception as err:
             raise LotteryError("연금복권 720+ 자동 구매에 실패했습니다.") from err
