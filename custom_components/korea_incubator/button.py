@@ -22,12 +22,44 @@ async def async_setup_entry(
     coordinator: LotteryCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     async_add_entities(
         [
+            LotteryHistoryRefreshButton(coordinator),
             PensionAutoPurchaseButton(coordinator, 1),
             PensionAutoPurchaseButton(coordinator, 5),
             Lotto645AutoPurchaseButton(coordinator, 1),
             Lotto645AutoPurchaseButton(coordinator, 5),
         ]
     )
+
+
+class LotteryHistoryRefreshButton(ButtonEntity):
+    """Manually refresh lottery purchases and their game-number entities."""
+
+    _attr_name = "동행복권 구매내역 새로고침"
+    _attr_icon = "mdi:refresh"
+
+    def __init__(self, coordinator: LotteryCoordinator) -> None:
+        self._coordinator = coordinator
+        self._attr_unique_id = (
+            f"donghaeng_lottery_{coordinator.client.username}_history_refresh"
+        )
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"donghaeng_lottery_{coordinator.client.username}")},
+            name="동행복권",
+            manufacturer="동행복권",
+            configuration_url="https://www.dhlottery.co.kr",
+        )
+
+    @property
+    def available(self) -> bool:
+        return self._coordinator.client.logged_in
+
+    async def async_press(self) -> None:
+        try:
+            await self._coordinator.async_request_refresh()
+        except LotteryError:
+            raise
+        except Exception as err:
+            raise LotteryError("동행복권 구매내역을 새로고침하지 못했습니다.") from err
 
 
 class PensionAutoPurchaseButton(ButtonEntity):

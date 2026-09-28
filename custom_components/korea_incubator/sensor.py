@@ -101,6 +101,7 @@ async def async_setup_entry(
         from .lottery import (
             LotteryBalanceSensor,
             LotteryHistorySensor,
+            LotteryLatestPurchasedGamesSensor,
             LotteryUnsettledGameSensor,
             Lotto645WinningNumbersSensor,
             LotteryWinningNumbersSensor,
@@ -112,6 +113,8 @@ async def async_setup_entry(
                 LotteryBalanceSensor(coordinator),
                 LotteryWinningNumbersSensor(coordinator),
                 Lotto645WinningNumbersSensor(coordinator),
+                LotteryLatestPurchasedGamesSensor(coordinator, "pension"),
+                LotteryLatestPurchasedGamesSensor(coordinator, "lotto"),
                 LotteryHistorySensor(coordinator, "purchases", "연금복권 720+ 구매내역", "mdi:ticket-confirmation-outline"),
                 LotteryHistorySensor(coordinator, "wins", "연금복권 720+ 당첨내역", "mdi:trophy-outline"),
                 LotteryHistorySensor(coordinator, "high_prizes", "연금복권 720+ 고액 당첨내역", "mdi:cash-multiple"),

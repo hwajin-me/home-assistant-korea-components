@@ -248,6 +248,7 @@ class LotteryClient:
                 games.append(
                     {
                         "game_id": f"pension_{purchase['order_no']}_{index}",
+                        "order_no": purchase["order_no"],
                         "round": purchase["round"],
                         "purchased_at": purchase["purchased_at"],
                         "group": match.group(1),
@@ -358,6 +359,7 @@ class LotteryClient:
                 games.append(
                     {
                         "game_id": f"lotto_{purchase['order_no']}_{index}",
+                        "order_no": purchase["order_no"],
                         "round": purchase["round"],
                         "purchased_at": purchase["purchased_at"],
                         "slot": detail.get("idx", index),
@@ -441,22 +443,87 @@ class LotteryClient:
         raw = AES.new(key, AES.MODE_CBC, iv).decrypt(base64.b64decode(ciphertext[96:]))
         return raw[:-raw[-1]].decode()
 
-    async def _pension_step(self, path: str, fields: list[tuple[str, str]]) -> dict:
+    async def _pension_step(
+        self,
+        path: str,
+        fields: list[tuple[str, str]],
+        *,
+        allow_non_json_response: bool = False,
+    ) -> dict | None:
+        """Call an encrypted Pension Lottery endpoint.
+
+        ``connPro.do`` is the final payment endpoint and can navigate to an
+        HTML receipt instead of returning the encrypted AJAX JSON used by the
+        preliminary endpoints.  Its request must never be retried.
+        """
         session_id = self._el_session_id()
         plain = urlencode(fields)
         q = self._encrypt(plain, session_id).replace("+", "%252B").replace("/", "%2F").replace("=", "%3D")
         headers = {
+            "Accept": "*/*",
             "Origin": _EL,
             "Referer": f"{_EL}/game/pension720/game.jsp",
             "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         }
         async with self.session.post(f"{_EL}{path}", data=f"q={q}", headers=headers) as response:
             body = await response.text()
-            if response.status != 200 or not body.lstrip().startswith("{"):
-                raise LotteryError(f"연금복권 서버 응답 오류({path}) — 구매 결과가 불명확합니다. 재시도하지 마세요.")
-        envelope = json.loads(body)
-        decrypted = self._decrypt(envelope["q"], session_id) if envelope.get("q") else body
-        return json.loads(decrypted)
+            status = response.status
+            content_type = response.content_type
+        if status != 200:
+            raise LotteryError(
+                f"연금복권 서버 응답 오류({path}, HTTP {status}) — "
+                "구매 결과가 불명확합니다. 재시도하지 마세요."
+            )
+        try:
+            envelope = json.loads(body)
+        except json.JSONDecodeError as err:
+            if allow_non_json_response:
+                _LOGGER.info(
+                    "Donghaeng Lottery payment returned a non-JSON receipt "
+                    "(content type: %s)",
+                    content_type,
+                )
+                return None
+            raise LotteryError(f"연금복권 서버 응답 오류({path})") from err
+        if not isinstance(envelope, dict):
+            raise LotteryError(f"연금복권 서버 응답 형식이 올바르지 않습니다. ({path})")
+        try:
+            decrypted = self._decrypt(envelope["q"], session_id) if envelope.get("q") else body
+            result = json.loads(decrypted)
+        except (KeyError, ValueError, json.JSONDecodeError) as err:
+            raise LotteryError(f"연금복권 서버 응답을 해석하지 못했습니다. ({path})") from err
+        if not isinstance(result, dict):
+            raise LotteryError(f"연금복권 서버 응답 형식이 올바르지 않습니다. ({path})")
+        return result
+
+    async def _pension_ticket_exists(
+        self, round_no: int, group: str, number: str
+    ) -> bool:
+        """Confirm a final-payment result from the read-only ticket ledger."""
+        try:
+            purchases = await self.pension_purchase_history(days=7)
+            for purchase in purchases:
+                if str(purchase["round"]) != str(round_no) or not purchase["order_no"]:
+                    continue
+                data = await self._get_json_with_login(
+                    "mypage/lottery720select.do",
+                    {
+                        "ntslOrdrNo": purchase["order_no"],
+                        "_": int(dt.datetime.now().timestamp() * 1000),
+                    },
+                )
+                for detail in data.get("list") or []:
+                    if not isinstance(detail, dict):
+                        continue
+                    raw_number = str(detail.get("ltGmInfoCn") or "")
+                    if re.search(
+                        rf"{re.escape(group)}\s*조\s*[:：]?\s*{re.escape(number)}\b",
+                        raw_number,
+                    ):
+                        return True
+        except LotteryError as err:
+            _LOGGER.warning("연금복권 결제 결과 구매내역 확인에 실패했습니다: %s", err)
+        return False
 
     async def _pension_round_remain_time(self) -> dict:
         """Validate the game server's current sales window before ordering."""
@@ -567,9 +634,25 @@ class LotteryClient:
                 raise LotteryError(f"연금복권 주문 생성 실패: {order.get('resultMsg', '')}")
             await self._check_pension_deposit(round_no, group, number)
             payment = [("ROUND", str(round_no)), ("FLAG", ""), ("BUY_KIND", "01"), ("BUY_NO", f"{group}{number}"), ("BUY_CNT", "1"), ("BUY_SET_TYPE", "S"), ("BUY_TYPE", "A"), ("ACCS_TYPE", "01"), ("orderNo", order["orderNo"]), ("orderDate", order["orderDate"]), ("TRANSACTION_ID", ""), ("WIN_DATE", ""), ("USER_ID", user_id), ("PAY_TYPE", ""), ("resultErrorCode", ""), ("resultErrorMsg", ""), ("resultOrderNo", ""), ("WORKING_FLAG", "false"), ("NUM_CHANGE_TYPE", ""), ("auto_process", "Y"), ("set_type", "S"), ("classnum", group), ("selnum", number), ("buytype", "A"), ("num1", number[0]), ("num2", number[1]), ("num3", number[2]), ("num4", number[3]), ("num5", number[4]), ("num6", number[5]), ("DSEC", "0"), ("CLOSE_DATE", ""), ("verifyYN", "N"), ("curdeposit", "0"), ("curpay", "1000")]
-            result = await self._pension_step("/connPro.do", payment)
-            if result.get("resultCode") != "100":
-                raise LotteryError(f"연금복권 구매 응답이 실패했습니다 — 결과가 불명확합니다. 재시도하지 말고 구매내역을 확인하세요. ({result.get('resultMsg', '')})")
+            result = await self._pension_step(
+                "/connPro.do", payment, allow_non_json_response=True
+            )
+            if result is None:
+                # A receipt page is not an error by itself.  Verify the exact
+                # game number through the read-only ledger before reporting
+                # success; never submit the payment request a second time.
+                if not await self._pension_ticket_exists(round_no, group, number):
+                    raise LotteryError(
+                        "연금복권 결제 응답이 영수증 형식이지만 구매내역에서 "
+                        "해당 번호를 아직 확인하지 못했습니다. 재시도하지 말고 "
+                        "구매내역을 새로고침해 확인하세요."
+                    )
+            elif result.get("resultCode") != "100":
+                raise LotteryError(
+                    "연금복권 구매 응답이 실패했습니다 — 결과가 불명확합니다. "
+                    "재시도하지 말고 구매내역을 확인하세요. "
+                    f"({result.get('resultMsg', '')})"
+                )
             tickets.append({"round": round_no, "group": int(group), "number": number})
         return tickets
 
@@ -616,7 +699,14 @@ class LotteryClient:
 
 class LotteryCoordinator(DataUpdateCoordinator[dict]):
     def __init__(self, hass, client: LotteryClient) -> None:
-        super().__init__(hass, _LOGGER, name="Donghaeng Lottery", update_interval=dt.timedelta(hours=1))
+        # Purchases can also happen on the official site, so keep ticket
+        # entities current without requiring Home Assistant to be restarted.
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="Donghaeng Lottery",
+            update_interval=dt.timedelta(minutes=15),
+        )
         self.client = client
 
     async def _async_update_data(self) -> dict:
@@ -820,3 +910,57 @@ class LotteryUnsettledGameSensor(CoordinatorEntity[LotteryCoordinator], SensorEn
             attributes["선택방식"] = game.get("selection")
             attributes["번호"] = game["numbers"]
         return attributes
+
+
+class LotteryLatestPurchasedGamesSensor(
+    CoordinatorEntity[LotteryCoordinator], SensorEntity
+):
+    """Show the game numbers from the most recently purchased un-drawn ticket."""
+
+    _attr_icon = "mdi:ticket-confirmation-outline"
+
+    def __init__(self, coordinator: LotteryCoordinator, lottery_type: str) -> None:
+        super().__init__(coordinator)
+        self._lottery_type = lottery_type
+        self._key = f"{lottery_type}_unsettled_games"
+        label = "연금복권 720+" if lottery_type == "pension" else "로또 6/45"
+        self._attr_name = f"{label} 최근 미추첨 구매 번호"
+        self._attr_unique_id = (
+            f"donghaeng_lottery_{coordinator.client.username}_{lottery_type}_latest_games"
+        )
+        self._attr_device_info = lottery_device_info(coordinator.client)
+
+    @property
+    def _games(self) -> list[dict]:
+        games = self.coordinator.data.get(self._key, [])
+        if not games:
+            return []
+        latest_order = max(
+            games,
+            key=lambda game: (str(game.get("purchased_at") or ""), str(game.get("order_no") or "")),
+        ).get("order_no")
+        return [game for game in games if game.get("order_no") == latest_order]
+
+    @property
+    def native_value(self):
+        games = self._games
+        if not games:
+            return "구매 내역 없음"
+        if self._lottery_type == "pension":
+            return " · ".join(
+                f"{game['group']}조 {game['number']}" for game in games
+            )
+        return " · ".join(
+            " ".join(map(str, game["numbers"])) for game in games
+        )
+
+    @property
+    def extra_state_attributes(self):
+        games = self._games
+        return {
+            "게임 수": len(games),
+            "회차": games[0].get("round") if games else None,
+            "구매일시": games[0].get("purchased_at") if games else None,
+            "games": games,
+            "업데이트": self.coordinator.data.get("updated"),
+        }
