@@ -384,9 +384,10 @@ class LotteryClient:
         aiohttp cookie jar does not promote host-only cookies across hosts.
         """
         www_cookie = self.session.cookie_jar.filter_cookies(_WWW).get("JSESSIONID")
-        if www_cookie and not self.session.cookie_jar.filter_cookies(_EL).get(
-            "JSESSIONID"
-        ):
+        # Always replace the game-host copy: a fresh login changes the www
+        # cookie, while an old el-host cookie can otherwise keep the game page
+        # on an expired anonymous session.
+        if www_cookie:
             self.session.cookie_jar.update_cookies(
                 {"JSESSIONID": www_cookie.value}, response_url=URL(_EL)
             )
@@ -398,8 +399,10 @@ class LotteryClient:
             f"{_EL}/game/TotalGame.jsp?LottoId=LP72",
             allow_redirects=True,
             headers={"Referer": f"{_WWW}/"},
-        ):
-            pass
+        ) as response:
+            if response.status != 200:
+                raise LotteryError("연금복권 게임 인증 페이지를 열지 못했습니다.")
+            await response.read()
         async with self.session.get(
             f"{_EL}/game/pension720/game.jsp",
             headers={"Referer": f"{_EL}/game/TotalGame.jsp?LottoId=LP72"},
@@ -412,13 +415,13 @@ class LotteryClient:
     def _extract_game_user_id(game_page: str) -> str:
         """Read USER_ID from the hidden field without relying on attr order."""
         field = re.search(
-            r"<input\\b(?=[^>]*\\bname=[\"']USER_ID[\"'])(?=[^>]*\\bvalue=[\"'][^\"']+[\"'])[^>]*>",
+            r"<input\b(?=[^>]*\bname=[\"']USER_ID[\"'])(?=[^>]*\bvalue=[\"'][^\"']+[\"'])[^>]*>",
             game_page,
             re.IGNORECASE,
         )
         if not field:
             raise LotteryError("연금복권 사용자 세션을 확인하지 못했습니다.")
-        value = re.search(r"\\bvalue=[\"']([^\"']+)[\"']", field.group(0), re.IGNORECASE)
+        value = re.search(r"\bvalue=[\"']([^\"']+)[\"']", field.group(0), re.IGNORECASE)
         if not value:
             raise LotteryError("연금복권 사용자 세션을 확인하지 못했습니다.")
         return value.group(1)
@@ -526,7 +529,27 @@ class LotteryClient:
         """
         if games not in range(1, 6):
             raise LotteryError("연금복권 자동 구매 수는 1~5개여야 합니다.")
-        user_id = self._extract_game_user_id(await self._async_open_pension_game())
+        # ``logged_in`` only tells us that a login succeeded at some point.
+        # Verify it immediately before entering the separate game service so a
+        # long-running Home Assistant instance can renew an expired session.
+        balance = await self.balance()
+        if balance.available < games * 1000:
+            raise LotteryError(f"구매 가능 예치금이 부족합니다. (현재 {balance.available:,}원)")
+
+        user_id = ""
+        for attempt in range(2):
+            try:
+                user_id = self._extract_game_user_id(
+                    await self._async_open_pension_game()
+                )
+                break
+            except LotteryError:
+                if attempt:
+                    raise
+                _LOGGER.info("Donghaeng Lottery game SSO refresh required")
+                await self.login()
+        if not user_id:
+            raise LotteryError("연금복권 사용자 세션을 확인하지 못했습니다.")
         sales = await self._pension_round_remain_time()
         round_no, tickets = int(sales["ROUND"]), []
         for index in range(games):
