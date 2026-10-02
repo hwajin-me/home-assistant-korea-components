@@ -122,7 +122,7 @@ class ArisuApiClient:
             raise ArisuDataError(f"Unexpected error: {e}")
 
     async def _check_bill_available(self, form_data: dict, headers: dict) -> bool:
-        """Follow the site's customer validation and monthly publication checks."""
+        """Validate the customer and decide whether to query the statement page."""
 
         async def request(path: str) -> dict:
             async with self._session.post(
@@ -158,8 +158,16 @@ class ArisuApiClient:
             )
         publication = await request("/cyber/front/cgcalc/JR_getpcaDeciFlag.do")
         flag = publication.get("pcaDeciFlag")
+        if flag is None or flag == "":
+            # A missing preflight flag does not establish whether a bill exists.
+            # Let the statement parser require bill data or explicit noResult;
+            # an error page must still fail rather than become an empty bill.
+            LOGGER.debug(
+                "Arisu publication flag is missing; checking the statement page"
+            )
+            return True
         if flag not in ("Y", "N"):
-            raise ArisuDataError("Missing Arisu bill publication result")
+            raise ArisuDataError("Invalid Arisu bill publication result")
         return flag == "Y"
 
     async def _init_session(self) -> None:

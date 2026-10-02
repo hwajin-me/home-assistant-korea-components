@@ -337,6 +337,50 @@ class TestArisuApiMock:
 
 class TestArisuPublicationChecks:
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("publication", [{}, {"pcaDeciFlag": None}, {"pcaDeciFlag": ""}])
+    @pytest.mark.parametrize(
+        "html,expected",
+        [
+            ('<script>var cgInfoData = {"totNapgiAmt":"45000"};</script>', True),
+            ('<script>var noResult = true;</script>', False),
+            ('<html>Service unavailable</html>', None),
+        ],
+    )
+    async def test_missing_publication_flag_checks_statement(
+        self, mock_session, publication, html, expected
+    ):
+        """An absent flag must neither abort a valid bill nor hide an error page."""
+        response = AsyncMock()
+        response.status = 200
+        response.json.side_effect = [{"csNmFlag": "Y"}, publication]
+        response.text.return_value = html
+        mock_session.post.return_value.__aenter__.return_value = response
+        client = ArisuApiClient(mock_session)
+        client._csrf_token = "token"
+        with patch.object(client, "_init_session", new_callable=AsyncMock):
+            if expected is None:
+                with pytest.raises(ArisuDataError, match="Unrecognized Arisu response"):
+                    await client.async_get_water_bill("123456789", "테스트", "2026-10")
+            else:
+                result = await client.async_get_water_bill("123456789", "테스트", "2026-10")
+                assert result["success"] is expected
+                if expected:
+                    assert result["total_amount"] == 45000
+                else:
+                    assert result["no_bill_data"] is True
+        assert mock_session.post.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_invalid_publication_flag_stops_lookup(self, mock_session):
+        response = AsyncMock()
+        response.status = 200
+        response.json.side_effect = [{"csNmFlag": "Y"}, {"pcaDeciFlag": "invalid"}]
+        mock_session.post.return_value.__aenter__.return_value = response
+        with pytest.raises(ArisuDataError, match="Invalid Arisu bill publication result"):
+            await ArisuApiClient(mock_session)._check_bill_available({}, {})
+        assert mock_session.post.call_count == 2
+
+    @pytest.mark.asyncio
     @pytest.mark.parametrize("flag,expected", [("Y", True), ("N", False)])
     async def test_customer_then_publication(self, mock_session, flag, expected):
         response = AsyncMock()
