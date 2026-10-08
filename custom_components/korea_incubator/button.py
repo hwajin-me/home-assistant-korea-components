@@ -103,10 +103,14 @@ class PensionAutoPurchaseButton(ButtonEntity):
         message = "\n".join(
             f"{item['round']}회 {item['group']}조 {item['number']}" for item in tickets
         )
+        if len(tickets) < self._games:
+            message = (
+                f"요청 {self._games}게임 중 {len(tickets)}게임 구매 확인\n{message}"
+            )
         persistent_notification.async_create(
             self.hass,
             message,
-            f"연금복권 720+ 자동 구매 ({self._games}게임)",
+            f"연금복권 720+ 자동 구매 ({len(tickets)}게임)",
             f"{self.unique_id}_purchase",
         )
 

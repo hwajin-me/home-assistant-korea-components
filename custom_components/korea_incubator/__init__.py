@@ -670,9 +670,16 @@ async def _async_setup_lottery_services(hass: HomeAssistant) -> None:
             tickets = await coordinator.client.buy_pension_auto(call.data["games"])
             await coordinator.async_request_refresh()
             message = "\n".join(f"{ticket['round']}회 {ticket['group']}조 {ticket['number']}" for ticket in tickets)
+            if len(tickets) < call.data["games"]:
+                message = f"요청 {call.data['games']}게임 중 {len(tickets)}게임 구매 확인\n{message}"
             persistent_notification.async_create(hass, message, "연금복권 720+ 자동 구매", call.context.id)
             return {"result": "success", "tickets": tickets}
         except Exception as err:
+            if coordinator is not None:
+                try:
+                    await coordinator.async_request_refresh()
+                except Exception:
+                    LOGGER.warning("연금복권 구매 실패 후 구매내역 새로고침에 실패했습니다.")
             persistent_notification.async_create(hass, str(err), "연금복권 720+ 구매 실패", call.context.id)
             return {"result": "fail", "message": str(err)}
 
