@@ -102,7 +102,6 @@ async def async_setup_entry(
             LotteryBalanceSensor,
             LotteryHistorySensor,
             LotteryLatestPurchasedGamesSensor,
-            LotteryUnsettledGameSensor,
             Lotto645WinningNumbersSensor,
             LotteryWinningNumbersSensor,
         )
@@ -124,33 +123,12 @@ async def async_setup_entry(
             ]
         )
 
-        added_game_ids: set[str] = set()
+        from .lottery_sensor import LotteryGameSensors
 
-        def async_add_unsettled_game_sensors() -> None:
-            """Add a sensor for every currently un-drawn purchased game.
-
-            The lottery API returns ticket details only after purchase, so the
-            entity set needs to grow when the coordinator refreshes after a
-            successful purchase.
-            """
-            entities = []
-            for lottery_type, key in (
-                ("pension", "pension_unsettled_games"),
-                ("lotto", "lotto_unsettled_games"),
-            ):
-                for game in coordinator.data.get(key, []):
-                    game_id = game.get("game_id")
-                    if not game_id or game_id in added_game_ids:
-                        continue
-                    added_game_ids.add(game_id)
-                    entities.append(
-                        LotteryUnsettledGameSensor(coordinator, lottery_type, game_id)
-                    )
-            if entities:
-                async_add_entities(entities)
-
-        async_add_unsettled_game_sensors()
-        entry.async_on_unload(coordinator.async_add_listener(async_add_unsettled_game_sensors))
+        games = LotteryGameSensors(hass, entry, coordinator, async_add_entities)
+        await games.async_sync()
+        entry.async_on_unload(coordinator.async_add_listener(games.async_request_sync))
+        entry.async_on_unload(games.stop)
         return
 
     if service == "earthquake":

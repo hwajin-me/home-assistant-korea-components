@@ -233,6 +233,7 @@ async def test_ledger_number_creates_individual_sensor(
     mock_hass.data[DOMAIN][mock_config_entry.entry_id] = {
         "coordinator": mock_coordinator
     }
+    mock_hass.async_create_task.side_effect = asyncio.create_task
     add = MagicMock()
     await async_setup_entry(mock_hass, mock_config_entry, add)
     sensors = [
@@ -242,15 +243,17 @@ async def test_ledger_number_creates_individual_sensor(
         if isinstance(sensor, LotteryUnsettledGameSensor)
     ]
     assert len(sensors) == 1
-    assert sensors[0].name == "연금복권 720+ 336회 1조"
+    assert sensors[0].name == "연금복권 720+ 게임 1"
     assert sensors[0].native_value == "1조 836319"
     listener = mock_coordinator.async_add_listener.call_args.args[0]
     listener()
+    await asyncio.sleep(0)
     assert add.call_count == 2  # Existing game not added twice.
     mock_coordinator.data["pension_unsettled_games"].append(
         {**games[0], "game_id": "new", "group": "2"}
     )
     listener()
+    await asyncio.sleep(0)
     assert add.call_count == 3
 
 

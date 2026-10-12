@@ -1126,33 +1126,31 @@ class Lotto645WinningNumbersSensor(CoordinatorEntity[LotteryCoordinator], Sensor
 
 
 class LotteryUnsettledGameSensor(CoordinatorEntity[LotteryCoordinator], SensorEntity):
-    """Expose one un-drawn purchased game as one sensor entity."""
+    """Expose an un-drawn game through an account-owned reusable slot."""
 
     _attr_icon = "mdi:ticket-confirmation-outline"
 
     def __init__(
-        self, coordinator: LotteryCoordinator, lottery_type: str, game_id: str
+        self, coordinator: LotteryCoordinator, lottery_type: str, slot: int
     ) -> None:
         super().__init__(coordinator)
         self._lottery_type = lottery_type
-        self._game_id = game_id
+        self._slot = slot
         self._key = f"{lottery_type}_unsettled_games"
         self._attr_unique_id = (
-            f"donghaeng_lottery_{coordinator.client.username}_{game_id}"
+            f"donghaeng_lottery_{coordinator.client.username}_{lottery_type}_game_{slot}"
         )
         self._attr_device_info = lottery_device_info(coordinator.client)
-        game = self._game
         if lottery_type == "pension":
-            self._attr_name = f"연금복권 720+ {game['round']}회 {game['group']}조"
+            self._attr_name = f"연금복권 720+ 게임 {slot}"
         else:
-            self._attr_name = f"로또 6/45 {game['round']}회 게임 {game['slot']}"
+            label = chr(64 + slot) if slot <= 26 else str(slot)
+            self._attr_name = f"로또 6/45 게임 {label}"
 
     @property
     def _game(self) -> dict:
-        for game in self.coordinator.data.get(self._key, []):
-            if game.get("game_id") == self._game_id:
-                return game
-        return {}
+        games = self.coordinator.data.get(self._key, [])
+        return games[self._slot - 1] if len(games) >= self._slot else {}
 
     @property
     def available(self) -> bool:
