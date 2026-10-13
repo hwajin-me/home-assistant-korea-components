@@ -69,6 +69,31 @@ class Balance:
     available: int
 
 
+def unique_lottery_games(games: list[dict], lottery_type: str) -> list[dict]:
+    """Keep one display record per purchased game, ignoring repeated detail rows.
+
+    Separate orders and Lotto slots are separate tickets even when their
+    numbers match. A detail-row index is not part of a ticket's identity.
+    """
+    unique = []
+    seen = set()
+    for game in games:
+        order = str(game.get("order_no") or game.get("game_id") or "")
+        if lottery_type == "pension":
+            number_key = (str(game.get("group")), str(game.get("number")))
+        else:
+            number_key = (
+                str(game.get("barcode") or ""),
+                str(game.get("slot")),
+                tuple(sorted(game.get("numbers", []))),
+            )
+        identity = (str(game.get("round")), order, number_key)
+        if identity not in seen:
+            seen.add(identity)
+            unique.append(game)
+    return unique
+
+
 class LotteryClient:
     """Authenticated Donghaeng Lottery client; one instance belongs to one entry."""
 
@@ -243,20 +268,24 @@ class LotteryClient:
     async def pension_unsettled_games(self) -> list[dict]:
         """Return one record per un-drawn Pension Lottery game number."""
         games: list[dict] = []
+        detail_cache: dict[str, dict] = {}
         for purchase in await self.pension_purchase_history(days=30):
             if str(purchase["result"]).strip() != "미추첨" or not purchase["order_no"]:
                 continue
-            try:
-                data = await self._get_json_with_login(
-                    "mypage/lottery720select.do",
-                    {
-                        "ntslOrdrNo": purchase["order_no"],
-                        "_": int(dt.datetime.now().timestamp() * 1000),
-                    },
-                )
-            except LotteryError:
-                _LOGGER.warning("연금복권 구매번호 상세 조회에 실패했습니다.")
-                data = {}
+            order_key = str(purchase["order_no"])
+            if order_key not in detail_cache:
+                try:
+                    detail_cache[order_key] = await self._get_json_with_login(
+                        "mypage/lottery720select.do",
+                        {
+                            "ntslOrdrNo": purchase["order_no"],
+                            "_": int(dt.datetime.now().timestamp() * 1000),
+                        },
+                    )
+                except LotteryError:
+                    _LOGGER.warning("연금복권 구매번호 상세 조회에 실패했습니다.")
+                    detail_cache[order_key] = {}
+            data = detail_cache[order_key]
             details = data.get("list") or []
             if not isinstance(details, list):
                 _LOGGER.warning("연금복권 구매번호 상세 응답 형식이 올바르지 않습니다.")
@@ -288,7 +317,7 @@ class LotteryClient:
                             "number": number,
                         }
                     )
-        return games
+        return unique_lottery_games(games, "pension")
 
     @staticmethod
     def _pension_numbers(detail: dict) -> list[tuple[str, str]]:
@@ -373,12 +402,16 @@ class LotteryClient:
     async def lotto_645_unsettled_games(self) -> list[dict]:
         """Return one record per un-drawn Lotto 6/45 game from ticket details."""
         games: list[dict] = []
+        seen_receipts: set[tuple[str, str]] = set()
         for purchase in await self.lotto_645_purchase_history(days=30):
             if (
                 purchase["result"] != "미추첨"
                 or not purchase["order_no"]
                 or not purchase["barcode"]
             ):
+                continue
+            receipt = (str(purchase["order_no"]), str(purchase["barcode"]))
+            if receipt in seen_receipts:
                 continue
             try:
                 data = await self._get_json_with_login(
@@ -400,6 +433,7 @@ class LotteryClient:
             if not isinstance(details, list):
                 _LOGGER.warning("로또 6/45 게임 상세 응답 형식이 올바르지 않습니다.")
                 continue
+            seen_receipts.add(receipt)
             for index, detail in enumerate(details, start=1):
                 if not isinstance(detail, dict):
                     continue
@@ -414,6 +448,7 @@ class LotteryClient:
                     {
                         "game_id": f"lotto_{purchase['order_no']}_{index}",
                         "order_no": purchase["order_no"],
+                        "barcode": purchase["barcode"],
                         "round": purchase["round"],
                         "purchased_at": purchase["purchased_at"],
                         "slot": detail.get("idx", index),
@@ -421,7 +456,7 @@ class LotteryClient:
                         "numbers": game_numbers,
                     }
                 )
-        return games
+        return unique_lottery_games(games, "lotto")
 
     def _el_session_id(self) -> str:
         cookies = self.session.cookie_jar.filter_cookies(_EL)
@@ -1137,9 +1172,7 @@ class LotteryUnsettledGameSensor(CoordinatorEntity[LotteryCoordinator], SensorEn
         self._lottery_type = lottery_type
         self._slot = slot
         self._key = f"{lottery_type}_unsettled_games"
-        self._attr_unique_id = (
-            f"donghaeng_lottery_{coordinator.client.username}_{lottery_type}_game_{slot}"
-        )
+        self._attr_unique_id = f"donghaeng_lottery_{coordinator.client.username}_{lottery_type}_game_{slot}"
         self._attr_device_info = lottery_device_info(coordinator.client)
         if lottery_type == "pension":
             self._attr_name = f"연금복권 720+ 게임 {slot}"
@@ -1149,7 +1182,9 @@ class LotteryUnsettledGameSensor(CoordinatorEntity[LotteryCoordinator], SensorEn
 
     @property
     def _game(self) -> dict:
-        games = self.coordinator.data.get(self._key, [])
+        games = unique_lottery_games(
+            self.coordinator.data.get(self._key, []), self._lottery_type
+        )
         return games[self._slot - 1] if len(games) >= self._slot else {}
 
     @property
@@ -1204,7 +1239,9 @@ class LotteryLatestPurchasedGamesSensor(
 
     @property
     def _games(self) -> list[dict]:
-        games = self.coordinator.data.get(self._key, [])
+        games = unique_lottery_games(
+            self.coordinator.data.get(self._key, []), self._lottery_type
+        )
         if not games:
             return []
         latest_order = max(

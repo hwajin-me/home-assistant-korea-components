@@ -319,3 +319,59 @@ async def test_migration_prefers_current_game_over_retired_registry_entry(manage
     await slots.async_sync()
     assert added[0].entity_id == current.entity_id
     assert registry.removed == [retired.entity_id]
+
+
+@pytest.mark.parametrize("kind", ["pension", "lotto"])
+async def test_duplicate_detail_ids_keep_five_slots_and_clean_previous_twenty_five(
+    manager, kind
+):
+    slots, registry, added = manager
+    originals = [game(kind, i) for i in range(1, 6)]
+    registry.rows = {
+        f"sensor.{kind}_{index}": Registered(
+            f"sensor.{kind}_{index}", f"donghaeng_lottery_account_{kind}_game_{index}"
+        )
+        for index in range(1, 26)
+    }
+    repeated = [
+        {**item, "game_id": f"detail_{row}_{index}"}
+        for row in range(5)
+        for index, item in enumerate(originals)
+    ]
+    slots.coordinator.data[f"{kind}_unsettled_games"] = repeated
+    await slots.async_sync()
+    assert len(added) == len(slots.entities) == len(registry.rows) == 5
+    assert len(registry.removed) == 20
+    for index, sensor in enumerate(added, 1):
+        if kind == "pension":
+            assert sensor.native_value == f"{index}조 {index:06}"
+        else:
+            assert sensor.native_value == f"{index} 10 20 30 40 45"
+    slots.async_request_sync()
+    await slots._task
+    assert len(added) == len(registry.rows) == 5
+
+
+@pytest.mark.parametrize("kind", ["pension", "lotto"])
+async def test_duplicate_refresh_removes_excess_live_slots(manager, kind):
+    slots, registry, added = manager
+    slots.coordinator.data[f"{kind}_unsettled_games"] = [
+        game(kind, i) for i in range(1, 26)
+    ]
+    await slots.async_sync()
+    retired = added[5:]
+    for sensor in retired:
+        sensor.platform = MagicMock()
+        sensor.platform.entities = {sensor.entity_id: sensor}
+        sensor.async_remove = AsyncMock()
+    real_games = [game(kind, i) for i in range(1, 6)]
+    slots.coordinator.data[f"{kind}_unsettled_games"] = [
+        {**item, "game_id": f"duplicate_{repeat}_{index}"}
+        for repeat in range(5)
+        for index, item in enumerate(real_games)
+    ]
+    await slots.async_sync()
+    assert len(slots.entities) == len(registry.rows) == 5
+    assert len(added) == 25
+    for sensor in retired:
+        sensor.async_remove.assert_awaited_once_with(force_remove=True)

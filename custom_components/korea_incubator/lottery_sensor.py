@@ -9,7 +9,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
-from .lottery import LotteryUnsettledGameSensor
+from .lottery import LotteryUnsettledGameSensor, unique_lottery_games
 
 
 class LotteryGameSensors:
@@ -82,7 +82,10 @@ class LotteryGameSensors:
         active_order = {
             f"{self._prefix}{game['game_id']}": index
             for index, game in enumerate(
-                self.coordinator.data.get(f"{lottery_type}_unsettled_games", [])
+                unique_lottery_games(
+                    self.coordinator.data.get(f"{lottery_type}_unsettled_games", []),
+                    lottery_type,
+                )
             )
             if game.get("game_id")
         }
@@ -110,7 +113,10 @@ class LotteryGameSensors:
             return
         for lottery_type in ("pension", "lotto"):
             count = len(
-                self.coordinator.data.get(f"{lottery_type}_unsettled_games", [])
+                unique_lottery_games(
+                    self.coordinator.data.get(f"{lottery_type}_unsettled_games", []),
+                    lottery_type,
+                )
             )
             if not self._migrated:
                 self._migrate(lottery_type, count)
