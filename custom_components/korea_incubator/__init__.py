@@ -8,6 +8,7 @@ import curl_cffi
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.components import persistent_notification
 import voluptuous as vol
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -452,10 +453,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await client.login()
             coordinator = LotteryCoordinator(hass, client)
             await coordinator.async_config_entry_first_refresh()
-        except Exception as err:
+        except (LotteryError, aiohttp.ClientError, TimeoutError) as err:
             await client.close()
-            LOGGER.error("Donghaeng Lottery setup failed: %s", err)
-            return False
+            raise ConfigEntryNotReady(str(err)) from err
+        except BaseException:
+            # Preserve HA's first-refresh exceptions and cancellation, while
+            # releasing the entry-owned session before HA retries setup.
+            await client.close()
+            raise
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator, "device": client}
         await _async_setup_lottery_services(hass)

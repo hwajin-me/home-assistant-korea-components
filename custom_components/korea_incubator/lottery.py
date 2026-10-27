@@ -38,10 +38,39 @@ from yarl import URL
 _LOGGER = logging.getLogger(__name__)
 _WWW = "https://www.dhlottery.co.kr"
 _EL = "https://el.dhlottery.co.kr"
+_READ_TIMEOUT = aiohttp.ClientTimeout(total=30, connect=10)
 
 
 class LotteryError(Exception):
     """A Donghaeng Lottery request could not be completed."""
+
+
+class LotteryConnectionError(LotteryError):
+    """The server could not be reached within the request deadline."""
+
+
+class LotteryHTTPError(LotteryError):
+    """An endpoint returned an unsuccessful HTTP status."""
+
+    def __init__(self, path: str, status: int) -> None:
+        self.path = path
+        self.status = status
+        super().__init__(f"동행복권 서버 요청에 실패했습니다. ({path}: HTTP {status})")
+
+
+class LotteryAuthError(LotteryHTTPError):
+    """An endpoint explicitly rejected the authenticated session."""
+
+
+class LotteryDataError(LotteryError):
+    """The response could not be interpreted as the expected data."""
+
+
+def _check_response_status(path: str, status: int) -> None:
+    if status == 401:
+        raise LotteryAuthError(path, status)
+    if status != 200:
+        raise LotteryHTTPError(path, status)
 
 
 class _RSAKey:
@@ -103,6 +132,8 @@ class LotteryClient:
         self.logged_in = False
         self._purchase_lock = asyncio.Lock()
         self._operation_lock = asyncio.Lock()
+        self._login_lock = asyncio.Lock()
+        self._login_generation = 0
         self.session = aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(ssl=False),
             headers={
@@ -122,85 +153,106 @@ class LotteryClient:
         await self.session.close()
 
     async def login(self) -> None:
+        async with self._login_lock:
+            await self._login()
+
+    async def _login(self) -> None:
         self.logged_in = False
+        path = "login/selectRsaModulus.do"
         try:
             async with self.session.get(
-                f"{_WWW}/login/selectRsaModulus.do"
+                f"{_WWW}/{path}", timeout=_READ_TIMEOUT
             ) as response:
-                if response.status != 200:
-                    raise LotteryError("동행복권 RSA 공개키 요청이 거부되었습니다.")
+                _check_response_status(path, response.status)
                 key_data = (await response.json(content_type=None)).get("data", {})
             key = _RSAKey()
             key.set_public(key_data["rsaModulus"], key_data["publicExponent"])
+            path = "login/securityLoginCheck.do"
             async with self.session.post(
-                f"{_WWW}/login/securityLoginCheck.do",
+                f"{_WWW}/{path}",
+                timeout=_READ_TIMEOUT,
                 data={
                     "userId": key.encrypt(self.username),
                     "userPswdEncn": key.encrypt(self._password),
                     "inpUserId": self.username,
                 },
             ) as response:
-                if response.status != 200:
-                    raise LotteryError("로그인 요청이 거부되었습니다.")
+                _check_response_status(path, response.status)
                 await response.read()
             self.logged_in = True
+            self._login_generation += 1
         except LotteryError:
             raise
-        except Exception as err:
-            raise LotteryError("동행복권 로그인에 실패했습니다.") from err
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise LotteryConnectionError(
+                f"동행복권 로그인 연결에 실패했습니다. ({path}: {type(err).__name__})"
+            ) from err
+        except (KeyError, TypeError, ValueError, AttributeError) as err:
+            raise LotteryDataError(
+                f"동행복권 로그인 응답을 해석하지 못했습니다. ({path})"
+            ) from err
 
     async def _get_json(self, path: str, params: dict | None = None) -> dict:
-        async with self.session.get(f"{_WWW}/{path}", params=params) as response:
-            if response.status != 200:
-                raise LotteryError("동행복권 서버 요청에 실패했습니다.")
-            try:
+        try:
+            async with self.session.get(
+                f"{_WWW}/{path}", params=params, timeout=_READ_TIMEOUT
+            ) as response:
+                _check_response_status(path, response.status)
                 data = await response.json(content_type=None)
-            except Exception as err:
-                raise LotteryError(
-                    "동행복권 서버가 JSON 응답을 반환하지 않았습니다."
-                ) from err
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise LotteryConnectionError(
+                f"동행복권 조회 연결에 실패했습니다. ({path}: {type(err).__name__})"
+            ) from err
+        except ValueError as err:
+            raise LotteryDataError(
+                f"동행복권 서버가 JSON 응답을 반환하지 않았습니다. ({path})"
+            ) from err
         if not isinstance(data, dict):
-            raise LotteryError("동행복권 서버 응답 형식이 올바르지 않습니다.")
+            raise LotteryDataError(
+                f"동행복권 서버 응답 형식이 올바르지 않습니다. ({path})"
+            )
         result = data.get("data", data)
         # The ledger returns {"data": null} for an account with no matching
         # history.  Treat that as an empty result rather than a setup failure.
         if result is None:
             return {}
         if not isinstance(result, dict):
-            raise LotteryError("동행복권 서버 응답 형식이 올바르지 않습니다.")
+            raise LotteryDataError(
+                f"동행복권 서버 응답 형식이 올바르지 않습니다. ({path})"
+            )
         return result
 
     async def _get_json_with_login(
         self, path: str, params: dict | None = None, retry: int = 1
     ) -> dict:
         """Read an authenticated endpoint and refresh a stale session once."""
+        generation = self._login_generation
         try:
             return await self._get_json(path, params)
-        except LotteryError:
+        except LotteryAuthError:
             if retry <= 0:
                 raise
             _LOGGER.info("Donghaeng Lottery session refresh required for %s", path)
-            await self.login()
+            async with self._login_lock:
+                if generation == self._login_generation:
+                    await self._login()
             return await self._get_json_with_login(path, params, retry - 1)
 
     async def balance(self, retry: int = 1) -> Balance:
         data = await self._get_json_with_login(
             "mypage/selectUserMndp.do",
             {"_": int(dt.datetime.now().timestamp() * 1000)},
+            retry=retry,
         )
         value = data.get("userMndp", data)
         if not isinstance(value, dict) or "totalAmt" not in value:
-            if retry > 0:
-                _LOGGER.info("Donghaeng Lottery balance response requires re-login")
-                await self.login()
-                return await self.balance(retry - 1)
-            raise LotteryError("동행복권 예치금 조회 인증이 거부되었습니다.")
+            raise LotteryDataError("동행복권 예치금 응답에 totalAmt가 없습니다.")
         try:
             return Balance(
                 int(value.get("totalAmt", 0)), int(value.get("crntEntrsAmt", 0))
             )
         except (TypeError, ValueError) as err:
-            raise LotteryError("예치금 정보를 해석하지 못했습니다.") from err
+            raise LotteryDataError("예치금 정보를 해석하지 못했습니다.") from err
 
     async def pension_winning_numbers(self) -> dict:
         """Return the latest Pension Lottery 720+ winning-number record."""
@@ -1002,8 +1054,24 @@ class LotteryCoordinator(DataUpdateCoordinator[dict]):
             return await self._async_read_data()
 
     async def _async_read_data(self) -> dict:
+        tasks = []
         try:
             balance = await self.client.balance()
+            tasks = [
+                asyncio.create_task(request)
+                for request in (
+                    self.client.pension_winning_numbers(),
+                    self.client.pension_purchase_history(days=30),
+                    self.client.pension_winning_history(),
+                    self.client.pension_high_prize_history(),
+                    self.client.lotto_645_winning_numbers(),
+                    self.client.lotto_645_purchase_history(days=30),
+                    self.client.lotto_645_winning_history(),
+                    self.client.lotto_645_high_prize_history(),
+                    self.client.pension_unsettled_games(),
+                    self.client.lotto_645_unsettled_games(),
+                )
+            ]
             (
                 pension_winning,
                 pension_purchases,
@@ -1015,18 +1083,7 @@ class LotteryCoordinator(DataUpdateCoordinator[dict]):
                 lotto_high_prizes,
                 pension_unsettled_games,
                 lotto_unsettled_games,
-            ) = await asyncio.gather(
-                self.client.pension_winning_numbers(),
-                self.client.pension_purchase_history(days=30),
-                self.client.pension_winning_history(),
-                self.client.pension_high_prize_history(),
-                self.client.lotto_645_winning_numbers(),
-                self.client.lotto_645_purchase_history(days=30),
-                self.client.lotto_645_winning_history(),
-                self.client.lotto_645_high_prize_history(),
-                self.client.pension_unsettled_games(),
-                self.client.lotto_645_unsettled_games(),
-            )
+            ) = await asyncio.gather(*tasks)
             return {
                 "balance": balance,
                 "winning": pension_winning,
@@ -1043,6 +1100,14 @@ class LotteryCoordinator(DataUpdateCoordinator[dict]):
             }
         except LotteryError as err:
             raise UpdateFailed(str(err)) from err
+        finally:
+            # gather does not cancel sibling requests when one fails. Drain
+            # them before setup can close the session or release its lock.
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
 
 
 def lottery_device_info(client: LotteryClient) -> DeviceInfo:

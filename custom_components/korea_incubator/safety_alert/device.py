@@ -114,17 +114,13 @@ class SafetyAlertDevice:
 
         except (SafetyAlertConnectionError, SafetyAlertDataError) as err:
             self._available = False
-            LOGGER.error(
-                f"Error updating Safety Alert data for {self.area_name}: {err}"
-            )
-            raise UpdateFailed(f"Error communicating with Safety Alert API: {err}")
+            raise UpdateFailed(
+                f"Error communicating with Safety Alert API: {err}"
+            ) from err
 
         except Exception as err:
             self._available = False
-            LOGGER.error(
-                f"Unexpected error updating Safety Alert data for {self.area_name}: {err}"
-            )
-            raise UpdateFailed(f"Unexpected error: {err}")
+            raise UpdateFailed(f"Unexpected error: {err}") from err
 
     async def async_close_session(self) -> None:
         """Close the aiohttp session."""

@@ -68,8 +68,7 @@ class SafetyAlertApiClient:
         except (SafetyAlertConnectionError, SafetyAlertDataError):
             raise
         except (curl_cffi.CurlError, OSError) as e:
-            LOGGER.error("Safety Alert API request failed: %s", e)
-            raise SafetyAlertConnectionError(f"Request failed: {e}")
+            raise SafetyAlertConnectionError(f"Request failed: {e}") from e
 
     def _parse_html(self, html: str) -> dict[str, Any]:
         """Parse disaster SMS data from HTML response."""
