@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest
+from yarl import URL
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
@@ -29,10 +30,11 @@ async def client():
     await instance.close()
 
 
-def response_context(status=200, data=None):
-    response = MagicMock(status=status)
+def response_context(status=200, data=None, *, path="/main", text=""):
+    response = MagicMock(status=status, url=URL("https://www.dhlottery.co.kr" + path))
     response.json = AsyncMock(return_value=data)
     response.read = AsyncMock()
+    response.text = AsyncMock(return_value=text)
     context = MagicMock()
     context.__aenter__ = AsyncMock(return_value=response)
     context.__aexit__ = AsyncMock(return_value=False)
@@ -135,14 +137,177 @@ async def test_successful_login_advances_session_generation(client):
         data={"data": {"rsaModulus": "abcd", "publicExponent": "10001"}},
     )
     login_context, _ = response_context()
+    balance_context, _ = response_context(data={"data": {"userMndp": {"totalAmt": 0}}})
     with (
-        patch.object(client.session, "get", return_value=key_context),
+        patch.object(client.session, "get", side_effect=[key_context, balance_context]),
         patch.object(client.session, "post", return_value=login_context),
         patch("custom_components.korea_incubator.lottery._RSAKey"),
     ):
         await client.login()
     assert client.logged_in
     assert client._login_generation == 1
+
+
+async def test_http_200_login_page_is_not_a_success(client):
+    key_context, _ = response_context(
+        data={"data": {"rsaModulus": "abcd", "publicExponent": "10001"}},
+    )
+    login_context, _ = response_context(path="/login")
+    with (
+        patch.object(client.session, "get", return_value=key_context),
+        patch.object(client.session, "post", return_value=login_context) as post,
+        patch("custom_components.korea_incubator.lottery._RSAKey"),
+    ):
+        with pytest.raises(LotteryAuthError, match="계정 정보를 확인"):
+            await client.login()
+    post.assert_called_once()
+    assert not client.logged_in
+    assert client._login_generation == 0
+
+
+@pytest.mark.parametrize(
+    "status,data,error",
+    [
+        (401, None, LotteryAuthError),
+        (503, None, LotteryHTTPError),
+        (200, {"data": {}}, LotteryDataError),
+    ],
+)
+async def test_login_is_not_successful_until_authenticated_read_succeeds(
+    client, status, data, error
+):
+    key_context, _ = response_context(
+        data={"data": {"rsaModulus": "abcd", "publicExponent": "10001"}},
+    )
+    login_context, _ = response_context()
+    balance_context, _ = response_context(status, data)
+    with (
+        patch.object(client.session, "get", side_effect=[key_context, balance_context]),
+        patch.object(client.session, "post", return_value=login_context),
+        patch("custom_components.korea_incubator.lottery._RSAKey"),
+    ):
+        with pytest.raises(error):
+            # Bound this call to catch accidental recursive re-login/deadlock.
+            await asyncio.wait_for(client.login(), timeout=1)
+    assert not client.logged_in
+    assert client._login_generation == 0
+
+
+async def test_optional_password_reminder_completes_login_before_balance(client):
+    key_context, _ = response_context(
+        data={"data": {"rsaModulus": "abcd", "publicExponent": "10001"}},
+    )
+    reminder_context, _ = response_context(
+        path="/mbrsrvc/ExpryPswdNoti",
+        text='<button id="btnCancel">다음에 변경</button>',
+    )
+    defer_context, _ = response_context(
+        data={"resultCode": None, "data": {"resultCnt": 1}}
+    )
+    success_context, _ = response_context(path="/login/loginSuccess.do")
+    balance_context, _ = response_context(data={"data": {"userMndp": {"totalAmt": 0}}})
+    calls = []
+
+    def get(url, **kwargs):
+        calls.append(("GET", URL(url).path))
+        return {
+            "/login/selectRsaModulus.do": key_context,
+            "/login/loginSuccess.do": success_context,
+            "/mypage/selectUserMndp.do": balance_context,
+        }[URL(url).path]
+
+    def post(url, **kwargs):
+        calls.append(("POST", URL(url).path))
+        if URL(url).path == "/login/securityLoginCheck.do":
+            return reminder_context
+        assert URL(url).path == "/mbrsrvc/nxtChngProc.do"
+        assert kwargs["json"] == {}
+        assert kwargs["headers"]["Content-Type"].startswith("application/json")
+        assert kwargs["headers"]["AJAX"] == "true"
+        assert kwargs["timeout"].total == 30
+        return defer_context
+
+    with (
+        patch.object(client.session, "get", side_effect=get),
+        patch.object(client.session, "post", side_effect=post),
+        patch("custom_components.korea_incubator.lottery._RSAKey"),
+    ):
+        await client.login()
+    assert calls == [
+        ("GET", "/login/selectRsaModulus.do"),
+        ("POST", "/login/securityLoginCheck.do"),
+        ("POST", "/mbrsrvc/nxtChngProc.do"),
+        ("GET", "/login/loginSuccess.do"),
+        ("GET", "/mypage/selectUserMndp.do"),
+    ]
+    assert client.logged_in
+    assert client._login_generation == 1
+
+
+async def test_mandatory_password_change_is_not_submitted_automatically(client):
+    key_context, _ = response_context(
+        data={"data": {"rsaModulus": "abcd", "publicExponent": "10001"}},
+    )
+    reminder_context, _ = response_context(
+        path="/mbrsrvc/ExpryPswdNoti",
+        text='<button id="btnSave">비밀번호 변경</button>',
+    )
+    with (
+        patch.object(client.session, "get", return_value=key_context),
+        patch.object(client.session, "post", return_value=reminder_context) as post,
+        patch("custom_components.korea_incubator.lottery._RSAKey"),
+    ):
+        with pytest.raises(LotteryAuthError, match="홈페이지"):
+            await client.login()
+    post.assert_called_once()
+    assert not client.logged_in
+
+
+@pytest.mark.parametrize(
+    "data,error",
+    [
+        ({"resultCode": None, "data": {"resultCnt": 0}}, LotteryAuthError),
+        ({"resultCode": "FAILED", "data": {"resultCnt": 1}}, LotteryAuthError),
+        ({"data": {"resultCnt": "invalid"}}, LotteryDataError),
+        ({"data": None}, LotteryDataError),
+    ],
+)
+async def test_failed_reminder_does_not_finalize_login(client, data, error):
+    context, _ = response_context(data=data)
+    with (
+        patch.object(client.session, "post", return_value=context),
+        patch.object(client.session, "get") as get,
+    ):
+        with pytest.raises(error):
+            await client._defer_password_change()
+    get.assert_not_called()
+
+
+@pytest.mark.parametrize("stage", ["defer", "finalize"])
+async def test_reminder_connection_failure_identifies_the_failed_step(client, stage):
+    defer_context, _ = response_context(data={"data": {"resultCnt": 1}})
+    success_context, _ = response_context()
+    failure = TimeoutError()
+    target = defer_context if stage == "defer" else success_context
+    target.__aenter__.side_effect = failure
+    with (
+        patch.object(client.session, "post", return_value=defer_context),
+        patch.object(client.session, "get", return_value=success_context),
+    ):
+        with pytest.raises(LotteryConnectionError) as caught:
+            await client._defer_password_change()
+    assert caught.value.__cause__ is failure
+    assert (
+        "mbrsrvc/nxtChngProc.do" if stage == "defer" else "login/loginSuccess.do"
+    ) in str(caught.value)
+
+
+async def test_reminder_non_json_response_is_data_error_with_its_own_path(client):
+    context, response = response_context()
+    response.json.side_effect = ValueError("invalid JSON")
+    with patch.object(client.session, "post", return_value=context):
+        with pytest.raises(LotteryDataError, match="mbrsrvc/nxtChngProc.do"):
+            await client._defer_password_change()
 
 
 @pytest.mark.parametrize(

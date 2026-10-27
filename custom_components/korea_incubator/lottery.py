@@ -61,6 +61,11 @@ class LotteryHTTPError(LotteryError):
 class LotteryAuthError(LotteryHTTPError):
     """An endpoint explicitly rejected the authenticated session."""
 
+    def __init__(self, path: str, status: int, *, reason: str | None = None) -> None:
+        super().__init__(path, status)
+        if reason:
+            self.args = (f"동행복권 인증을 완료하지 못했습니다. ({path}: {reason})",)
+
 
 class LotteryDataError(LotteryError):
     """The response could not be interpreted as the expected data."""
@@ -179,6 +184,30 @@ class LotteryClient:
             ) as response:
                 _check_response_status(path, response.status)
                 await response.read()
+                login_path = response.url.path
+            if login_path == "/mbrsrvc/ExpryPswdNoti":
+                # The site has accepted the credentials but has not yet
+                # authenticated the session. Follow its optional "다음에 변경"
+                # action; never submit a password change or reset.
+                html = await response.text()
+                if BeautifulSoup(html, "html.parser").select_one("#btnCancel") is None:
+                    raise LotteryAuthError(
+                        login_path,
+                        200,
+                        reason="홈페이지에서 비밀번호 변경 안내를 확인해주세요.",
+                    )
+                await self._defer_password_change()
+            elif login_path.rstrip("/") == "/login":
+                raise LotteryAuthError(
+                    login_path,
+                    200,
+                    reason="로그인 페이지로 돌아왔습니다. 계정 정보를 확인해주세요.",
+                )
+            # A successful form submission can still return a login or an
+            # intermediate page with HTTP 200. Verify an authenticated read
+            # without recursive re-login before publishing success.
+            path = "mypage/selectUserMndp.do"
+            await self.balance(retry=0)
             self.logged_in = True
             self._login_generation += 1
         except LotteryError:
@@ -190,6 +219,52 @@ class LotteryClient:
         except (KeyError, TypeError, ValueError, AttributeError) as err:
             raise LotteryDataError(
                 f"동행복권 로그인 응답을 해석하지 못했습니다. ({path})"
+            ) from err
+
+    async def _defer_password_change(self) -> None:
+        """Complete the site's optional password reminder login step."""
+        path = "mbrsrvc/nxtChngProc.do"
+        try:
+            async with self.session.post(
+                f"{_WWW}/{path}",
+                json={},
+                headers={
+                    "Content-Type": "application/json;charset=UTF-8",
+                    "AJAX": "true",
+                    "requestMenuUri": "/mbrsrvc/ExpryPswdNoti",
+                    "Referer": f"{_WWW}/mbrsrvc/ExpryPswdNoti",
+                },
+                timeout=_READ_TIMEOUT,
+            ) as response:
+                _check_response_status(path, response.status)
+                result = await response.json(content_type=None)
+            if not isinstance(result, dict) or not isinstance(result.get("data"), dict):
+                raise LotteryDataError(
+                    f"비밀번호 변경 안내 응답을 해석하지 못했습니다. ({path})"
+                )
+            try:
+                completed = int(result["data"].get("resultCnt", 0)) > 0
+            except (ValueError, TypeError) as err:
+                raise LotteryDataError(
+                    f"비밀번호 변경 안내 응답을 해석하지 못했습니다. ({path})"
+                ) from err
+            if result.get("resultCode") or not completed:
+                raise LotteryAuthError(
+                    path, 200, reason="홈페이지에서 비밀번호 변경 안내를 확인해주세요."
+                )
+            path = "login/loginSuccess.do"
+            async with self.session.get(
+                f"{_WWW}/{path}", params={"returnUrl": "/main"}, timeout=_READ_TIMEOUT
+            ) as response:
+                _check_response_status(path, response.status)
+                await response.read()
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise LotteryConnectionError(
+                f"동행복권 로그인 연결에 실패했습니다. ({path}: {type(err).__name__})"
+            ) from err
+        except ValueError as err:
+            raise LotteryDataError(
+                f"비밀번호 변경 안내 응답을 해석하지 못했습니다. ({path})"
             ) from err
 
     async def _get_json(self, path: str, params: dict | None = None) -> dict:
