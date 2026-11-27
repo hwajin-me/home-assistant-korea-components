@@ -6,7 +6,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .api import KepcoApiClient
-from .exceptions import KepcoAuthError
+from .exceptions import KepcoApiError, KepcoAuthError
 from ..const import DOMAIN, LOGGER
 
 
@@ -70,6 +70,10 @@ class KepcoDevice:
                 f"Authentication error updating KEPCO data for {self.username}: {err}"
             )
             raise UpdateFailed(f"Authentication error: {err}")
+        except KepcoApiError as err:
+            self._available = False
+            LOGGER.warning(f"KEPCO API error updating data for {self.username}: {err}")
+            raise UpdateFailed(f"KEPCO API error: {err}")
         except Exception as err:
             self._available = False
             LOGGER.error(f"Error updating KEPCO data for {self.username}: {err}")

@@ -53,6 +53,41 @@ async def test_missing_rsa_fields(login_client, html):
     assert await login_client.async_login("u", "p") is False
 
 
+@pytest.mark.parametrize(
+    "url,text",
+    [
+        ("https://pp.kepco.co.kr/html/target.html", "<title>서비스 점검 안내</title>"),
+        ("https://pp.kepco.co.kr:8030/intro.do", "<title>서비스 점검 안내</title>"),
+    ],
+)
+async def test_intro_maintenance_is_transient_not_auth(login_client, url, text):
+    result = login_client._session.get.return_value
+    result.url = url
+    result.text = text
+    result.headers = {"content-type": "text/html"}
+    assert await login_client.async_login("u", "p") is False
+    assert login_client.last_error_transient is True
+    assert "maintenance" in login_client.last_error
+    login_client._session.post.assert_not_awaited()
+
+
+async def test_missing_rsa_fields_is_not_transient(login_client):
+    login_client._session.get.return_value.text = "<html></html>"
+    login_client._session.get.return_value.url = "https://pp.kepco.co.kr:8030/intro.do"
+    login_client._session.get.return_value.headers = {"content-type": "text/html"}
+    assert await login_client.async_login("u", "p") is False
+    assert login_client.last_error_transient is False
+
+
+async def test_login_post_maintenance_is_transient(login_client):
+    post = login_client._session.post.return_value
+    post.url = "https://pp.kepco.co.kr/html/target.html"
+    post.text = "<title>서비스 점검 안내</title>"
+    post.headers = {"content-type": "text/html"}
+    assert await login_client.async_login("u", "p") is False
+    assert login_client.last_error_transient is True
+
+
 @pytest.mark.parametrize("text", ["test_username", "비밀번호🙂"])
 def test_rsa_encryption_roundtrip(private_key, text):
     key = RSAKey()

@@ -113,10 +113,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             curl_cffi.AsyncSession(),
         )
         try:
-            await device.api_client.async_login(
+            if not await device.api_client.async_login(
                 entry.data.get(CONF_USERNAME), entry.data.get(CONF_PASSWORD)
-            )
+            ):
+                if device.api_client.last_error_transient:
+                    raise ConfigEntryNotReady(
+                        device.api_client.last_error or "KEPCO is temporarily unavailable"
+                    )
+                raise KepcoAuthError(
+                    device.api_client.last_error or "KEPCO login failed"
+                )
             await device.async_update()
+        except ConfigEntryNotReady:
+            await device.async_close_session()
+            raise
         except KepcoAuthError as err:
             LOGGER.error(f"Authentication failed during setup for KEPCO: {err}")
             await device.async_close_session()

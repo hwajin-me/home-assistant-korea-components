@@ -194,6 +194,45 @@ class TestKoreaIntegrationSetup:
                 mock_device.async_close_session.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_setup_kepco_login_false_stops_fetch(self, mock_hass, mock_entry_kepco):
+        """A rejected login must close the session without fetching usage."""
+        with patch(
+            "custom_components.korea_incubator.KepcoDevice"
+        ) as mock_device_class:
+            device = AsyncMock()
+            device.api_client.async_login.return_value = False
+            device.api_client.last_error = "Missing login parameters"
+            device.api_client.last_error_transient = False
+            mock_device_class.return_value = device
+
+            assert await async_setup_entry(mock_hass, mock_entry_kepco) is False
+
+            device.async_update.assert_not_awaited()
+            device.async_close_session.assert_awaited_once()
+            mock_hass.config_entries.async_forward_entry_setups.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_setup_kepco_maintenance_retries(self, mock_hass, mock_entry_kepco):
+        """A maintenance response schedules another setup attempt and closes transport."""
+        from homeassistant.exceptions import ConfigEntryNotReady
+
+        with patch(
+            "custom_components.korea_incubator.KepcoDevice"
+        ) as mock_device_class:
+            device = AsyncMock()
+            device.api_client.async_login.return_value = False
+            device.api_client.last_error = "KEPCO service is under maintenance"
+            device.api_client.last_error_transient = True
+            mock_device_class.return_value = device
+
+            with pytest.raises(ConfigEntryNotReady, match="maintenance"):
+                await async_setup_entry(mock_hass, mock_entry_kepco)
+
+            device.async_update.assert_not_awaited()
+            device.async_close_session.assert_awaited_once()
+            mock_hass.config_entries.async_forward_entry_setups.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_unload_entry_success(self, mock_hass, mock_entry_kepco):
         """Test successful entry unload."""
         # Setup entry first

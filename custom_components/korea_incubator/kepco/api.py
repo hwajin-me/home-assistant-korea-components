@@ -1,11 +1,34 @@
 import json
+from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
 from curl_cffi import AsyncSession, CurlError
 
 from ..const import LOGGER
 from ..utils import RSAKey
-from .exceptions import KepcoAuthError
+from .exceptions import KepcoApiError, KepcoAuthError
+
+# KEPCO answers /intro.do with a 301 to this static notice page during
+# maintenance (observed: HTTP 200 text/html titled "서비스 점검 안내", no login form).
+_MAINTENANCE_PATH = "/html/target.html"
+_MAINTENANCE_TEXT = "서비스 점검"
+
+
+def _content_type(response) -> str:
+    headers = getattr(response, "headers", None)
+    value = headers.get("content-type", "") if headers is not None else ""
+    return value.split(";", 1)[0].strip() if isinstance(value, str) else ""
+
+
+def _is_maintenance_page(response) -> bool:
+    path = urlsplit(str(getattr(response, "url", ""))).path
+    if path.endswith(_MAINTENANCE_PATH):
+        return True
+    content_type = _content_type(response)
+    if content_type and "html" not in content_type:
+        return False
+    text = getattr(response, "text", "")
+    return isinstance(text, str) and _MAINTENANCE_TEXT in text[:4096]
 
 
 class KepcoApiClient:
@@ -14,6 +37,8 @@ class KepcoApiClient:
         self._username = None
         self._password = None
         self.last_error: str | None = None
+        # True when the last login failure was an upstream outage, not credentials.
+        self.last_error_transient = False
 
     def set_credentials(self, username, password):
         self._username = username
@@ -24,6 +49,10 @@ class KepcoApiClient:
 
         result = await self._session.get(url=url)
         result.raise_for_status()
+        if _is_maintenance_page(result):
+            raise KepcoApiError(
+                "KEPCO service is under maintenance or temporarily unavailable"
+            )
         LOGGER.debug(f"Intro page response status: {result.status_code}")
         html_text = result.text
 
@@ -49,6 +78,7 @@ class KepcoApiClient:
     async def async_login(self, username, password):
         self.set_credentials(username, password)
         self.last_error = None
+        self.last_error_transient = False
         if not username or not password:
             self.last_error = "Username and password are required"
             return False
@@ -62,8 +92,14 @@ class KepcoApiClient:
             LOGGER.error(f"KEPCO Login failed: {e}")
             self.last_error = str(e)
             return False
+        except KepcoApiError as e:
+            self.last_error = str(e)
+            self.last_error_transient = True
+            LOGGER.warning("KEPCO login unavailable: %s", e)
+            return False
         except (CurlError, OSError) as err:
             self.last_error = f"KEPCO session request failed ({type(err).__name__})"
+            self.last_error_transient = True
             LOGGER.warning(self.last_error)
             return False
 
@@ -108,17 +144,28 @@ class KepcoApiClient:
             LOGGER.debug(f"Login response status: {response.status_code}")
             if response.status_code == 200 and "confirmInfo.do" in str(response.url):
                 return True
-            self.last_error = f"HTTP {response.status_code}: login rejected"
+            if response.status_code >= 500 or _is_maintenance_page(response):
+                self.last_error = (
+                    f"KEPCO service unavailable during login (HTTP {response.status_code})"
+                )
+                self.last_error_transient = True
+            else:
+                self.last_error = f"HTTP {response.status_code}: login rejected"
             LOGGER.warning("KEPCO %s", self.last_error)
             return False
         except (CurlError, OSError) as e:
             self.last_error = f"Login request failed ({type(e).__name__})"
+            self.last_error_transient = True
             LOGGER.warning("KEPCO %s", self.last_error)
             return False
 
     async def _request(self, method, url, **kwargs):
         for attempt in range(2):
             response = await self._session.request(method, url, **kwargs)
+            if _is_maintenance_page(response):
+                raise KepcoApiError(
+                    "KEPCO service is under maintenance or temporarily unavailable"
+                )
             redirected_to_login = (
                 str(response.url).split("?", 1)[0].endswith(("/login", "/intro.do"))
             )
@@ -127,9 +174,22 @@ class KepcoApiClient:
                     self._username, self._password
                 ):
                     continue
+                if self.last_error_transient:
+                    raise KepcoApiError(
+                        self.last_error or "KEPCO is temporarily unavailable"
+                    )
                 raise KepcoAuthError("KEPCO session expired; authentication failed")
-            response.raise_for_status()
-            return json.loads(response.text)
+            if response.status_code >= 400:
+                raise KepcoApiError(f"KEPCO API returned HTTP {response.status_code}")
+            try:
+                return json.loads(response.text)
+            except ValueError as err:
+                raise KepcoApiError(
+                    "KEPCO API returned a non-JSON response "
+                    f"(HTTP {response.status_code}, "
+                    f"content-type={_content_type(response) or 'unknown'}, "
+                    f"path={urlsplit(str(response.url)).path})"
+                ) from err
 
     async def async_get_recent_usage(self):
         url = "https://pp.kepco.co.kr:8030/low/main/recent_usage.do"

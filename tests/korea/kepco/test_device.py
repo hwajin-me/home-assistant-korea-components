@@ -6,7 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
 from custom_components.korea_incubator.kepco.device import KepcoDevice
-from custom_components.korea_incubator.kepco.exceptions import KepcoAuthError
+from custom_components.korea_incubator.kepco.exceptions import (
+    KepcoApiError,
+    KepcoAuthError,
+)
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 
@@ -71,6 +74,21 @@ class TestKepcoDeviceMock:
         with pytest.raises(UpdateFailed, match="Authentication error"):
             await kepco_device.async_update()
 
+        assert kepco_device.available is False
+
+    @pytest.mark.asyncio
+    async def test_async_update_api_error_stops_second_request(
+        self, kepco_device, mock_api_client
+    ):
+        """Outage on the first request must not trigger the second request."""
+        mock_api_client.async_get_recent_usage.side_effect = KepcoApiError(
+            "KEPCO service is under maintenance"
+        )
+
+        with pytest.raises(UpdateFailed, match="KEPCO API error.*maintenance"):
+            await kepco_device.async_update()
+
+        mock_api_client.async_get_usage_info.assert_not_called()
         assert kepco_device.available is False
 
     @pytest.mark.asyncio

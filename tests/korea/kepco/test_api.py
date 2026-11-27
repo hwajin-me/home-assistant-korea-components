@@ -8,7 +8,7 @@ from curl_cffi import AsyncSession
 from curl_cffi.requests.exceptions import RequestException as RequestsError
 
 from custom_components.korea_incubator.kepco.api import KepcoApiClient
-from custom_components.korea_incubator.kepco.exceptions import KepcoAuthError
+from custom_components.korea_incubator.kepco.exceptions import KepcoApiError, KepcoAuthError
 
 pytestmark = pytest.mark.asyncio
 
@@ -90,7 +90,8 @@ async def test_non_auth_error_does_not_relogin(client, session, failure):
         session.request.return_value = response()
         session.request.return_value.text = "invalid JSON"
     with patch.object(client, "async_login", new_callable=AsyncMock) as login:
-        with pytest.raises((RequestsError, ValueError)):
+        error = RequestsError if failure == "transport" else KepcoApiError
+        with pytest.raises(error):
             await client.async_get_usage_info()
         login.assert_not_awaited()
 
@@ -102,7 +103,63 @@ async def test_non_auth_error_does_not_relogin(client, session, failure):
 async def test_invalid_credentials_no_network(client, session, username, password):
     assert await client.async_login(username, password) is False
     assert client.last_error == "Username and password are required"
-    session.get.assert_not_awaited()
+    session.get.assert_not_called()
+
+
+@pytest.mark.parametrize("body", ["<html>private-user private-password</html>", ""])
+async def test_non_json_response_is_sanitized(client, session, body):
+    result = response()
+    result.text = body
+    result.headers = {"content-type": "text/html; charset=utf-8"}
+    session.request.return_value = result
+    with pytest.raises(KepcoApiError, match="non-JSON response") as raised:
+        await client.async_get_usage_info()
+    assert "text/html" in str(raised.value)
+    assert "private-user" not in str(raised.value)
+    assert "private-password" not in str(raised.value)
+    assert session.request.await_count == 1
+
+
+async def test_maintenance_page_does_not_relogin_or_decode(client, session):
+    result = response(url="https://pp.kepco.co.kr/html/target.html")
+    result.text = "<title>서비스 점검 안내</title>"
+    result.headers = {"content-type": "text/html"}
+    session.request.return_value = result
+    with patch.object(client, "async_login", new_callable=AsyncMock) as login:
+        with pytest.raises(KepcoApiError, match="maintenance"):
+            await client.async_get_recent_usage()
+        login.assert_not_awaited()
+    assert session.request.await_count == 1
+
+
+async def test_expired_session_login_outage_stops_json_requests(client, session):
+    session.request.return_value = response(401)
+    intro = MagicMock(
+        status_code=200,
+        url="https://pp.kepco.co.kr/html/target.html",
+        text="<title>서비스 점검 안내</title>",
+        headers={"content-type": "text/html"},
+    )
+    session.get = AsyncMock(return_value=intro)
+    with pytest.raises(KepcoApiError, match="maintenance"):
+        await client.async_get_recent_usage()
+    assert client.last_error_transient is True
+    session.get.assert_awaited_once()
+    session.post.assert_not_called()
+    assert session.request.await_count == 1
+
+
+async def test_relogin_failure_stops_before_json(client, session):
+    session.request.return_value = response(
+        url="https://pp.kepco.co.kr:8030/intro.do"
+    )
+    with patch.object(
+        client, "async_login", new_callable=AsyncMock, return_value=False
+    ) as login:
+        with pytest.raises(KepcoAuthError):
+            await client.async_get_usage_info()
+        login.assert_awaited_once()
+    assert session.request.await_count == 1
 
 
 @pytest.mark.integration
@@ -116,6 +173,7 @@ async def test_real_login_invalid_credentials():
 
 @pytest.mark.integration
 async def test_real_api_without_credentials():
+    """Fail with authentication or upstream errors when the service is unavailable."""
     async with AsyncSession() as session:
-        with pytest.raises(KepcoAuthError):
+        with pytest.raises(KepcoApiError):
             await KepcoApiClient(session).async_get_recent_usage()
